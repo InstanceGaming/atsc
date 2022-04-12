@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "inputs": [
+    {
+      "slot": 1,
+      "ignore": false,
+      "active": "high",
+      "action": "call",
+      "targets": [
+        1
+      ]
+    },
+    {
+      "slot": 2,
+      "ignore": false,
+      "active": "high",
+      "action": "call",
+      "targets": [
+        2
+      ]
+    },
+    {
+      "slot": 3,
+      "ignore": false,
+      "active": "high",
+      "action": "call",
+      "targets": [
+        3
+      ]
+    },
+    {
+      "slot": 4,
+      "ignore": false,
+      "active": "high",
+      "action": "call",
+      "targets": [
+        4
+      ]
+    },
+    {
+      "slot": 5,
+      "ignore": false,
+      "active": "high",
+      "action": "call",
+      "targets": [
+        5
+      ]
+    },
+    {
+      "slot": 6,
+      "ignore": false,
+      "active": "high",
+      "action": "call",
+      "targets": [
+        6
+      ]
+    },
+    {
+      "slot": 7,
+      "ignore": false,
+      "active": "high",
+      "action": "call",
+      "targets": [
+        7
+      ]
+    },
+    {
+      "slot": 8,
+      "ignore": false,
+      "active": "high",
+      "action": "call",
+      "targets": [
+        8
+      ]
+    },
+    {
+      "slot": 21,
+      "ignore": false,
+      "active": "high",
+      "action": "preemption",
+      "targets": [
+        1, 6
+      ]
+    },
+    {
+      "slot": 22,
+      "ignore": false,
+      "active": "high",
+      "action": "preemption",
+      "targets": [
+        2, 5
+      ]
+    },
+    {
+      "slot": 23,
+      "ignore": false,
+      "active": "high",
+      "action": "preemption",
+      "targets": [
+        3, 8
+      ]
+    },
+    {
+      "slot": 24,
+      "ignore": false,
+      "active": "high",
+      "action": "preemption",
+      "targets": [
+        4, 7
+      ]
+    }
+  ]
+}

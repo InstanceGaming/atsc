@@ -1,0 +1,242 @@
+{
+ "version": 2,
+ "calls": {
+  "max-age": 600,
+  "weights": {
+   "system": 600
+  }
+ },
+ "random-calls": {
+  "enabled": true,
+  "seed": 1234567890,
+  "min": 2,
+  "max": 20
+ },
+ "init": {
+  "mode": "normal",
+  "red-clearance": 4
+ },
+ "global-interval-bounds": {
+  "stop": [
+   4,
+   0
+  ],
+  "caution": [
+   4,
+   6
+  ],
+  "ped-clear": [
+   5,
+   60
+  ],
+  "go": [
+   2,
+   0
+  ],
+  "fya": [
+   4,
+   0
+  ]
+ },
+ "scheduler": {
+  "minimum-runtime": 1
+ },
+ "schedules": [
+  {
+   "enabled": true,
+   "name": "workrush1",
+   "mode": "normal",
+   "free": true,
+   "blocks": [
+    {
+     "calendar": "workdays",
+     "day-exceptions": [],
+     "start": "8am",
+     "end": "3pm"
+    },
+    {
+     "calendar": "workdays",
+     "day-exceptions": [],
+     "start": "5am",
+     "end": "8am"
+    },
+    {
+     "calendar": "workdays",
+     "day-exceptions": [],
+     "start": "3pm",
+     "end": "8pm"
+    }
+   ],
+   "phases": [
+    {
+     "channels": [
+      1
+     ],
+     "timesheet": {
+      "go": 5
+     }
+    },
+    {
+     "channels": [
+      2,
+      5
+     ],
+     "timesheet": {
+      "ped-clear": 5,
+      "go": 10
+     }
+    },
+    {
+     "channels": [
+      3
+     ],
+     "timesheet": {
+      "go": 5
+     }
+    },
+    {
+     "channels": [
+      4,
+      6
+     ],
+     "timesheet": {
+      "ped-clear": 5,
+      "go": 10
+     }
+    },
+    {
+     "channels": [
+      7
+     ],
+     "timesheet": {
+      "go": 5
+     }
+    },
+    {
+     "channels": [
+      8,
+      11
+     ],
+     "timesheet": {
+      "ped-clear": 5,
+      "go": 10
+     }
+    },
+    {
+     "channels": [
+      9
+     ],
+     "timesheet": {
+      "go": 5
+     }
+    },
+    {
+     "channels": [
+      10,
+      12
+     ],
+     "timesheet": {
+      "ped-clear": 5,
+      "go": 10
+     }
+    }
+   ],
+   "rings": [
+    {
+     "phases": [
+      1,
+      2,
+      3,
+      4
+     ]
+    },
+    {
+     "phases": [
+      5,
+      6,
+      7,
+      8
+     ]
+    }
+   ],
+   "barriers": [
+    {
+     "phases": [
+      1,
+      2,
+      5,
+      6
+     ],
+     "preemption": {
+      "duration": 45
+     },
+     "singles": false,
+     "red-clearance": 1000
+    },
+    {
+     "phases": [
+      3,
+      4,
+      7,
+      8
+     ],
+     "preemption": {
+      "duration": 30
+     },
+     "singles": false,
+     "red-clearance": 1000
+    }
+   ]
+  }
+ ],
+ "channels": [
+  {
+   "mode": "vehicle",
+   "flash-mode": "yellow"
+  },
+  {
+   "mode": "vehicle",
+   "flash-mode": "yellow"
+  },
+  {
+   "mode": "vehicle",
+   "flash-mode": "red"
+  },
+  {
+   "mode": "vehicle",
+   "flash-mode": "red"
+  },
+  {
+   "mode": "pedestrian",
+   "flash-mode": "dark"
+  },
+  {
+   "mode": "pedestrian",
+   "flash-mode": "dark"
+  },
+  {
+   "mode": "vehicle",
+   "flash-mode": "yellow"
+  },
+  {
+   "mode": "vehicle",
+   "flash-mode": "yellow"
+  },
+  {
+   "mode": "vehicle",
+   "flash-mode": "red"
+  },
+  {
+   "mode": "vehicle",
+   "flash-mode": "red"
+  },
+  {
+   "mode": "pedestrian",
+   "flash-mode": "dark"
+  },
+  {
+   "mode": "pedestrian",
+   "flash-mode": "dark"
+  }
+ ]
+}

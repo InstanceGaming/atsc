@@ -1,0 +1,16 @@
+[Unit]
+Description=Actuated Traffic Signal Controller (ATSC)
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=/home/pi/atsc/run.sh
+TimeoutSec=5
+KillMode=control-group
+WorkingDirectory=/home/pi/atsc/
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+pyserial
+crcmod
+protobuf
+jsonschema
+python-dateutil
+netifaces
+more-itertools
+natsort
+bitarray
