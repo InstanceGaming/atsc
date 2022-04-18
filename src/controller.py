@@ -1629,10 +1629,6 @@ class Controller:
         if self.monitor_enabled:
             self._monitor.broadcastOutputState(channel_states)
 
-        if self._flasher_timer.poll():
-            self._flasher_timer.reset()
-            self.halfSecond()
-
     def halfSecond(self):
         """Polled once every 500ms"""
         self._flasher = not self._flasher
@@ -1711,6 +1707,9 @@ class Controller:
                 if self._tick_timer.poll():
                     self._tick_timer.reset()
                     self.tick()
+                if self._flasher_timer.poll():
+                    self._flasher_timer.reset()
+                    self.halfSecond()
 
     def shutdown(self):
         """Run termination tasks to stop control loop"""
