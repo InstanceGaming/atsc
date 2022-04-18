@@ -15,7 +15,7 @@
   }
  },
  "bus": {
-  "enabled": false,
+  "enabled": true,
   "port": "/dev/serial0",
   "baud": 115200,
   "response-attempts": 5,

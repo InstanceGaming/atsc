@@ -131,7 +131,9 @@ class Schedule:
             usable.sort(key=lambda b: sort_overlap_duration(b, current))
             return usable
         else:
-            return [list(self.activation_blocks)[0]]
+            if len(self.activation_blocks) > 0:
+                return [list(self.activation_blocks)[0]]
+            return []
 
     def getActivationBlocksText(self) -> str:
         return ', '.join([b.getDurationText() for b in self.activation_blocks])

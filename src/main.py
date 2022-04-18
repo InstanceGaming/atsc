@@ -108,7 +108,9 @@ def run():
     config_paths = cla.config_paths
     verbosity = cla.verbosity
 
-    if verbosity == 1:
+    if verbosity == 0:
+        LOG.setLevel(logging.INFO)
+    elif verbosity == 1:
         LOG.setLevel(finelog.VERBOSE)
     elif verbosity == 2:
         LOG.setLevel(finelog.FINE)

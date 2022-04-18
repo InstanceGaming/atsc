@@ -265,8 +265,8 @@ class Controller:
 
         # 100ms timer
         self._tick_timer: MillisecondTimer = MillisecondTimer(100)
-        # for simplicity, each half second counts up to 5 as 5*100=500ms
-        self._half_second_counter: int = 0
+        # 500ms timer
+        self._flasher_timer: MillisecondTimer = MillisecondTimer(500)
         # no call servicing timer
         self._idle_timer: SecondTimer = SecondTimer(0, pause=True)
         # control entrance transition timer
@@ -1523,39 +1523,6 @@ class Controller:
                 self.LOG.error('Bus not running')
                 self.shutdown()
 
-    def run(self):
-        """Begin control loop"""
-        self._running = True
-
-        self.LOG.info(f'Controller is named "{self._name}"')
-
-        # noinspection PyUnreachableCode
-        if __debug__:
-            self.LOG.warning('Controller in DEBUG ENVIRONMENT!')
-
-        self.LOG.debug(f'CET delay set to {self.getCETSeconds()}s')
-
-        self.updateChannelFields()
-        self.setOperationState(self._op_mode)
-
-        if self._running:
-            if self.monitor_enabled:
-                self._monitor.start()
-
-            if self.bus_enabled:
-                self._bus.start()
-
-                while not self._bus.running:
-                    self.LOG.debug(f'Waiting on bus...')
-
-                self.LOG.debug(f'Bus ready')
-
-            self.transfer()
-            while self._running:
-                if self._tick_timer.poll():
-                    self._tick_timer.reset()
-                    self.tick()
-
     def getChannelStates(self) -> List[FrozenChannelState]:
         frozen_states = []
 
@@ -1610,7 +1577,8 @@ class Controller:
 
     def tick(self):
         """Polled once every 100ms"""
-        self.handleInputs()
+        if self.bus_enabled:
+            self.handleInputs()
 
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
@@ -1661,11 +1629,9 @@ class Controller:
         if self.monitor_enabled:
             self._monitor.broadcastOutputState(channel_states)
 
-        if self._half_second_counter == 5:
-            self._half_second_counter = 0
+        if self._flasher_timer.poll():
+            self._flasher_timer.reset()
             self.halfSecond()
-        else:
-            self._half_second_counter += 1
 
     def halfSecond(self):
         """Polled once every 500ms"""
@@ -1712,6 +1678,39 @@ class Controller:
 
         if self.monitor_enabled:
             self._monitor.clean()
+
+    def run(self):
+        """Begin control loop"""
+        self._running = True
+
+        self.LOG.info(f'Controller is named "{self._name}"')
+
+        # noinspection PyUnreachableCode
+        if __debug__:
+            self.LOG.warning('Controller in DEBUG ENVIRONMENT!')
+
+        self.LOG.debug(f'CET delay set to {self.getCETSeconds()}s')
+
+        self.updateChannelFields()
+        self.setOperationState(self._op_mode)
+
+        if self._running:
+            if self.monitor_enabled:
+                self._monitor.start()
+
+            if self.bus_enabled:
+                self._bus.start()
+
+                while not self._bus.running:
+                    self.LOG.debug(f'Waiting on bus...')
+
+                self.LOG.debug(f'Bus ready')
+
+            self.transfer()
+            while self._running:
+                if self._tick_timer.poll():
+                    self._tick_timer.reset()
+                    self.tick()
 
     def shutdown(self):
         """Run termination tasks to stop control loop"""

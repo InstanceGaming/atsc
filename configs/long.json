@@ -7,18 +7,18 @@
   }
  },
  "random-calls": {
-  "enabled": false,
-  "seed": 1234567890,
+  "enabled": true,
+  "seed": 0,
   "min": 1,
-  "max": 20
+  "max": 15
  },
  "init": {
-  "mode": "normal",
-  "red-clearance": 4
+  "mode": "cet",
+  "red-clearance": 2
  },
  "global-interval-bounds": {
   "stop": [
-   4,
+   2,
    0
   ],
   "caution": [
@@ -44,29 +44,10 @@
  "schedules": [
   {
    "enabled": true,
-   "name": "workrush1",
+   "name": "default",
    "mode": "normal",
-   "free": false,
-   "blocks": [
-    {
-     "calendar": "workdays",
-     "day-exceptions": [],
-     "start": "8am",
-     "end": "3pm"
-    },
-    {
-     "calendar": "workdays",
-     "day-exceptions": [],
-     "start": "5am",
-     "end": "8am"
-    },
-    {
-     "calendar": "workdays",
-     "day-exceptions": [],
-     "start": "3pm",
-     "end": "8pm"
-    }
-   ],
+   "free": true,
+   "blocks": [],
    "phases": [
     {
      "channels": [
