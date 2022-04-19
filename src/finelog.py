@@ -15,26 +15,16 @@
 from logging import Filter, Logger, addLevelName, setLoggerClass
 
 
-VERBOSE = 32
-FINE = 16
-BUS = 8
-SORTING = 4
+VERBOSE = 8
+FINE = 6
+BUS = 4
+SORTING = 2
 
 
 addLevelName(VERBOSE, 'VERBOSE')
 addLevelName(FINE, 'FINE')
 addLevelName(BUS, 'BUS')
 addLevelName(SORTING, 'SORTING')
-
-
-class DuplicateFilter(Filter):
-
-    def filter(self, record):
-        current_log = (record.module, record.levelno, record.getMessage())
-        if current_log != getattr(self, "last_log", None):
-            self.last_log = current_log
-            return True
-        return False
 
 
 class FineLogger(Logger):
@@ -45,7 +35,6 @@ class FineLogger(Logger):
 
     def __init__(self, name: str):
         super().__init__(name)
-        self.addFilter(DuplicateFilter())
 
     def verbose(self, msg: str, *args, **kwargs):
         if self.isEnabledFor(VERBOSE):
@@ -55,13 +44,13 @@ class FineLogger(Logger):
         if self.isEnabledFor(FINE):
             self._log(FINE, msg, args, **kwargs)
 
-    def sorting(self, msg: str, *args, **kwargs):
-        if self.isEnabledFor(SORTING):
-            self._log(SORTING, msg, args, **kwargs)
-
     def bus(self, msg: str, *args, **kwargs):
         if self.isEnabledFor(BUS):
             self._log(BUS, msg, args, **kwargs)
+
+    def sorting(self, msg: str, *args, **kwargs):
+        if self.isEnabledFor(SORTING):
+            self._log(SORTING, msg, args, **kwargs)
 
 
 def set_default():

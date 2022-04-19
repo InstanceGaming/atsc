@@ -10,7 +10,7 @@
   "enabled": true,
   "seed": 0,
   "min": 1,
-  "max": 20
+  "max": 18
  },
  "init": {
   "mode": "cet",
@@ -54,7 +54,7 @@
       1
      ],
      "timesheet": {
-      "go": 10
+      "go": 8
      }
     },
     {
@@ -63,8 +63,8 @@
       5
      ],
      "timesheet": {
-      "ped-clear": 12,
-      "go": 24
+      "ped-clear": 20,
+      "go": 30
      }
     },
     {
@@ -72,7 +72,7 @@
       3
      ],
      "timesheet": {
-      "go": 10
+      "go": 8
      }
     },
     {
@@ -81,8 +81,8 @@
       6
      ],
      "timesheet": {
-      "ped-clear": 12,
-      "go": 24
+      "ped-clear": 20,
+      "go": 30
      }
     },
     {
@@ -90,7 +90,7 @@
       7
      ],
      "timesheet": {
-      "go": 10
+      "go": 5
      }
     },
     {
@@ -108,7 +108,7 @@
       9
      ],
      "timesheet": {
-      "go": 10
+      "go": 5
      }
     },
     {

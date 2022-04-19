@@ -10,7 +10,7 @@
   "enabled": true,
   "seed": 0,
   "min": 1,
-  "max": 15
+  "max": 12
  },
  "init": {
   "mode": "cet",
@@ -46,7 +46,7 @@
    "enabled": true,
    "name": "default",
    "mode": "normal",
-   "free": false,
+   "free": true,
    "blocks": [],
    "phases": [
     {

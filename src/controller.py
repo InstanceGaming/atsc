@@ -1184,6 +1184,10 @@ class Controller:
             lone_phase = self._phase_pair[0]
             if phase == lone_phase:
                 return False
+
+            for phase in self.getPhases():
+                if phase.red_clearance:
+                    return False
         elif not self.allReady():
             return False
 
