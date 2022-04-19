@@ -198,7 +198,7 @@ class Controller:
         self._tz = tz
 
         # 1Hz square wave reference clock
-        self._flasher = False
+        self._flasher = True
         # loop enable flag
         self._running = False
 
@@ -265,8 +265,11 @@ class Controller:
 
         # 100ms timer
         self._tick_timer: MillisecondTimer = MillisecondTimer(100)
-        # 500ms timer
-        self._flasher_timer: MillisecondTimer = MillisecondTimer(500)
+        # 500ms timer counter (0-4)
+        # don't try and use an actual timer here,
+        # that always results in erratic ped signal
+        # countdowns in the least.
+        self._half_counter: int = 0
         # no call servicing timer
         self._idle_timer: SecondTimer = SecondTimer(0, pause=True)
         # control entrance transition timer
@@ -704,15 +707,6 @@ class Controller:
 
         return True
 
-    def waitingOnRedClearance(self) -> bool:
-        """Are any phases still timing red clearance"""
-
-        for ph in self.getPhases():
-            if ph.red_clearance:
-                return True
-
-        return False
-
     def checkPhaseConflict(self,
                            a: Phase,
                            b: Phase,
@@ -746,14 +740,12 @@ class Controller:
         return False
 
     def getAvailablePhases(self,
-                           phases: Iterable,
-                           omit=None) -> FrozenSet[Phase]:
+                           phases: Iterable) -> FrozenSet[Phase]:
         """
         Determine what phases from a given pool can run given
         the current controller state.
 
         :param phases: an iterable of Phases to scrutinize
-        :param omit: an iterable of Phases to remove from the results set
         :return: an immutable set of available Phases
         """
         results: Set[Phase] = set()
@@ -784,11 +776,12 @@ class Controller:
 
                 remaining_interval = ch.remaining
                 minimum = self._gib[ch.state][0]
-                if minimum > 0:
-                    if remaining_interval > minimum:
+                if remaining_interval > 0 and minimum > 0:
+                    if remaining_interval < minimum:
                         self.LOG.fine(f'{ch.getTag()} has '
                                       f'{remaining_interval}s remaining '
-                                      f'minimum {ch.state.name} time')
+                                      f'minimum {ch.state.name} time '
+                                      f'({minimum}s)')
                         unavailable_channels.add(ch)
 
             if len(unavailable_channels) > 0:
@@ -796,26 +789,20 @@ class Controller:
 
             results.add(phase)
 
-        if omit is not None:
-            for op in omit:
-                if op in results:
-                    results.remove(op)
-
         return frozenset(results)
 
-    def getAvailableActiveBarrierPhases(self, omit=None) -> List[Phase]:
+    def getAvailableActiveBarrierPhases(self) -> List[Phase]:
         """
         Determine what phases from the active barrier phase pool can run given
         the current controller state.
 
-        :param omit: an iterable of Phases to remove from the results set
         :return: an ordered set of available Barrier Phases
         """
         if self._active_barrier is None:
             return []
 
         barrier_phases = self.getBarrierPhases(self._active_barrier)
-        available = self.getAvailablePhases(barrier_phases, omit=omit)
+        available = self.getAvailablePhases(barrier_phases)
         return sorted(available)
 
     def getChannelTiming(self, ch: Channel) -> PhaseTimesheet:
@@ -1197,8 +1184,6 @@ class Controller:
             lone_phase = self._phase_pair[0]
             if phase == lone_phase:
                 return False
-            if self.waitingOnRedClearance():
-                return False
         elif not self.allReady():
             return False
 
@@ -1384,14 +1369,14 @@ class Controller:
                 done_phases.add(phase)
 
         for dp in done_phases:
-            dp.rc_timer.reset()
-            dp.rc_timer.pause = False
             if dp in self._expedited_phases:
                 self._expedited_phases.remove(dp)
             if dp in self._preemption_pair:
                 self._preemption_pair.remove(dp)
             self._phase_pair.remove(dp)
             self._phase_history.insert(0, dp)
+            dp.rc_timer.reset()
+            dp.rc_timer.pause = False
 
     def updateChannelFields(self):
         """Update field display to match current state"""
@@ -1629,6 +1614,12 @@ class Controller:
         if self.monitor_enabled:
             self._monitor.broadcastOutputState(channel_states)
 
+        if self._half_counter == 4:
+            self._half_counter = 0
+            self.halfSecond()
+        else:
+            self._half_counter += 1
+
     def halfSecond(self):
         """Polled once every 500ms"""
         self._flasher = not self._flasher
@@ -1707,9 +1698,6 @@ class Controller:
                 if self._tick_timer.poll():
                     self._tick_timer.reset()
                     self.tick()
-                if self._flasher_timer.poll():
-                    self._flasher_timer.reset()
-                    self.halfSecond()
 
     def shutdown(self):
         """Run termination tasks to stop control loop"""

@@ -122,8 +122,7 @@ class HardwareTimer:
         return self.getDelta() >= self._trigger
 
     def reset(self):
-        if not self.pause:
-            self._marker = self._ref()
+        self._marker = self._ref()
 
 
 class MillisecondTimer(HardwareTimer):
