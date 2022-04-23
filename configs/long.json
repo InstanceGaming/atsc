@@ -10,7 +10,7 @@
   "enabled": true,
   "seed": 0,
   "min": 1,
-  "max": 18
+  "max": 20
  },
  "init": {
   "mode": "cet",
@@ -63,8 +63,8 @@
       5
      ],
      "timesheet": {
-      "ped-clear": 20,
-      "go": 30
+      "ped-clear": 10,
+      "go": 15
      }
     },
     {
@@ -81,8 +81,8 @@
       6
      ],
      "timesheet": {
-      "ped-clear": 20,
-      "go": 30
+      "ped-clear": 10,
+      "go": 15
      }
     },
     {
@@ -99,8 +99,8 @@
       11
      ],
      "timesheet": {
-      "ped-clear": 10,
-      "go": 15
+      "ped-clear": 20,
+      "go": 30
      }
     },
     {
@@ -117,8 +117,8 @@
       12
      ],
      "timesheet": {
-      "ped-clear": 10,
-      "go": 15
+      "ped-clear": 20,
+      "go": 30
      }
     }
    ],
@@ -149,7 +149,7 @@
       6
      ],
      "preemption": {
-      "duration": 45
+      "duration": 40
      },
      "singles": false,
      "red-clearance": 1000
@@ -162,7 +162,7 @@
       8
      ],
      "preemption": {
-      "duration": 30
+      "duration": 40
      },
      "singles": false,
      "red-clearance": 1000

@@ -6,6 +6,7 @@ Type=simple
 User=pi
 Group=pi
 ExecStart=/home/pi/atsc/run.sh
+ExecStartPost=/home/pi/atsc/chnice.sh
 PIDFile=/home/pi/atsc/atsc.pid
 TimeoutSec=5
 TimeoutStartSec=5
