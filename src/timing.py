@@ -13,6 +13,11 @@
 #  limitations under the License.
 
 from time import perf_counter_ns
+from typing import Optional
+
+
+def micros() -> int:
+    return perf_counter_ns() // 1000
 
 
 def millis() -> int:
@@ -36,6 +41,7 @@ def days() -> int:
 
 
 _TIMING_STANDALONE_FUNCS = [
+    micros,
     millis,
     seconds,
     minutes,
@@ -47,11 +53,11 @@ _TIMING_STANDALONE_FUNCS = [
 class HardwareTimer:
 
     @property
-    def marker(self):
+    def marker(self) -> int:
         return self._marker
 
     @property
-    def trigger(self):
+    def trigger(self) -> Optional[int]:
         return self._trigger
 
     @trigger.setter
@@ -62,11 +68,13 @@ class HardwareTimer:
         self._trigger = v
 
     @property
-    def polling(self):
-        return self._trigger > 0
+    def polling(self) -> bool:
+        if self._trigger is not None:
+            return self._trigger > 0
+        return False
 
     @property
-    def pause(self):
+    def pause(self) -> bool:
         return self._pause
 
     @pause.setter
@@ -78,15 +86,15 @@ class HardwareTimer:
 
     def __init__(self,
                  reference,
-                 trigger: int,
-                 pause=False):
+                 trigger: Optional[int] = None,
+                 pause: bool = False):
         if reference not in _TIMING_STANDALONE_FUNCS:
             raise ValueError('Timer reference can only be one of the '
                              'functions defined in timing.py')
         self._ref = reference
         self._marker: int = self._ref()
 
-        self.trigger = trigger
+        self._trigger: Optional[int] = trigger
         self._pause = pause
 
         self._last_remaining = 0
@@ -98,9 +106,9 @@ class HardwareTimer:
         return False
 
     def getMarkerGoal(self) -> int:
-        rv = self._marker + self._trigger
-        assert rv >= 0
-        return rv
+        if self._trigger is not None:
+            return self._marker + self._trigger
+        return 0
 
     def getDelta(self) -> int:
         if self.pause:
@@ -114,12 +122,16 @@ class HardwareTimer:
         if self.pause:
             return self._last_remaining
         else:
-            rv = (self._trigger - self.getDelta()) or 0
-            self._last_remaining = rv
-            return rv
+            if self._trigger is None:
+                return 0
+            else:
+                rv = self._trigger - self.getDelta()
+                self._last_remaining = rv
+                return rv
 
     def poll(self) -> bool:
-        return self.getDelta() >= self._trigger
+        if self._trigger is not None:
+            return self.getDelta() >= self._trigger
 
     def reset(self):
         self._marker = self._ref()
@@ -127,9 +139,11 @@ class HardwareTimer:
 
 class MillisecondTimer(HardwareTimer):
 
-    def __init__(self, trigger: int, pause=False):
+    def __init__(self,
+                 trigger: Optional[int] = None,
+                 pause: bool = False):
         super(MillisecondTimer, self).__init__(millis,
-                                               trigger,
+                                               trigger=trigger,
                                                pause=pause)
 
     def getSeconds(self) -> int:
@@ -147,9 +161,11 @@ class MillisecondTimer(HardwareTimer):
 
 class SecondTimer(HardwareTimer):
 
-    def __init__(self, trigger: int, pause=False):
+    def __init__(self,
+                 trigger: Optional[int] = None,
+                 pause: bool = False):
         super(SecondTimer, self).__init__(seconds,
-                                          trigger,
+                                          trigger=trigger,
                                           pause=pause)
 
     def getMinutes(self) -> int:
@@ -164,9 +180,11 @@ class SecondTimer(HardwareTimer):
 
 class MinuteTimer(HardwareTimer):
 
-    def __init__(self, trigger: int, pause=False):
+    def __init__(self,
+                 trigger: Optional[int] = None,
+                 pause: bool = False):
         super(MinuteTimer, self).__init__(minutes,
-                                          trigger,
+                                          trigger=trigger,
                                           pause=pause)
 
     def getHours(self) -> int:

@@ -139,8 +139,8 @@ class MonitorClient:
             try:
                 self._sock.sendall(data)
                 size = len(data)
-                self.LOG.fine(f'M{self._index:02d} transmitted '
-                              f'{prettyByteSize(size)}')
+                # self.LOG.fine(f'M{self._index:02d} transmitted '
+                #               f'{prettyByteSize(size)}')
                 self._total_sent += size
             except OSError as e:
                 self.LOG.debug('M{:02d} {}'.format(self._index, str(e)))

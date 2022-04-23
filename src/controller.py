@@ -19,7 +19,7 @@ import network
 import serialbus
 from core import *
 from utils import textToEnum, getIPAddress
-from timing import MinuteTimer, SecondTimer, MillisecondTimer, seconds
+from timing import MinuteTimer, SecondTimer, MillisecondTimer, seconds, micros
 from typing import Set, Dict, List, Tuple, Iterable, Optional
 from bitarray import bitarray
 from functools import cmp_to_key
@@ -52,12 +52,11 @@ class RandomCallsManager:
 
     def __init__(self,
                  configuration_node: dict,
-                 phase_id_pool: List[int],
-                 initial_delay: int):
+                 phase_id_pool: List[int]):
         self._enabled = configuration_node['enabled']
         self._min = configuration_node['min']  # seconds
         self._max = configuration_node['max']  # seconds
-        self._timer = SecondTimer(initial_delay)
+        self._timer = SecondTimer(configuration_node['delay'])
         self._pool = phase_id_pool
         sorted(self._pool)
 
@@ -252,12 +251,11 @@ class Controller:
         # control cycling
         # currently active phases (up to two)
         self._phase_pair: List[Phase] = []
-        # previously ran phases for this cycle
+        # previously ran phases for this cycle PLUS last-cycles last pair
+        # size max will be len(self._phases) + 2
         self._phase_history: List[Phase] = []
         # phases conflicting for preemption service
         self._expedited_phases: Set[Phase] = set()
-        # last phase from last cycle
-        self._last_phase: Optional[Phase] = None
         # cycle instance of barriers
         self._barrier_pool: cycle = self.getBarrierCycler()
         # current barrier
@@ -271,9 +269,9 @@ class Controller:
         # countdowns in the least.
         self._half_counter: int = 0
         # no call servicing timer
-        self._idle_timer: SecondTimer = SecondTimer(0, pause=True)
+        self._idle_timer: SecondTimer = SecondTimer(pause=True)
         # control entrance transition timer
-        self._cet_timer: SecondTimer = SecondTimer(self.getCETSeconds())
+        self._cet_timer: SecondTimer = SecondTimer(trigger=self.getCETSeconds())
 
         # actuation
         self._calls: List[Call] = []
@@ -300,8 +298,7 @@ class Controller:
         # for software demo and testing purposes
         self._random_calls: RandomCallsManager = RandomCallsManager(
             config['random-calls'],
-            list(self.getIndexPhaseMap().keys()),
-            5
+            list(self.getIndexPhaseMap().keys())
         )
 
     def getDefaultStatsCounter(self):
@@ -465,7 +462,8 @@ class Controller:
 
                 phase = Phase(pi,
                               frozenset(channels),
-                              MillisecondTimer(red_clearance_ms, pause=True))
+                              MillisecondTimer(trigger=red_clearance_ms,
+                                               pause=True))
 
                 timesheet_node = phase_node['timesheet']
                 unset_intervals = list(IntervalType)
@@ -983,8 +981,7 @@ class Controller:
         self.LOG.debug(f'Ended cycle #{self._stats["cycles"]}{early_text}')
 
         self._stats['cycles'] += 1
-        self._last_phase = self._phase_history[0]
-        self._phase_history = []
+        self._phase_history = self._phase_history[:2]
 
     def startPhase(self, phase: Phase) -> None:
         """Start timing for a given `Phase` instance"""
@@ -1142,9 +1139,10 @@ class Controller:
                 results.append(call)
         return results
 
-    def handleCalls(self):
+    def handleCalls(self) -> bool:
         """Attempt to serve calls and remove expired ones"""
         if len(self._calls) > 0:
+            unhandled_call_count = 0
             remove = []
             for call in self._calls:
                 if call.age.getDelta() > self._max_call_age:
@@ -1159,7 +1157,8 @@ class Controller:
                             self.placeCall(call.target,
                                            system=True,
                                            reoccurring=True)
-                        break
+                    else:
+                        unhandled_call_count += 1
 
             for call in remove:
                 self._calls.remove(call)
@@ -1167,20 +1166,16 @@ class Controller:
             if len(remove) > 0:
                 self.sortCalls()
 
+            if unhandled_call_count == len(self._calls):
+                return True
+        return False
+
     def serveCall(self, call: Call) -> bool:
         """Attempt to start the given call's target `Phase`, if possible"""
-        call_tag = call.getTag()
-        call_target_tag = call.target.getTag()
-        pair_size = len(self._phase_pair)
         phase = call.target
 
-        if self._last_phase is not None:
-            if phase == self._last_phase:
-                self._last_phase = None
-                return False
-
         lone_phase = None
-        if not self._active_barrier.singles and pair_size == 1:
+        if not self._active_barrier.singles and len(self._phase_pair) == 1:
             lone_phase = self._phase_pair[0]
             if phase == lone_phase:
                 return False
@@ -1191,12 +1186,19 @@ class Controller:
         elif not self.allReady():
             return False
 
+        last_cycle_pair = self.getLastCyclePair()
         if phase in self.getAvailableActiveBarrierPhases():
             if lone_phase is not None:
-                self.LOG.verbose(f'Call {call_tag} '
-                                 f'({call_target_tag}) '
+                self.LOG.verbose(f'Call {call.getTag()} '
+                                 f'({phase.getTag()}) '
                                  f'was selected as partner to '
                                  f'{lone_phase.getTag()}')
+
+            if last_cycle_pair is not None:
+                if phase in last_cycle_pair:
+                    self.LOG.verbose(f'Skipping {phase.getTag()} because it ran'
+                                     'in the last cycle pair')
+                    return False
 
             self.startPhase(phase)
             return True
@@ -1218,7 +1220,7 @@ class Controller:
         """
         call = Call(self._stats['calls'] + 1,
                     target,
-                    SecondTimer(0),
+                    SecondTimer(),
                     system,
                     reoccurring=reoccurring)
 
@@ -1564,6 +1566,11 @@ class Controller:
             return self._phase_history[0], self._phase_history[1]
         return None
 
+    def getLastCyclePair(self) -> Optional[List[Phase]]:
+        if not self._first_cycle and len(self._phase_history) > 2:
+            return self._phase_history[-2:]
+        return None
+
     def tick(self):
         """Polled once every 100ms"""
         if self.bus_enabled:
@@ -1701,7 +1708,11 @@ class Controller:
             while self._running:
                 if self._tick_timer.poll():
                     self._tick_timer.reset()
+                    marker = micros()
                     self.tick()
+                    delta = micros() - marker
+                    if delta > 1000:
+                        self.LOG.warning(f'Tick took {delta} microseconds')
 
     def shutdown(self):
         """Run termination tasks to stop control loop"""

@@ -315,7 +315,12 @@
           "minimum": 1
         },
         "seed": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0
+        },
+        "delay": {
+          "type": "number",
+          "minimum": 0
         },
         "max": {
           "type": "number",

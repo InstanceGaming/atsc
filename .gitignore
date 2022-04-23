@@ -1,5 +1,6 @@
-env/**
+env/
 **/__pycache__/
-.idea/**
+.idea/
 *.zip
 picp.bat
+profiling/
