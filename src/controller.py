@@ -1716,11 +1716,7 @@ class Controller:
             while self._running:
                 if self._tick_timer.poll():
                     self._tick_timer.reset()
-                    marker = micros()
                     self.tick()
-                    delta_ms = (micros() - marker) / 1000
-                    if delta_ms > 5:
-                        self.LOG.warning(f'Tick took {delta_ms:.2f}ms')
 
     def shutdown(self):
         """Run termination tasks to stop control loop"""

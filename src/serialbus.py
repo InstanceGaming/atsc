@@ -181,7 +181,10 @@ class Bus(Thread):
 
                 captured = None
                 try:
-                    captured = self._serial.read(self._serial.in_waiting)
+                    iw = self._serial.in_waiting
+                    # in_waiting can be None in a pypy environment
+                    if iw is not None:
+                        captured = self._serial.read(iw)
                     self._serial.flushInput()
                 except serial.SerialTimeoutException:
                     self.LOG.error(
