@@ -184,7 +184,7 @@ def run():
 
 
 if __name__ == '__main__':
-    main_thread().setName('Main')
+    main_thread().name = 'Main'
     run()
 else:
     print('This file must be ran directly.')

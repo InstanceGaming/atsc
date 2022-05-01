@@ -2,11 +2,10 @@
 Description=Actuated Traffic Signal Controller (ATSC)
 
 [Service]
-Type=simple
+Type=forking
 User=pi
 Group=pi
 ExecStart=/home/pi/atsc/run.sh
-ExecStartPost=/home/pi/atsc/chnice.sh
 PIDFile=/home/pi/atsc/atsc.pid
 TimeoutSec=5
 TimeoutStartSec=5
@@ -14,6 +13,8 @@ KillMode=mixed
 WorkingDirectory=/home/pi/atsc/
 Restart=on-failure
 RestartSec=5s
+LimitRTPRIO=infinity
+Nice=-20
 
 [Install]
 WantedBy=multi-user.target

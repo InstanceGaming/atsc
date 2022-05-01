@@ -277,6 +277,7 @@ class Controller:
         self._calls: List[Call] = []
         self._max_call_age = config['calls']['max-age']
         self._call_weights = config['calls']['weights']
+        self._last_unhandled_call_count: int = 0
 
         # inputs data structure instances
         self._inputs: Dict[int, Input] = self.getInputs(config['inputs'])
@@ -1139,10 +1140,10 @@ class Controller:
                 results.append(call)
         return results
 
-    def handleCalls(self) -> bool:
+    def handleCalls(self) -> int:
         """Attempt to serve calls and remove expired ones"""
+        unhandled_call_count = 0
         if len(self._calls) > 0:
-            unhandled_call_count = 0
             remove = []
             for call in self._calls:
                 if call.age.getDelta() > self._max_call_age:
@@ -1157,6 +1158,7 @@ class Controller:
                             self.placeCall(call.target,
                                            system=True,
                                            reoccurring=True)
+                        break
                     else:
                         unhandled_call_count += 1
 
@@ -1165,10 +1167,7 @@ class Controller:
 
             if len(remove) > 0:
                 self.sortCalls()
-
-            if unhandled_call_count == len(self._calls):
-                return True
-        return False
+        return unhandled_call_count
 
     def serveCall(self, call: Call) -> bool:
         """Attempt to start the given call's target `Phase`, if possible"""
@@ -1183,21 +1182,22 @@ class Controller:
             for phase in self.getPhases():
                 if phase.red_clearance:
                     return False
-        elif not self.allReady():
-            return False
 
         last_cycle_pair = self.getLastCyclePair()
         if phase in self.getAvailableActiveBarrierPhases():
+            if last_cycle_pair is not None and len(self._phase_history) <= 4:
+                if phase in last_cycle_pair:
+                    self.LOG.verbose(f'Skipping {phase.getTag()} because it ran'
+                                     'in the last cycle pair')
+                    return False
+
             if lone_phase is not None:
                 self.LOG.verbose(f'Call {call.getTag()} '
                                  f'({phase.getTag()}) '
                                  f'was selected as partner to '
                                  f'{lone_phase.getTag()}')
-
-            if last_cycle_pair is not None:
-                if phase in last_cycle_pair:
-                    self.LOG.verbose(f'Skipping {phase.getTag()} because it ran'
-                                     'in the last cycle pair')
+            else:
+                if not self.allReady():
                     return False
 
             self.startPhase(phase)
@@ -1337,26 +1337,33 @@ class Controller:
 
         return frozenset(phases)
 
+    def getCurrentCyclePhaseHistory(self) -> List[Phase]:
+        if len(self._phase_history) > 2:
+            return self._phase_history[:-2]
+        else:
+            return self._phase_history
+
     def handleRingAndBarrier(self):
         """Determine when to cross barriers and/or end the current cycle"""
+        current_cycle_history = self.getCurrentCyclePhaseHistory()
 
         if self._active_barrier is not None:
             barrier_phases = self.getBarrierPhases(self._active_barrier)
             available_barrier_phases = self.getAvailableActiveBarrierPhases()
 
             # if all phases of barrier are contained in phase history
-            c1 = all([ph in self._phase_history for ph in barrier_phases])
+            c1 = all([ph in current_cycle_history for ph in barrier_phases])
 
             # no available phases left for current barrier
             c2 = len(self.getCallsFromPhases(available_barrier_phases)) == 0
 
             if c1 or c2:
-                if self.allReady():
+                if self.allReady() and self._last_unhandled_call_count == 0:
                     # if the size of phase history is greater or equal to the
                     # current number of phases with calls and there are calls,
                     # then it's time to end the cycle
                     if len(self._calls) > 0 and \
-                            len(self._phase_history) >= \
+                            len(current_cycle_history) >= \
                             len(self.getPhasesWithCalls()):
                         self.endCycle()
 
@@ -1579,7 +1586,8 @@ class Controller:
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
                 if len(self._phase_pair) == 0:
-                    if len(self._calls) == 0:
+                    call_count = len(self._calls)
+                    if call_count == 0:
                         if not self.idling:
                             self.beginIdle()
                     else:
@@ -1605,7 +1613,7 @@ class Controller:
                             self.startPhase(phase)
                 else:
                     if self._active_barrier is not None:
-                        self.handleCalls()
+                        self._last_unhandled_call_count = self.handleCalls()
 
                 self.handlePhases()
             elif self._op_mode == OperationMode.CET:
