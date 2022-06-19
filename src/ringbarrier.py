@@ -19,17 +19,9 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Ring(FrozenIdentifiableBase):
-
-    @property
-    def width(self) -> int:
-        return len(self.phases)
-
     phases: List[int]
 
 
 @dataclass(frozen=True)
 class Barrier(FrozenIdentifiableBase):
     phases: List[int]
-    preemption_duration: int
-    singles: bool
-    red_clearance: int  # milliseconds

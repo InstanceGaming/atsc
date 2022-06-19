@@ -1,48 +1,28 @@
 import os
 import sys
-import random
-import signal
-import logging
 
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
+import random
+import signal
 import timing
 import finelog
-from utils import PrettyByteArray, configureLogger
-from frames import FrameType, GenericFrame, DeviceAddress
+import logging
+from utils import configureLogger
+from utils import prettyBinaryLiteral as PBA
+from frames import DeviceAddress, InputStateFrame
 from serialbus import Bus
-
-
-class InputStateFrame(GenericFrame):
-    VERSION = 11
-
-    def __init__(self,
-                 address: int,
-                 input_bitfield: bytes):
-        super(InputStateFrame, self).__init__(address,
-                                              FrameType.INPUTS,
-                                              None)
-
-        self._input_states: bytes = input_bitfield
-
-    def getPayload(self):
-        return self._input_states
 
 
 class MockBus(Bus):
 
     def sendInputsState(self, input_states: bytes):
-        self.send(InputStateFrame(DeviceAddress.CONTROLLER,
-                                  input_states))
+        self.sendFrame(InputStateFrame(DeviceAddress.CONTROLLER,
+                                       input_states))
 
 
 LOG = logging.getLogger('atsc')
 configureLogger(LOG)
-
-
-def frame_handler(ft, data):
-    LOG.info(f'frame_handler({ft}, {len(data)}B)')
-
 
 BUS = MockBus('COM5', 115200, 1000)
 loop_enabled = True
@@ -75,7 +55,7 @@ def run():
         if t1.poll():
             t1.reset()
             mock_data = random.randbytes(3)
-            LOG.info(PrettyByteArray(mock_data))
+            LOG.info(PBA(mock_data))
             BUS.sendInputsState(mock_data)
 
     BUS.join()

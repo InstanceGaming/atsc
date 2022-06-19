@@ -13,9 +13,9 @@
 #  limitations under the License.
 
 import logging
-from core import Phase, IntervalType, OperationMode
+from core import Phase, OperationMode
 from utils import condText
-from typing import Dict, List, Tuple, Optional, FrozenSet
+from typing import List, Tuple, Optional, FrozenSet
 from natsort import natsorted
 from datetime import datetime
 from timespan import (Timespan,
@@ -28,53 +28,6 @@ from dataclasses import dataclass
 from ringbarrier import Ring, Barrier
 
 
-@dataclass(frozen=True)
-class PhaseTimesheet:
-    minimums: Dict[IntervalType, int]  # seconds
-    maximums: Dict[IntervalType, int]  # seconds
-    targets: Dict[IntervalType, int]  # seconds
-
-    def getRange(self, it: IntervalType) -> range:
-        return range(self.minimums[it], self.maximums[it])
-
-    def getValues(self, it: IntervalType) -> Tuple[int, int, int]:
-        return self.minimums[it], self.targets[it], self.maximums[it]
-
-    def getTargetOrMin(self, it: IntervalType) -> int:
-        target = self.targets[it]
-        return target if target > 0 else self.minimums[it]
-
-    def getMinMax(self, it: IntervalType) -> Tuple[int, int]:
-        return self.minimums[it], self.maximums[it]
-
-    def getRangeText(self, it: IntervalType) -> str:
-        text = ''
-        min_value = self.minimums[it]
-        target = self.targets[it]
-        max_value = self.maximums[it]
-
-        if min_value != 0:
-            text += f'{min_value}>'
-
-        text += target if target != 0 else '-'
-
-        if max_value != 0:
-            text += f'<{max_value}'
-
-        return text
-
-    def getAllIntervalsRangeText(self) -> str:
-        segments = []
-
-        for it in IntervalType:
-            segments.append(f'{it.name}={self.getRangeText(it)}')
-
-        return ' '.join(segments)
-
-    def __repr__(self):
-        return f'<PhaseTimesheet {self.getAllIntervalsRangeText()}>'
-
-
 @dataclass
 class Schedule:
     enabled: bool
@@ -85,7 +38,6 @@ class Schedule:
     phases: FrozenSet[Phase]
     rings: List[Ring]
     barriers: List[Barrier]
-    timesheets: Dict[Phase, PhaseTimesheet]
     last_active: Optional[datetime] = None
 
     def getRankedBlocks(self,
@@ -146,8 +98,7 @@ class Schedule:
                f'{self.getActivationBlocksText()} ' \
                f'{self.mode.name} {"FREE" if self.free else "TIMED"}' \
                f'{len(self.phases)} phases ' \
-               f'{len(self.rings)} rings {len(self.barriers)} barriers ' \
-               f'{len(self.timesheets)} timesheets>'
+               f'{len(self.rings)} rings {len(self.barriers)} barriers>'
 
 
 class ScheduleManager:
@@ -160,10 +111,6 @@ class ScheduleManager:
     @property
     def timespan(self) -> Optional[Timespan]:
         return self._timespan
-
-    @property
-    def timesheets(self) -> Dict[Phase, PhaseTimesheet]:
-        return self._active.timesheets
 
     @property
     def mode(self) -> OperationMode:

@@ -11,93 +11,31 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+import enum
 from enum import IntEnum
-from utils import condText, fieldRepr, shortEnumName
-from timing import SecondTimer, MillisecondTimer, seconds
-from typing import Dict, List, FrozenSet
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 
-class IntervalType(IntEnum):
-    STOP = 0
-    CAUTION = 1
-    PED_CLEAR = 2
-    GO = 3
-    FYA = 4
-
-
-def getDefaultTimeIntervalMap(value=None) -> Dict[IntervalType, int]:
-    mapped = {}
-
-    for it in IntervalType:
-        mapped.update({it: value or 0})
-
-    return mapped
-
-
-REST_INTERVALS = [
-    IntervalType.STOP,
-    IntervalType.GO,
-    IntervalType.FYA
-]
-
-MOVEMENT_INTERVALS = [
-    IntervalType.CAUTION,
-    IntervalType.PED_CLEAR,
-    IntervalType.GO,
-    IntervalType.FYA
-]
-
-
-class FlashMode(IntEnum):
-    DARK = 0
-    RED = 1
-    YELLOW = 2
-
-
-class FlasherSource(IntEnum):
-    A = 1
-    B = 2
-
-
-class ChannelMode(IntEnum):
-    DISABLED = 0
-    VEHICLE = 1
-    PEDESTRIAN = 2
-    FYA = 3
-
-
-class OperationMode(IntEnum):
-    DARK = 0
-    CET = 1  # Control entrance transition
-    CXT = 2  # Control exit transition
-    LS_FLASH = 3
-    NORMAL = 4
-
-
-class InputAction(IntEnum):
-    NOTHING = 0
-    CALL = 1
-    PREEMPTION = 2
-    LS_FLASH = 3
-    FYA_INHIBIT = 4
-    PED_CLEARANCE_INHIBIT = 5
-    STOP_RUNNING = 6
-
-
-@dataclass
 class IdentifiableBase:
-    id: int
+
+    @property
+    def id(self) -> int:
+        return self._id
+
+    def __init__(self, id_: int):
+        self._id = id_
 
     def __hash__(self) -> int:
-        return self.id
+        return self._id
 
-    def __eq__(self, other):
-        return self.id == other.id
+    def __eq__(self, other) -> bool:
+        if other is None:
+            return False
+        return self._id == other.id
 
-    def __lt__(self, other):
-        return self.id < other.id
+    def __lt__(self, other) -> bool:
+        return self._id < other.id
 
     def getTag(self):
         return f'{type(self).__name__[:2].upper()}{self.id:02d}'
@@ -126,163 +64,359 @@ class FrozenIdentifiableBase:
         return f'<{type(self).__name__} #{self.id}>'
 
 
-class Channel(IdentifiableBase):
+class FlashMode(IntEnum):
+    RED = 1
+    YELLOW = 2
 
-    @property
-    def remaining(self) -> int:
-        if self.current_goal > 0:
-            return abs(self.current_goal - seconds())
-        return 0
 
-    @property
-    def is_timing(self):
-        return self.current_goal != 0 and self.remaining >= 0
+class TrafficType(IntEnum):
+    VEHICLE = 1
+    PEDESTRIAN = 2
 
-    @property
-    def has_movement(self):
-        return self.state in MOVEMENT_INTERVALS
 
-    @property
-    def is_ready(self):
-        return not self.has_movement and not self.is_timing
+class OperationMode(IntEnum):
+    DARK = 0
+    CET = 1  # Control entrance transition
+    CXT = 2  # Control exit transition
+    LS_FLASH = 3
+    NORMAL = 4
 
-    @property
-    def is_resting(self):
-        return self.state in REST_INTERVALS and not self.is_timing
 
-    @property
-    def current_goal(self):
-        return self.markers[self.state]
+class LoadSwitch(IdentifiableBase):
 
-    def __init__(self,
-                 channel_id: int,
-                 mode: ChannelMode,
-                 flash_mode: FlashMode,
-                 default_state: IntervalType):
-        self.id = channel_id
-        self.mode = mode
-        self.flash_mode = flash_mode
-        self.state = default_state
-        self.markers = getDefaultTimeIntervalMap()
-        self.ism = 0
-
-        # convenience property exclusively for monitor
-        self.duration = 0
-
-        self.dark = True
+    def __init__(self, id_: int):
+        super().__init__(id_)
         self.a = False
         self.b = False
         self.c = False
 
+
+class PhaseState(IntEnum):
+    STOP = 0
+    RED_CLEARANCE = 1
+    CAUTION = 2
+    EXTEND = 3
+    GO = 4
+    PED_CLEAR = 5
+    WALK = 6
+
+
+PHASE_REST_STATES = [
+    PhaseState.STOP,
+    PhaseState.GO,
+    PhaseState.WALK,
+]
+
+
+PHASE_TIMED_STATES = [
+    PhaseState.RED_CLEARANCE,
+    PhaseState.CAUTION,
+    PhaseState.EXTEND,
+    PhaseState.GO,
+    PhaseState.PED_CLEAR,
+    PhaseState.WALK
+]
+
+
+class Phase(IdentifiableBase):
+    FYA_LOCAL = -1
+    FYA_PED = -2
+
+    @property
+    def ped_enabled(self) -> bool:
+        return self._pls is not None
+
+    @property
+    def ped_service(self) -> bool:
+        return not self._ped_inhibit and self.ped_enabled
+
+    @property
+    def extend_enabled(self):
+        return self._timing[PhaseState.EXTEND] > 0
+
+    @property
+    def extend_active(self):
+        return self._state == PhaseState.EXTEND
+
+    @property
+    def flash_mode(self) -> FlashMode:
+        return self._flash_mode
+
+    @property
+    def active(self) -> bool:
+        return self._state.value > 0
+
+    @property
+    def state(self) -> PhaseState:
+        return self._state
+
+    @property
+    def time_upper(self):
+        return self._time_upper
+
+    @property
+    def time_lower(self):
+        return self._time_lower
+
+    @property
+    def veh_ls(self) -> LoadSwitch:
+        return self._vls
+
+    @property
+    def ped_ls(self) -> Optional[LoadSwitch]:
+        return self._pls
+
+    def _validate_timing(self):
+        if self.active:
+            raise RuntimeError('Cannot changing timing map while active')
+        if self._timing is None:
+            raise TypeError('Timing map cannot be None')
+        keys = self._timing.keys()
+        if len(keys) != len(PHASE_TIMED_STATES):
+            raise RuntimeError('Timing map mismatched size')
+        elif PhaseState.STOP in keys:
+            raise KeyError('STOP cannot be in timing map')
+
+    def __init__(self,
+                 id_: int,
+                 time_increment: float,
+                 timing: Dict[PhaseState, float],
+                 veh_ls: LoadSwitch,
+                 ped_ls: Optional[LoadSwitch],
+                 flash_mode: FlashMode = FlashMode.RED,
+                 ped_clear_enable: bool = True):
+        super().__init__(id_)
+        self._increment = time_increment
+        self._timing = timing
+        self._vls = veh_ls
+        self._pls = ped_ls
+        self._flash_mode = flash_mode
+        self._state: PhaseState = PhaseState.STOP
+        self._time_lower: float = 0
+        self._time_upper: float = 0
+        self._ped_inhibit: bool = True
+        self._ped_cycle: bool = False
+        self.ped_clear_enable: bool = ped_clear_enable
+
+        self._validate_timing()
+
+    def getNextState(self, ped_service: bool) -> PhaseState:
+        if self._state == PhaseState.STOP:
+            if ped_service:
+                return PhaseState.WALK
+            else:
+                return PhaseState.GO
+        elif self._state == PhaseState.RED_CLEARANCE:
+            return PhaseState.STOP
+        elif self._state == PhaseState.CAUTION:
+            return PhaseState.RED_CLEARANCE
+        elif self._state == PhaseState.EXTEND:
+            return PhaseState.CAUTION
+        elif self._state == PhaseState.GO:
+            if self.extend_enabled:
+                return PhaseState.EXTEND
+            else:
+                return PhaseState.CAUTION
+        elif self._state == PhaseState.PED_CLEAR:
+            return PhaseState.GO
+        elif self._state == PhaseState.WALK:
+            if self.ped_clear_enable:
+                return PhaseState.PED_CLEAR
+            else:
+                return PhaseState.GO
+        else:
+            raise NotImplementedError()
+
+    def update(self, force_state: Optional[PhaseState] = None):
+        next_state = force_state or self.getNextState(self.ped_service)
+        tv = self._timing.get(next_state, 0.0)
+
+        self._time_upper = tv
+        if next_state == PhaseState.STOP:
+            self._ped_inhibit = True
+            self._ped_cycle = False
+        elif next_state == PhaseState.EXTEND:
+            self._time_lower = 0.0
+        elif next_state == PhaseState.GO:
+            if self._ped_cycle:
+                go_time = self._timing[PhaseState.GO]
+                walk_time = self._timing[PhaseState.WALK]
+                self._time_lower = go_time - walk_time
+                if self.ped_clear_enable:
+                    self._time_lower -= self._timing[PhaseState.PED_CLEAR]
+                if self._time_lower < 0:
+                    self._time_lower = 0
+            else:
+                self._time_lower = tv
+        else:
+            if next_state == PhaseState.WALK:
+                self._ped_cycle = True
+            self._time_lower = tv
+        self._state = next_state
+
+    def changeTiming(self, revised: Dict[PhaseState, float]):
+        self._timing = revised
+        self._validate_timing()
+
+    def activate(self, ped_inhibit: bool = True):
+        if self.active:
+            raise RuntimeError('Cannot activate active phase')
+
+        self._ped_inhibit = ped_inhibit
+        self.update()
+
+    def tick(self,
+             total_demand: int,
+             flasher: bool) -> Tuple[bool, bool]:
+        changed = False
+        idling = False
+        if self.extend_active:
+            if self._time_lower >= self._timing[PhaseState.EXTEND]:
+                if total_demand > 0:
+                    self.update()
+                    changed = True
+                else:
+                    idling = True
+            else:
+                self._time_lower += self._increment
+        else:
+            if self._state != PhaseState.STOP:
+                if self._time_lower > 0:
+                    self._time_lower -= self._increment
+                    if self._time_lower < 0:
+                        self._time_lower = 0
+                else:
+                    if not self.extend_enabled and self._state == PhaseState.GO:
+                        if total_demand > 0:
+                            self.update()
+                            changed = True
+                        else:
+                            idling = True
+                    else:
+                        self.update()
+                        changed = True
+
+        pa = False
+        pb = False
+        pc = False
+
+        if self._state == PhaseState.STOP or \
+                self._state == PhaseState.RED_CLEARANCE:
+            self._vls.a = True
+            self._vls.b = False
+            self._vls.c = False
+            pa = True
+            pc = False
+        elif self._state == PhaseState.CAUTION:
+            self._vls.a = False
+            self._vls.b = True
+            self._vls.c = False
+            pa = True
+            pc = False
+        elif self._state == PhaseState.GO or self._state == PhaseState.EXTEND:
+            self._vls.a = False
+            self._vls.b = False
+            self._vls.c = True
+            pa = True
+            pc = False
+        elif self._state == PhaseState.PED_CLEAR:
+            self._vls.a = False
+            self._vls.b = False
+            self._vls.c = True
+            pa = flasher
+            pc = False
+        elif self._state == PhaseState.WALK:
+            self._vls.a = False
+            self._vls.b = False
+            self._vls.c = True
+            pa = False
+            pc = True
+
+        if self._pls is not None:
+            self._pls.a = pa
+            self._pls.b = pb
+            self._pls.c = pc
+
+        return changed, idling
+
     def __repr__(self):
-        attrib = []
-
-        if self.is_ready:
-            attrib.append('READY')
-
-        if self.is_resting:
-            attrib.append('RESTING')
-
-        if self.is_timing:
-            attrib.append('TIMING')
-
-        field_repr = fieldRepr(self.a, self.b, self.c)
-        return f'<{self.getTag()} {shortEnumName(self.mode)} {field_repr} ' \
-               f'{self.state.name} {" ".join(attrib)}' \
-               f'{condText(self.remaining, prefix=" R", postfix="s")}>'
+        return f'<{self.getTag()} {self.state.name} {self.time_upper: 05.1f}' \
+               f' {self.time_lower: 05.1f}>'
 
 
 @dataclass(frozen=True)
-class FrozenChannelState(FrozenIdentifiableBase):
-    a: bool
-    b: bool
-    c: bool
-    duration: int
-    interval_time: int
-    calls: int
+class FrozenPhaseSetup:
+    vehicle_ls: int
+    ped_ls: int
+    flash_mode: FlashMode
+    fya_setting: int
 
 
-def getDefaultChannelState(fm: FlashMode):
-    if fm.RED:
-        return IntervalType.STOP
-    elif fm.YELLOW:
-        return IntervalType.CAUTION
-    raise NotImplementedError()
-
-
-@dataclass(frozen=True)
-class Phase(FrozenIdentifiableBase):
-    @property
-    def is_timing(self):
-        for ch in self.channels:
-            if ch.is_timing:
-                return True
-        return False
-
-    @property
-    def is_ready(self):
-        for ch in self.channels:
-            if not ch.is_ready:
-                return False
-        return True
-
-    @property
-    def is_resting(self):
-        for ch in self.channels:
-            if ch.is_resting:
-                return True
-        return False
-
-    @property
-    def red_clearance(self):
-        return self.rc_timer.getRemaining() > 0
-
-    channels: FrozenSet[Channel]
-    rc_timer: MillisecondTimer
-
-    def __repr__(self):
-        attrib = []
-
-        if self.is_ready:
-            attrib.append('READY')
-
-        if self.is_resting:
-            attrib.append('RESTING')
-
-        if self.is_timing:
-            attrib.append('TIMING')
-
-        return f'<{self.getTag()} {" ".join(attrib)}>'
-
-
-@dataclass
 class Call(IdentifiableBase):
-    target: Phase
-    age: SecondTimer
-    system: bool
-    reoccurring: bool = False
+
+    @property
+    def target(self) -> Phase:
+        return self._target
+
+    @property
+    def ped_service(self):
+        return self._ped_service
+
+    @property
+    def age(self) -> float:
+        return self._age
+
+    def __init__(self,
+                 id_: int,
+                 increment: float,
+                 target: Phase,
+                 ped_service=False):
+        super().__init__(id_)
+        self._target = target
+        self._age: float = 0.0
+        self._increment = increment
+        self._ped_service = ped_service
+
+    def tick(self):
+        self._age += self._increment
 
     def __lt__(self, other):
         if isinstance(other, Call):
-            return self.age < other.age
+            return self._age < other.age
         return False
 
     def __repr__(self):
-        return f'<Call #{self.id:02d} PH{self.target.id:02d} ' \
-               f'A{self.age.getDelta():04d}>'
+        return f'<Call #{self._id:02d} A{self._age:04d}>'
+
+
+class InputAction(IntEnum):
+    NOTHING = 0
+    CALL = 1
+    DETECT = 2
+    PREEMPTION = 3
+    TIME_FREEZE = 4
+
+    PED_CLEAR_INHIBIT = 5
+    FYA_INHIBIT = 6
+    CALL_INHIBIT = 7
+    REDUCE_INHIBIT = 8
+
+    MODE_DARK = 9
+    MODE_NORMAL = 10
+    MODE_LS_FLASH = 11
 
 
 class InputActivation(IntEnum):
-    LOW = 0
-    HIGH = 1
-    RISING = 2
-    FALLING = 3
+    OFF = 0
+    LOW = 1
+    HIGH = 2
+    RISING = 3
+    FALLING = 4
 
 
 @dataclass
 class Input:
-    ignore: bool
-    active: InputActivation
+    trigger: InputActivation
     action: InputAction
     targets: List[Phase]
 
@@ -292,21 +426,21 @@ class Input:
     changed: bool = False
 
     def activated(self) -> bool:
-        if self.active == InputActivation.LOW:
+        if self.trigger == InputActivation.LOW:
             if not self.state and not self.last_state:
                 return True
-        elif self.active == InputActivation.HIGH:
+        elif self.trigger == InputActivation.HIGH:
             if self.state and self.last_state:
                 return True
-        elif self.active == InputActivation.RISING:
+        elif self.trigger == InputActivation.RISING:
             if self.state and not self.last_state:
                 return True
-        elif self.active == InputActivation.FALLING:
+        elif self.trigger == InputActivation.FALLING:
             if not self.state and self.last_state:
                 return True
         return False
 
     def __repr__(self):
-        return f'<Input {self.active.name} {self.action.name} ' \
+        return f'<Input {self.trigger.name} {self.action.name} ' \
                f'{"ACTIVE" if self.state else "INACTIVE"}' \
                f'{" CHANGED" if self.changed else ""}>'

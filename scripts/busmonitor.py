@@ -1,19 +1,12 @@
 import os
 import sys
-import time
-import serial
-from collections import Iterable
 
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 import hdlc
-
-
-def pretty_bytes(d: Iterable):
-    formatted = ''
-    for o in d:
-        formatted += format(o, '08b') + ' '
-    return formatted
+import time
+import serial
+from utils import prettyBinaryLiteral as PBL
 
 
 CRC_POLY = 0x11021
@@ -23,7 +16,7 @@ CRC_XOR_OUT = 0
 
 
 if __name__ == '__main__':
-    hdlc_klass = hdlc.HDLC(CRC_POLY, CRC_INIT, CRC_REVERSE, CRC_XOR_OUT)
+    hdlc_klass = hdlc.HDLCContext(CRC_POLY, CRC_INIT, CRC_REVERSE, CRC_XOR_OUT)
     si = serial.Serial(port='COM5', baudrate=115200, timeout=0)
 
     FRAME_BOUNDARY = 0x7E
@@ -47,7 +40,7 @@ if __name__ == '__main__':
                         if b == FRAME_BOUNDARY:
                             data_bytes = bytes(buf)
                             print(f'[{time.time():>.3f}][{frames:0>6}]: '
-                                  f'RAW\t\t{pretty_bytes(data_bytes)}')
+                                  f'RAW\t\t{PBL(data_bytes)}')
 
                             frame, error = hdlc_klass.decode(data_bytes)
 
@@ -57,7 +50,7 @@ if __name__ == '__main__':
 
                             if frame is not None and frame.data is not None:
                                 print(f'[{time.time():>.3f}][{frames:0>6}]: '
-                                      f'DECODE\t{pretty_bytes(frame.data)}')
+                                      f'DECODE\t{PBL(frame.data)}')
 
                             buf = bytearray()
                             frame_read = False

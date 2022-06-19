@@ -14,16 +14,14 @@
 
 import abc
 import enum
-from core import FrozenChannelState
-from hdlc import HDLC
-from utils import PrettyByteArray
+from core import LoadSwitch
+from hdlc import HDLCContext
 from typing import List, Optional
-
-
-FRAME_VERSION = 11
+from bitarray import bitarray
 
 
 class DeviceAddress(enum.IntEnum):
+    UNKNOWN = 0x00
     CONTROLLER = 0xFF
     TFIB1 = 0x08
 
@@ -54,9 +52,11 @@ class GenericFrame(abc.ABC):
 
     def __init__(self,
                  address: int,
+                 fr_version: int,
                  fr_type: FrameType,
                  awk_type: Optional[FrameType]):
         self._address = address
+        self._version = fr_version
         self._type = fr_type
         self._awk_type = awk_type
 
@@ -66,9 +66,9 @@ class GenericFrame(abc.ABC):
 
         :return: PrettyByteArray
         """
-        return PrettyByteArray([
+        return bytearray([
             self._address,
-            FRAME_VERSION,
+            self._version,
             self._type
         ])
 
@@ -91,7 +91,7 @@ class GenericFrame(abc.ABC):
 
         return header
 
-    def build(self, hdlc: HDLC) -> bytes:
+    def build(self, hdlc: HDLCContext) -> bytes:
         """
         Build an HDLC frame.
 
@@ -101,7 +101,7 @@ class GenericFrame(abc.ABC):
 
     def __repr__(self):
         return f'<GenericFrame type={self._type} address={self._address} ' \
-               f'V{FRAME_VERSION}>'
+               f'V{self._version}>'
 
 
 class BeaconFrame(GenericFrame):
@@ -109,6 +109,7 @@ class BeaconFrame(GenericFrame):
 
     def __init__(self, address: int):
         super(BeaconFrame, self).__init__(address,
+                                          self.VERSION,
                                           FrameType.BEACON,
                                           FrameType.AWK)
 
@@ -121,17 +122,18 @@ class OutputStateFrame(GenericFrame):
 
     def __init__(self,
                  address: int,
-                 channel_states: List[FrozenChannelState],
+                 lss: List[LoadSwitch],
                  transfer: bool):
         super(OutputStateFrame, self).__init__(address,
+                                               self.VERSION,
                                                FrameType.OUTPUTS,
                                                FrameType.INPUTS)
-
-        self._channel_states = channel_states
+        assert len(lss) == 12
+        self._channel_states = lss
         self._transfer = transfer
 
     def getPayload(self):
-        sf = PrettyByteArray([0] * 6)
+        sf = bytearray([0] * 6)
         ci = 0
         for i in range(6):
             l = self._channel_states[ci]
@@ -144,7 +146,28 @@ class OutputStateFrame(GenericFrame):
             sf[i] += r.c * 1
             ci += 2
 
-        payload = PrettyByteArray([128 if self._transfer else 0])
+        payload = bytearray([128 if self._transfer else 0])
         payload.extend(sf)
 
         return payload
+
+
+class InputStateFrame(GenericFrame):
+    VERSION = 11
+
+    @property
+    def bitfield(self):
+        return self._bitfield
+
+    def __init__(self,
+                 address: int,
+                 bitfield: bitarray):
+        super(InputStateFrame, self).__init__(address,
+                                              self.VERSION,
+                                              FrameType.INPUTS,
+                                              None)
+
+        self._bitfield: bitarray = bitfield
+
+    def getPayload(self):
+        return self._bitfield

@@ -24,12 +24,12 @@ Do note, this software is NOT yet complete and is regularly changed and expanded
 - Overlay-based configuration files
 - Serial bus interface with custom HDLC frame protocol
 - Live network monitor with Protobuf encapsulation (currently for viewing field indication states only)
+- Gap time & time to reduce (partial)
+- Separation of vehicle and ped calls (groundwork)
 
 ### Up next for implementation
 
 - Preemption for emergency vehicles
-- Gap time & time to reduce
-- Separation of vehicle and ped calls
 - Load switch flash mode
 - Flashing yellow arrow
 
@@ -48,4 +48,4 @@ Entrypoint for the CLI utility is `src/cli.py`.
 
 You can use the argument `-h` to view command line option help texts for all entrypoints.
 
-_This readme last updated April 11th, 2022_
+_This readme last updated June 18th, 2022_

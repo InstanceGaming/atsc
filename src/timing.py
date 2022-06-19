@@ -11,9 +11,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
 from time import perf_counter_ns
 from typing import Optional
+from threading import Timer
 
 
 def micros() -> int:
@@ -50,6 +50,13 @@ _TIMING_STANDALONE_FUNCS = [
 ]
 
 
+class RepeatingTimer(Timer):
+
+    def run(self):
+        while not self.finished.wait(self.interval):
+            self.function(*self.args, **self.kwargs)
+
+
 class HardwareTimer:
 
     @property
@@ -74,15 +81,8 @@ class HardwareTimer:
         return False
 
     @property
-    def pause(self) -> bool:
-        return self._pause
-
-    @pause.setter
-    def pause(self, v: bool):
-        if not v:
-            self._marker = self._ref()
-
-        self._pause = v
+    def paused(self) -> bool:
+        return self._paused
 
     def __init__(self,
                  reference,
@@ -95,7 +95,7 @@ class HardwareTimer:
         self._marker: int = self._ref()
 
         self._trigger: Optional[int] = trigger
-        self._pause = pause
+        self._paused = pause
 
         self._last_remaining = 0
         self._last_delta = 0
@@ -111,7 +111,7 @@ class HardwareTimer:
         return 0
 
     def getDelta(self) -> int:
-        if self.pause:
+        if self._paused:
             return self._last_delta
         else:
             rv = (self._ref() - self._marker) or 0
@@ -119,7 +119,7 @@ class HardwareTimer:
             return rv
 
     def getRemaining(self) -> int:
-        if self.pause:
+        if self._paused:
             return self._last_remaining
         else:
             if self._trigger is None:
@@ -132,8 +132,10 @@ class HardwareTimer:
     def poll(self) -> bool:
         if self._trigger is not None:
             return self.getDelta() >= self._trigger
+        return False
 
-    def reset(self):
+    def reset(self, pause: bool = False):
+        self._paused = pause
         self._marker = self._ref()
 
 

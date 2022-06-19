@@ -17,13 +17,13 @@ import enum
 import json
 import logging
 import jsonschema
-from typing import List
+from typing import List, Optional
 from jsonschema import SchemaError, ValidationError
 from collections import ChainMap
 from dateutil.parser import parse as dt_parse
 
 
-CONFIG_SCHEMA_VERSION = 2
+CONFIG_SCHEMA_VERSION = 3
 
 
 class ErrorType(enum.Enum):
@@ -84,8 +84,6 @@ class ConfigValidator:
                         if file_version is None:
                             raise ConfigError(ErrorType.NO_VERSION,
                                               file=path)
-                        else:
-                            del file_data['version']
 
                         if self._version is not None and \
                                 file_version != self._version:
@@ -144,67 +142,10 @@ def validate_time_text(text):
         return False
 
 
-def validate_config_dynamic(config: dict, version: int):
+def validate_config_dynamic(config: dict, version: int) -> Optional[str]:
     if version != CONFIG_SCHEMA_VERSION:
         raise ValueError(f'unknown version {version} for dynamic inspection')
 
-    from core import IntervalType
-
-    gib = config['global-interval-bounds']
-
-    if len(gib) != len(IntervalType):
-        return 'mismatched GIB key count'
-
-    channels = config['channels']
-    channel_count = len(channels)
-
-    if channel_count < 2:
-        return 'less than two channels defined'
-
-    schedule_names = []
-    for sch in config['schedules']:
-        name = sch['name']
-
-        if name in schedule_names:
-            return f'duplicate schedule name "{name}"'
-
-        for i, b in enumerate(sch['blocks'], start=1):
-            start = b['start']
-            if not validate_time_text(start):
-                return f'schedule "{name}" has unintelligible start ' \
-                       f'value "{start}" (block {i})'
-
-            end = b['end']
-            if not validate_time_text(end):
-                return f'schedule "{name}" has unintelligible end ' \
-                       f'value "{end}" (block {i})'
-
-        schedule_phases = sch['phases']
-        schedule_phase_count = len(schedule_phases)
-
-        if schedule_phase_count < 2:
-            return f'schedule "{name}" must define at least 2 phases'
-
-        for pi, phase in enumerate(schedule_phases, start=1):
-            phase_channels = phase['channels']
-            used_indexes_phase = []
-            for channel_index in phase_channels:
-                if channel_index > channel_count:
-                    return f'schedule "{name}" phase {pi} has out-of-bounds ' \
-                           'channel index'
-
-                used_indexes_phase.append(channel_index)
-
-        schedule_rings = sch['rings']
-
-        if len(schedule_rings) == 0:
-            return f'schedule "{name}" must define at least 1 ring'
-
-        schedule_barriers = sch['barriers']
-
-        if len(schedule_barriers) == 0:
-            return f'schedule "{name}" must define at least 1 barrier'
-
-        schedule_names.append(name)
+    # todo
 
     return None

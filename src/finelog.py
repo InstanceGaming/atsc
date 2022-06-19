@@ -11,20 +11,31 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+import functools
 from logging import Filter, Logger, addLevelName, setLoggerClass
+from enum import IntEnum
+from typing import Type
 
 
-VERBOSE = 8
-FINE = 6
-BUS = 4
-SORTING = 2
+class CustomLogLevels(IntEnum):
+    VERBOSE = 8
+    FINE = 6
+    BUS = 4
+    SORTING = 2
 
 
-addLevelName(VERBOSE, 'VERBOSE')
-addLevelName(FINE, 'FINE')
-addLevelName(BUS, 'BUS')
-addLevelName(SORTING, 'SORTING')
+FINE_LOG_OMIT_DUPLICATES = True
+
+
+class DuplicateFilter(Filter):
+    __LAST_LOG_ATTR = 'last_log'
+
+    def filter(self, record):
+        current_log = (record.module, record.levelno, record.getMessage())
+        if current_log != getattr(self, self.__LAST_LOG_ATTR, None):
+            setattr(self, self.__LAST_LOG_ATTR, current_log)
+            return True
+        return False
 
 
 class FineLogger(Logger):
@@ -36,28 +47,30 @@ class FineLogger(Logger):
     def __init__(self, name: str):
         super().__init__(name)
 
-    def verbose(self, msg: str, *args, **kwargs):
-        if self.isEnabledFor(VERBOSE):
-            self._log(VERBOSE, msg, args, **kwargs)
+        if FINE_LOG_OMIT_DUPLICATES:
+            self.addFilter(DuplicateFilter())
 
-    def fine(self, msg: str, *args, **kwargs):
-        if self.isEnabledFor(FINE):
-            self._log(FINE, msg, args, **kwargs)
-
-    def bus(self, msg: str, *args, **kwargs):
-        if self.isEnabledFor(BUS):
-            self._log(BUS, msg, args, **kwargs)
-
-    def sorting(self, msg: str, *args, **kwargs):
-        if self.isEnabledFor(SORTING):
-            self._log(SORTING, msg, args, **kwargs)
+    def setLevel(self, v):
+        if isinstance(v, CustomLogLevels):
+            lvl = v.value
+        else:
+            lvl = v
+        super(FineLogger, self).setLevel(lvl)
 
 
-def set_default():
-    """
-    Make the FineLogger class default type for new loggers.
-    """
-    setLoggerClass(FineLogger)
+def _customLog(self, msg: str, *args, **kwargs):
+    lvl = kwargs.pop('__custom_level')
+    lvl_index = lvl.value
+    if self.isEnabledFor(lvl_index):
+        self._log(lvl_index, msg, args, **kwargs)
 
 
-set_default()
+def registerCustomLevels(klass: Type[Logger]):
+    for lvl in CustomLogLevels:
+        setattr(klass,
+                lvl.name.lower(),
+                functools.partialmethod(_customLog, __custom_level=lvl))
+        addLevelName(lvl.value, lvl.name)
+
+registerCustomLevels(FineLogger)
+setLoggerClass(FineLogger)

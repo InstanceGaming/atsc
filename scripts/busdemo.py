@@ -1,8 +1,14 @@
+import os
+import sys
+from frames import DeviceAddress, OutputStateFrame
+
+
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 import signal
 import timing
 import finelog
 import logging
-from core import Channel, FlashMode, ChannelMode
+from core import ChannelState, FrozenChannelState
 from utils import configureLogger
 from serialbus import Bus
 
@@ -15,11 +21,7 @@ LOG = logging.getLogger('atsc')
 configureLogger(LOG)
 
 
-def frame_handler(bus: Bus, ft, data):
-    LOG.info(f'frame_handler({ft}, {len(data)}B)')
-
-
-BUS = Bus('COM5', 115200, 1000, 1000)
+BUS = Bus('COM5', 115200, 1000)
 loop_enabled = True
 
 
@@ -45,39 +47,26 @@ def run():
     LOG.info('Starting bus.')
     BUS.start()
 
-    pt1 = timing.MillisecondTimer(500)
+    pt1 = timing.MillisecondTimer(500, pause=True)
 
-    channels = [
-        Channel(1, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(2, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(3, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(4, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(5, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(6, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(7, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(8, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(9, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(10, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(11, ChannelMode.VEHICLE, FlashMode.RED),
-        Channel(12, ChannelMode.VEHICLE, FlashMode.RED)
-    ]
-
-    pt1.setDisable(True)
+    states = []
+    for si in range(12):
+        states.append(FrozenChannelState(si,
+                                         1,
+                                         0,
+                                         0,
+                                         ChannelState.STOP_REST,
+                                         0))
 
     flasher = True
     while loop_enabled:
         if pt1.poll():
+            for si in range(12):
+                states[si].a = flasher if si % 2 == 0 else not flasher
+            BUS.sendFrame(OutputStateFrame(DeviceAddress.TFIB1,
+                                           states,
+                                           True))
             flasher = not flasher
-
-            for i, ch in enumerate(channels, start=1):
-                if i % 2 == 0:
-                    ch.a = flasher
-                else:
-                    ch.a = not flasher
-                ch.b = False
-                ch.c = False
-
-            BUS.sendOutputState(channels, False)
 
     BUS.join()
     LOG.info('Exiting.')

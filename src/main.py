@@ -12,10 +12,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import finelog  # will break if omitted! must be imported in its entirety.
 import os
 import utils
 import timing
-import finelog
 import logging
 import argparse
 import configfile
@@ -25,7 +25,7 @@ from threading import main_thread
 from controller import Controller
 
 
-VERSION = '1.0.0'
+VERSION = '2.0.0'
 CONFIG_FILE = 'config.toml'
 DEVICE_FILE = 'device.toml'
 PID_FILE = 'atsc.pid'
@@ -64,10 +64,13 @@ def get_cli_args():
 
 
 def generate_pid(filepath, disabled):
+    pid = os.getpid()
     path = os.path.abspath(filepath)
     file = None
 
-    if not disabled:
+    if disabled:
+        LOG.info(f'PID {pid} (file disabled)')
+    else:
         try:
             file = open(path, 'x')
         except FileExistsError:
@@ -77,7 +80,6 @@ def generate_pid(filepath, disabled):
             LOG.error(f'Could not create PID file at {path}: {str(e)}')
             exit(5)
 
-        pid = os.getpid()
         file.write(str(pid))
         file.flush()
 
@@ -111,13 +113,13 @@ def run():
     if verbosity == 0:
         LOG.setLevel(logging.INFO)
     elif verbosity == 1:
-        LOG.setLevel(finelog.VERBOSE)
+        LOG.setLevel(finelog.CustomLogLevels.VERBOSE)
     elif verbosity == 2:
-        LOG.setLevel(finelog.FINE)
+        LOG.setLevel(finelog.CustomLogLevels.FINE)
     elif verbosity == 3:
-        LOG.setLevel(finelog.BUS)
+        LOG.setLevel(finelog.CustomLogLevels.BUS)
     elif verbosity >= 4:
-        LOG.setLevel(finelog.SORTING)
+        LOG.setLevel(finelog.CustomLogLevels.SORTING)
 
     LOG.info(WELCOME_MSG)
     LOG.info(f'Logging level {LOG.level}')

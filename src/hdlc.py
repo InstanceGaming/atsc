@@ -14,7 +14,8 @@
 
 import enum
 import crcmod
-from utils import PrettyByteArray, prettyByteSize
+from utils import prettyByteSize
+from utils import prettyBinaryLiteral as PBL
 from typing import Tuple, Optional
 
 
@@ -55,11 +56,11 @@ class Frame:
         return self._crc == other.crc
 
     def __repr__(self):
-        return f'<Frame {PrettyByteArray(self._data)} CRC{self._crc:05d} ' \
+        return f'<Frame {PBL(self._data)} CRC{self._crc:05d} ' \
                f'{prettyByteSize(len(self._data))}>'
 
 
-class HDLC:
+class HDLCContext:
 
     def __init__(self,
                  polynomial: int,
@@ -71,7 +72,7 @@ class HDLC:
                                          initial,
                                          reverse,
                                          xor_out)
-        self._endianness = byte_order
+        self._order = byte_order
 
     def encode(self, data: bytes, frame=True) -> bytearray:
         """
@@ -85,7 +86,7 @@ class HDLC:
         crc_number = self._crc_func(data)
 
         # append checksum to data
-        data += crc_number.to_bytes(2, byteorder=self._endianness)
+        data += crc_number.to_bytes(2, byteorder=self._order)
 
         # create a new buffer to hold the start flag, escaped data and end flag
         escaped = bytearray()
@@ -151,7 +152,7 @@ class HDLC:
 
                 # skip current char if escaping (once)
                 if escaping:
-                    # unmask the byte to it's original form
+                    # unmask the byte to its original form
                     unescaped_bytes.append(b ^ HDLC_ESCAPE_MASK)
                     # done escaping, can skip to next byte
                     escaping = False
@@ -175,9 +176,9 @@ class HDLC:
                 # get the last two bytes that form the CRC
                 crc_bytes = unescaped_bytes[-2:]
 
-                # transform the CRC bytes into a integer
+                # transform the CRC bytes into an integer
                 remote_crc = int.from_bytes(crc_bytes,
-                                            byteorder=self._endianness)
+                                            byteorder=self._order)
 
                 # check for CRC match
                 if local_crc != remote_crc:

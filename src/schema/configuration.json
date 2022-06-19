@@ -7,36 +7,32 @@
     "pattern": "^[A-Za-z-][A-Za-z0-9-]*$"
   },
   "required": [
-    "scheduler",
+    "version",
+    "device",
     "bus",
     "network",
-    "schedules",
-    "channels",
     "init",
-    "device",
+    "phases",
+    "rings",
+    "barriers",
     "calls",
-    "global-interval-bounds"
+    "default-timing",
+    "random-calls"
   ],
   "properties": {
-    "scheduler": {
-      "type": "object",
-      "properties": {
-        "minimum-runtime": {
-          "type": "number",
-          "minimum": 1
-        }
-      }
+    "version": {
+      "type": "integer",
+      "const": 3
     },
     "bus": {
       "type": "object",
+      "required": [
+        "enabled"
+      ],
       "properties": {
         "baud": {
           "type": "number",
           "minimum": 1
-        },
-        "response-timeout": {
-          "type": "number",
-          "minimum": 0
         },
         "response-attempts": {
           "type": "number",
@@ -53,6 +49,10 @@
     },
     "calls": {
       "type": "object",
+      "required": [
+        "max-age",
+        "weights"
+      ],
       "properties": {
         "max-age": {
           "type": "integer",
@@ -71,6 +71,9 @@
     },
     "init": {
       "type": "object",
+      "required": [
+        "mode"
+      ],
       "properties": {
         "mode": {
           "type": "string",
@@ -81,40 +84,19 @@
             "ls-flash",
             "normal"
           ]
-        },
-        "red-clearance": {
-          "type": "number",
-          "minimum": 0
-        }
-      }
-    },
-    "channels": {
-      "type": "array",
-      "items": {
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": [
-              "disabled",
-              "vehicle",
-              "pedestrian",
-              "fya"
-            ]
-          },
-          "flash-mode": {
-            "type": "string",
-            "enum": [
-              "dark",
-              "red",
-              "yellow"
-            ]
-          }
         }
       }
     },
     "inputs": {
       "type": "array",
       "items": {
+        "required": [
+          "slot",
+          "ignore",
+          "active",
+          "action",
+          "targets"
+        ],
         "properties": {
           "slot": {
             "type": "integer",
@@ -154,152 +136,77 @@
         }
       }
     },
-    "global-interval-bounds": {
+    "default-timing": {
       "type": "object",
       "required": [
-        "stop",
+        "red-clearance",
         "caution",
+        "extend",
         "go",
-        "fya",
-        "ped-clear"
+        "ped-clear",
+        "walk"
       ],
       "properties": {
-        "^stop|caution|go|fya|ped-clear$": {
-            "type": "array",
-            "minItems": 2,
-            "maxItems": 2,
+        "^red-clearance|caution|extend|go|ped-clear|walk$": {
+            "type": "integer",
             "minimum": 0,
-            "items": {
-              "type": "integer",
-              "uniqueItems": true
-            }
+            "maximum": 999
         }
       }
     },
-    "schedules": {
+    "barriers": {
       "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
       "items": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "uniqueItems": true
+      }
+    },
+    "rings": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "uniqueItems": true
+      }
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8,
+      "items": {
+        "required": [
+          "flash-mode",
+          "load-switches"
+        ],
         "properties": {
-          "mode": {
+          "timing": {
+            "type": "object",
+            "properties": {
+              "^red-clearance|caution|extend|go|ped-clear|walk$": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 999
+              }
+            }
+          },
+          "flash-mode": {
             "type": "string",
-            "enum": [
-              "dark",
-              "cet",
-              "cxt",
-              "ls-flash",
-              "normal"
-            ]
+            "enum": ["red", "yellow"]
           },
-          "barriers": {
-            "type": "array",
-            "maxLength": 2,
-            "items": {
-              "properties": {
-                "red-clearance": {
-                  "type": "number",
-                  "minimum": 0
-                },
-                "phases": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "minItems": 1,
-                    "uniqueItems": true
-                  }
-                },
-                "preemption": {
-                  "type": "object",
-                  "properties": {
-                    "duration": {
-                      "type": "integer",
-                      "minimum": 1
-                    }
-                  }
-                },
-                "singles": {
-                  "type": "boolean"
-                }
-              }
-            }
-          },
-          "rings": {
-            "type": "array",
-            "maxItems": 2,
-            "items": {
-              "properties": {
-                "phases": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "minItems": 1,
-                    "uniqueItems": true
-                  }
-                }
-              }
-            }
-          },
-          "blocks": {
-            "type": "array",
-            "items": {
-              "properties": {
-                "start": {
-                  "type": "string"
-                },
-                "end": {
-                  "type": "string"
-                },
-                "day-exceptions": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "uniqueItems": true
-                  }
-                },
-                "calendar": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "name": {
-            "type": "string"
-          },
-          "free": {
-            "type": "boolean"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "phases": {
-            "type": "array",
-            "items": {
-              "properties": {
-                "timesheet": {
-                  "type": "object",
-                  "properties": {
-                    "^stop|caution|go|fya|ped-clear$": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "minItems": 3,
-                          "maxItems": 3
-                        },
-                        {
-                          "type": "integer",
-                          "minimum": 1
-                        }
-                      ]
-                    }
-                  }
-                },
-                "channels": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "minItems": 1,
-                    "uniqueItems": true
-                  }
-                }
+          "load-switches": {
+            "type": "object",
+            "required": ["vehicle"],
+            "properties": {
+              "^vehicle|ped$": {
+                "type": "integer",
+                "minimum": 1
               }
             }
           }
@@ -308,7 +215,7 @@
     },
     "random-calls": {
       "type": "object",
-      "required": ["min", "max", "enabled"],
+      "required": ["min", "max", "enabled", "delay"],
       "properties": {
         "min": {
           "type": "number",
@@ -333,12 +240,17 @@
     },
     "device": {
       "type": "object",
+      "required": [
+        "name",
+        "location"
+      ],
       "properties": {
         "name": {
           "type": "string"
         },
         "location": {
           "type": "object",
+          "required": ["timezone"],
           "properties": {
             "timezone": {
               "type": "string"
@@ -349,9 +261,14 @@
     },
     "network": {
       "type": "object",
+      "required": [
+        "enabled",
+        "monitor"
+      ],
       "properties": {
         "monitor": {
           "type": "object",
+          "required": ["port", "enabled"],
           "properties": {
             "port": {
               "type": "number",

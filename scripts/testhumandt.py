@@ -1,5 +1,10 @@
+import os
+import sys
+from datetime import datetime
+
+
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 from utils import compactDatetime
-from datetime import datetime, timedelta
 
 
 a = datetime(2023, 2, 7, 10, 0)

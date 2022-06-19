@@ -16,7 +16,7 @@ import sys
 import logging
 import platform
 from enum import Enum
-from typing import Type, Tuple
+from typing import Any, Type, Tuple, Union
 from bitarray import bitarray
 from datetime import datetime
 
@@ -82,13 +82,10 @@ def prettyTimedelta(td, prefix=None, format_spec=None):
     return None
 
 
-def prettyBinaryLiteral(self: bytearray) -> str:
-    segments = []
-
-    for b in self:
-        segments.append(format(b, '08b'))
-
-    return ' '.join(segments)
+def prettyBinaryLiteral(ba: Union[bytearray, bytes]) -> str:
+    if isinstance(ba, bytes):
+        ba = bytearray(ba)
+    return ' '.join([format(b, '08b') for b in ba])
 
 
 def prettyByteSize(size: int, suffix='B'):
@@ -97,15 +94,6 @@ def prettyByteSize(size: int, suffix='B'):
             return "%3d%s%s" % (size, unit, suffix)
         size /= 1024.0
     return "%.1f%s%s" % (size, 'Yi', suffix)
-
-
-class PrettyByteArray(bytearray):
-
-    def __repr__(self):
-        return prettyBinaryLiteral(self)
-
-    def __str__(self):
-        return prettyBinaryLiteral(self)
 
 
 def compactDatetime(dt: datetime, tz=None) -> str:
@@ -172,6 +160,13 @@ def shortEnumName(e: Enum):
     return ''
 
 
+def defaultEnumMap(et: Type[Enum], value: Any) -> dict:
+    rv = {}
+    for i in [e.value for e in et]:
+        rv.update({i: value})
+    return rv
+
+
 def fieldRepr(a, b, c):
     first = 'A' if a else '-'
     second = 'B' if b else '-'
@@ -187,32 +182,35 @@ def condText(msg, paren=False, prefix=' ', postfix='', cond=False):
     return ''
 
 
-def textToEnum(e: Type[Enum],
-               text,
+def textToEnum(et: Type[Enum],
+               v,
                to_length=None,
                dash_underscore=True):
     """
     Attempt to return the matching enum value based off of
     the text name of a value.
 
-    :param e: enum type
-    :param text: string representation of a enum value
+    :param et: enum type
+    :param v: string representation of an enum value
     :param to_length: only match to this many chars
     :param dash_underscore: make dash equal to underscore character
-    :return: enum value of type e
+    :return: enum value of type e or None if was None
     :raises ValueError: if text could not be mapped to type
     """
-    text = text.strip().lower()
+    if v is None:
+        return None
+
+    v = v.strip().lower()
 
     if dash_underscore:
-        text = text.replace('-', '_')
+        v = v.replace('-', '_')
 
-    for v in e:
-        name = v.name.lower()
+    for e in et:
+        name = e.name.lower()
         if isinstance(to_length, int):
-            if text[0:to_length] == name[0:to_length]:
+            if v[0:to_length] == name[0:to_length]:
                 return v
         else:
-            if text == name:
-                return v
-    raise ValueError(f'Could not match "{text}" to {str(e)}')
+            if v == name:
+                return e
+    raise ValueError(f'Could not match "{v}" to {str(et)}')

@@ -11,13 +11,15 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import time
 
+import finelog  # will break if omitted! must be imported in its entirety.
 import socket
 import logging
-import proto.atsc_pb2 as pb
-from core import FrozenChannelState
+import proto.controller_pb2 as pb
+from core import Phase, LoadSwitch
 from utils import prettyByteSize
-from typing import List
+from typing import Dict, List, Tuple, Optional
 from threading import Thread
 
 
@@ -43,8 +45,28 @@ class Monitor(Thread):
         self._clients = []
         self._host = host
         self._port = port
+        self._control_info: Optional[pb.ControlInfo] = None
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    def setControlInfo(self,
+                       name: str,
+                       phases: List[Phase],
+                       phase_ls_map: Dict[Phase, List[int]]):
+        control_pb = pb.ControlInfo()
+        control_pb.version = 1
+        control_pb.name = name
+
+        for ph in phases:
+            ls_map = phase_ls_map[ph]
+            phase_pb = control_pb.phases.add()
+            phase_pb.flash_mode = ph.flash_mode.value
+            phase_pb.fya_setting = 0
+            phase_pb.vehicle_ls = ls_map[0]
+            if len(ls_map) > 1:
+                phase_pb.ped_ls = ls_map[1]
+
+        self._control_info = control_pb
 
     def run(self):
         try:
@@ -64,8 +86,15 @@ class Monitor(Thread):
                 try:
                     (connection, (ip, port)) = self.socket.accept()
                     client_count = len(self._clients) + 1
-                    ct = MonitorClient(connection, ip, port, client_count)
+                    ct = MonitorClient(connection,
+                                       ip,
+                                       port,
+                                       client_count)
+                    if self._control_info is not None:
+                        info_payload = self._control_info.SerializeToString()
+                        ct.send(self._prefix(info_payload))
                     self._clients.append(ct)
+                    time.sleep(0.25)
                 except OSError:
                     pass
 
@@ -80,29 +109,42 @@ class Monitor(Thread):
 
                 self.LOG.debug('Removed %d dead client threads' % len(remove))
 
-    def broadcastRaw(self, data):
+    def _prefix(self, raw_data: bytes) -> bytes:
+        length = len(raw_data)
+        payload = length.to_bytes(4, 'big', signed=False) + raw_data
+        return payload
+
+    def broadcast(self, data):
         if self._running:
             for c in self._clients:
-                c.send(data)
+                c.send(self._prefix(data))
 
-    def broadcastOutputState(self, channel_states: List[FrozenChannelState]):
+    def broadcastControlUpdate(self,
+                               ps: List[Phase],
+                               pmd: List[Tuple[int, int]],
+                               lss: List[LoadSwitch]):
         if self.client_count > 0:
-            fs = pb.FieldState()
-            fs.version = 1
+            control_pb = pb.ControlUpdate()
 
-            for cs in channel_states:
-                ch = fs.channels.add()
-                ch.a = cs.a
-                ch.b = cs.b
-                ch.c = cs.c
-                ch.duration = cs.duration
-                ch.interval_time = cs.interval_time
-                ch.calls = cs.calls
+            for ph, pm in zip(ps, pmd):
+                phase_pb = control_pb.phase.add()
+                phase_pb.status = 0
+                phase_pb.ped_service = ph.ped_service
+                phase_pb.state = ph.state.value
+                phase_pb.time_upper = ph.time_upper
+                phase_pb.time_lower = ph.time_lower
+                phase_pb.detections = pm[0]
+                phase_pb.vehicle_calls = pm[1]
+                phase_pb.ped_calls = 0
 
-            serialized = fs.SerializeToString()
-            length = len(serialized)
-            payload = length.to_bytes(4, 'big', signed=False) + serialized
-            self.broadcastRaw(payload)
+            for ls in lss:
+                ls_pb = control_pb.ls.add()
+                ls_pb.a = ls.a
+                ls_pb.b = ls.b
+                ls_pb.c = ls.c
+
+            serialized = control_pb.SerializeToString()
+            self.broadcast(serialized)
 
     def shutdown(self):
         self._running = False
@@ -139,8 +181,8 @@ class MonitorClient:
             try:
                 self._sock.sendall(data)
                 size = len(data)
-                # self.LOG.fine(f'M{self._index:02d} transmitted '
-                #               f'{prettyByteSize(size)}')
+                self.LOG.fine(f'M{self._index:02d} transmitted '
+                              f'{prettyByteSize(size)}')
                 self._total_sent += size
             except OSError as e:
                 self.LOG.debug('M{:02d} {}'.format(self._index, str(e)))
