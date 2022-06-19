@@ -127,11 +127,6 @@ class Controller:
         return self._name
 
     @property
-    def idling(self):
-        """Is the controller not currently serving any calls"""
-        return self._idle
-
-    @property
     def operation_mode(self):
         """Current operation mode of the controller"""
         return self._op_mode
@@ -207,7 +202,9 @@ class Controller:
                                                    default_timing)
 
         # rolling 4-wide window of previous phases
-        self._phase_history: List[Phase] = []
+        self._phase_window: List[Phase] = []
+        # cycle tracking window
+        self._cycle_window: List[Phase] = []
         self._rings: List[Ring] = self.getRings(config['rings'])
         self._barriers: List[Barrier] = self.getBarriers(config['barriers'])
         # cycle instance of barriers
@@ -226,10 +223,6 @@ class Controller:
         # that always results in erratic ped signal
         # countdowns in the least.
         self._half_counter: int = 0
-        # no calls
-        self._idle: bool = False
-        # no calls time counter
-        self._idle_counter: Optional[int] = None
         # control entrance transition timer
         self._cet_time: int = 10
         self._cet_timer: Timer = Timer(self._cet_time,
@@ -493,7 +486,7 @@ class Controller:
                     for act in active]):
                 continue
 
-            if phase in self._phase_history:
+            if phase in self._phase_window:
                 continue
 
             results.add(phase)
@@ -619,18 +612,17 @@ class Controller:
                 return barrier
         return None
 
-    def changeBarrier(self, barrier: Barrier) -> bool:
+    def changeBarrier(self, barrier: Barrier):
         """Change to the next `Barrier` in the barrier cycle instance"""
-        if not self.idling:
-            self._barrier_phase_count = 0
-            self._active_barrier = barrier
-            self.LOG.debug(f'Crossed to {barrier.getTag()}')
-            return True
-        else:
-            raise RuntimeError('Cannot change barrier when idling')
+        self._barrier_phase_count = 0
+        self._active_barrier = barrier
+        self.LOG.debug(f'Crossed to {barrier.getTag()}')
 
-    def endCycle(self) -> None:
+    def endCycle(self, early=True) -> None:
         """End phasing for this control cycle iteration"""
+        if early:
+            self._phase_window = []
+
         self._cycle_count += 1
         self.LOG.debug(f'Ended cycle {self._cycle_count}')
 
@@ -792,45 +784,28 @@ class Controller:
         :param ped_service: activate ped signal with vehicle
         :param input_slot: associate call with input slot number
         """
-        call = Call(self._call_counter + 1,
-                    self.INCREMENT,
-                    target,
-                    ped_service=ped_service)
+        if target.extend_active:
+            self.LOG.debug(f'Skipping recall for {target.getTag()}, '
+                           f'already extending')
+        else:
+            call = Call(self._call_counter + 1,
+                        self.INCREMENT,
+                        target,
+                        ped_service=ped_service)
 
-        input_text = ''
+            input_text = ''
 
-        if ped_service:
-            input_text = f' (ped service)'
+            if ped_service:
+                input_text = f' (ped service)'
 
-        if input_slot is not None:
-            input_text = f' (from input slot {input_slot})'
+            if input_slot is not None:
+                input_text = f' (from input slot {input_slot})'
 
-        self.LOG.debug(f'Recall {call.getTag()} {target.getTag()}{input_text}')
-        self._calls.append(call)
-        self._call_counter += 1
-        self.sortCalls()
-        if self._idle:
-            self.stopIdle()
-
-    def beginIdle(self):
-        """Start the idle timer"""
-
-        if self.idling:
-            raise RuntimeError('Already idling')
-
-        self._idle = True
-        self._idle_counter = 0.0
-        self._active_barrier = None
-        self.LOG.debug(f'Idling...')
-
-    def stopIdle(self):
-        """Stop the idle timer"""
-
-        if not self.idling:
-            raise RuntimeError('Was not idling')
-
-        self.LOG.debug(f'Idled for {self._idle_counter:0.1f}s')
-        self._idle = False
+            self.LOG.debug(f'Recall {call.getTag()} '
+                           f'{target.getTag()}{input_text}')
+            self._calls.append(call)
+            self._call_counter += 1
+            self.sortCalls()
 
     def setOperationState(self, new_state: OperationMode):
         """Set controller state for a given `OperationMode`"""
@@ -906,6 +881,9 @@ class Controller:
 
         if c1 or c2:
             if self.allPhasesInactive():
+                if len(self._cycle_window) == len(self._phases):
+                    self.endCycle()
+
                 next_barrier = next(self._barrier_pool)
 
                 if self._barrier_phase_count < 1:
@@ -925,7 +903,7 @@ class Controller:
                             )
                             next_barrier = self.getPriorityBarrier(
                                 inactive=True)
-                            self.endCycle()
+                            self.endCycle(early=True)
 
                 if len(self._skip_pool) >= len(self._barriers):
                     self.LOG.debug(f'Barrier thrashing detected')
@@ -937,9 +915,8 @@ class Controller:
 
     def handlePhases(self,
                      choice: Optional[Call],
-                     barrier_pool: Optional[List[Phase]] = None) -> bool:
+                     barrier_pool: Optional[List[Phase]] = None):
         """Handle phase ticking and completed phases"""
-        idle = False
         for ph in self._phases:
             if choice is not None:
                 if ph == choice.target:
@@ -952,15 +929,12 @@ class Controller:
                                 f'Attempted to start phase out-of-barrier')
 
                     ph.activate(ped_inhibit=not choice.ped_service)
-            changed, tick_idle = ph.tick(len(self._calls), self.flasher)
-            if changed:
+            if ph.tick(len(self._calls), self.flasher):
                 if ph.state == PhaseState.STOP:
-                    self._phase_history.insert(0, ph)
-                    if len(self._phase_history) > 4:
-                        del self._phase_history[4]
-            if tick_idle:
-                idle = True
-        return idle
+                    self._phase_window.insert(0, ph)
+                    self._cycle_window.insert(0, ph)
+                    if len(self._phase_window) > 4:
+                        del self._phase_window[4]
 
     def busHealthCheck(self):
         """Ensure bus thread is still running, if enabled"""
@@ -1043,19 +1017,15 @@ class Controller:
                 if thrashing:
                     choice = self._calls[0]
                     self.serveCall(choice, active, None, lone_phase)
-                    phase_idle = self.handlePhases(choice)
+                    self.handlePhases(choice)
                 else:
                     choice, removals = self.handleCalls(active,
                                                         available,
                                                         lone_phase)
-                    phase_idle = self.handlePhases(choice, barrier_pool)
+                    self.handlePhases(choice, barrier_pool)
 
                 if choice is not None:
                     self.removeAssociatedCalls(choice)
-
-                if phase_idle and len(self._calls) < 1:
-                    if not self.idling:
-                        self.beginIdle()
             elif self._op_mode == OperationMode.CET:
                 for ph in self._phases:
                     ph.tick(0, self._flasher)
@@ -1065,9 +1035,6 @@ class Controller:
                 self.halfSecond()
             else:
                 self._half_counter += 1
-
-            if self._idle:
-                self._idle_counter += self.INCREMENT
 
         if self.bus_enabled:
             self.handleBus(self._load_switches)

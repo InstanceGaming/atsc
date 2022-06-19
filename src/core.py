@@ -11,9 +11,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import enum
 from enum import IntEnum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 
 
@@ -139,6 +138,10 @@ class Phase(IdentifiableBase):
         return self._state == PhaseState.EXTEND
 
     @property
+    def idling(self):
+        return self._resting
+
+    @property
     def flash_mode(self) -> FlashMode:
         return self._flash_mode
 
@@ -196,6 +199,7 @@ class Phase(IdentifiableBase):
         self._time_upper: float = 0
         self._ped_inhibit: bool = True
         self._ped_cycle: bool = False
+        self._resting: bool = False
         self.ped_clear_enable: bool = ped_clear_enable
 
         self._validate_timing()
@@ -267,16 +271,16 @@ class Phase(IdentifiableBase):
 
     def tick(self,
              total_demand: int,
-             flasher: bool) -> Tuple[bool, bool]:
+             flasher: bool) -> bool:
         changed = False
-        idling = False
+        self._resting = False
         if self.extend_active:
             if self._time_lower >= self._timing[PhaseState.EXTEND]:
                 if total_demand > 0:
                     self.update()
                     changed = True
                 else:
-                    idling = True
+                    self._resting = True
             else:
                 self._time_lower += self._increment
         else:
@@ -291,10 +295,12 @@ class Phase(IdentifiableBase):
                             self.update()
                             changed = True
                         else:
-                            idling = True
+                            self._resting = True
                     else:
                         self.update()
                         changed = True
+            else:
+                self._resting = True
 
         pa = False
         pb = False
@@ -337,7 +343,7 @@ class Phase(IdentifiableBase):
             self._pls.b = pb
             self._pls.c = pc
 
-        return changed, idling
+        return changed
 
     def __repr__(self):
         return f'<{self.getTag()} {self.state.name} {self.time_upper: 05.1f}' \
