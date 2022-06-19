@@ -11,7 +11,6 @@ Do note, this software is NOT yet complete and is regularly changed and expanded
 - Ring & barrier (limited customization)
 - Actuation and timed modes
 - Vehicle and pedestrian signals
-- Calendar and time-based scheduler (not fully tested)
 - Flexible input signal handling and routing
 - Call expiration timeout
 - Multifaceted call sorting algorithm with weights
@@ -20,18 +19,17 @@ Do note, this software is NOT yet complete and is regularly changed and expanded
 - Time freeze mode
 - Configuration schema validation
 - CLI utility for validating configuration files standalone.
-- Minimum and (optionally) maximum interval timing checks for each interval type
-- Overlay-based configuration files
 - Serial bus interface with custom HDLC frame protocol
-- Live network monitor with Protobuf encapsulation (currently for viewing field indication states only)
+- Live network monitor with Protobuf encapsulation
 - Gap time & time to reduce (partial)
-- Separation of vehicle and ped calls (groundwork)
+- Separation of vehicle and ped calls (groundwork laid)
 
 ### Up next for implementation
 
 - Preemption for emergency vehicles
 - Load switch flash mode
 - Flashing yellow arrow
+- (Needs re-work) Calendar and time-based scheduler
 
 ### Associated software
 
