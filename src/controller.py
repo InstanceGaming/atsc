@@ -958,7 +958,9 @@ class Controller:
                     if inp.activated():
                         if inp.action == InputAction.CALL:
                             for target in inp.targets:
-                                self.recall(target, input_slot=slot)
+                                self.recall(target,
+                                            input_slot=slot,
+                                            ped_service=True)
                         # raise NotImplementedError()
                 except IndexError:
                     self.LOG.fine('Discarding signal for unused input slot '
@@ -1068,7 +1070,8 @@ class Controller:
                     random_phase_index = self._random_calls.getPhaseIndex()
 
                     if random_phase_index:
-                        self.recall(self.getPhaseById(random_phase_index))
+                        self.recall(self.getPhaseById(random_phase_index),
+                                    ped_service=True)
 
         if self.monitor_enabled:
             self._monitor.clean()
