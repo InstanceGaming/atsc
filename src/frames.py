@@ -16,7 +16,7 @@ import abc
 import enum
 from core import LoadSwitch
 from hdlc import HDLCContext
-from typing import List, Optional
+from typing import List, Optional, Union
 from bitarray import bitarray
 
 
@@ -161,7 +161,13 @@ class InputStateFrame(GenericFrame):
 
     def __init__(self,
                  address: int,
-                 bitfield: bitarray):
+                 bf: Union[bitarray, bytearray]):
+        if isinstance(bf, bytearray):
+            bitfield = bitarray()
+            bitfield.frombytes(bytes(bf))
+        else:
+            bitfield = bf
+
         super(InputStateFrame, self).__init__(address,
                                               self.VERSION,
                                               FrameType.INPUTS,

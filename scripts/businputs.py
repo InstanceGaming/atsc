@@ -1,7 +1,5 @@
 import os
 import sys
-
-
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 import random
 import signal
@@ -16,7 +14,7 @@ from serialbus import Bus
 
 class MockBus(Bus):
 
-    def sendInputsState(self, input_states: bytes):
+    def sendInputsState(self, input_states: bytearray):
         self.sendFrame(InputStateFrame(DeviceAddress.CONTROLLER,
                                        input_states))
 
@@ -24,7 +22,7 @@ class MockBus(Bus):
 LOG = logging.getLogger('atsc')
 configureLogger(LOG)
 
-BUS = MockBus('COM5', 115200, 1000)
+BUS = MockBus('COM5', 115200)
 loop_enabled = True
 
 
@@ -46,7 +44,7 @@ def run():
     signal.signal(signal.SIGINT, intSig)
     signal.signal(signal.SIGTERM, termSig)
 
-    LOG.setLevel(finelog.BUS)
+    LOG.setLevel(finelog.CustomLogLevels.BUS)
     LOG.info('Starting bus.')
     BUS.start()
 
@@ -56,7 +54,7 @@ def run():
             t1.reset()
             mock_data = random.randbytes(3)
             LOG.info(PBA(mock_data))
-            BUS.sendInputsState(mock_data)
+            BUS.sendInputsState(bytearray(mock_data))
 
     BUS.join()
     LOG.info('Exiting.')

@@ -25,7 +25,7 @@ from threading import main_thread
 from controller import Controller
 
 
-VERSION = '2.0.0'
+VERSION = '2.0.1'
 CONFIG_FILE = 'config.toml'
 DEVICE_FILE = 'device.toml'
 PID_FILE = 'atsc.pid'

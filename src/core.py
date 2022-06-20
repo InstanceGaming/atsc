@@ -116,6 +116,13 @@ PHASE_TIMED_STATES = [
     PhaseState.WALK
 ]
 
+PHASE_GO_STATES = [
+    PhaseState.EXTEND,
+    PhaseState.GO,
+    PhaseState.PED_CLEAR,
+    PhaseState.WALK
+]
+
 
 class Phase(IdentifiableBase):
     FYA_LOCAL = -1
@@ -235,6 +242,9 @@ class Phase(IdentifiableBase):
         next_state = force_state or self.getNextState(self.ped_service)
         tv = self._timing.get(next_state, 0.0)
 
+        if tv >= 1.0:
+            tv -= 1.0
+
         self._time_upper = tv
         if next_state == PhaseState.STOP:
             self._ped_inhibit = True
@@ -261,6 +271,12 @@ class Phase(IdentifiableBase):
     def changeTiming(self, revised: Dict[PhaseState, float]):
         self._timing = revised
         self._validate_timing()
+
+    def reduce(self):
+        if self.extend_active:
+            self._time_lower = 0.0
+        else:
+            raise RuntimeError('Cannot reduce, not extending')
 
     def activate(self, ped_inhibit: bool = True):
         if self.active:
@@ -290,15 +306,21 @@ class Phase(IdentifiableBase):
                     if self._time_lower < 0:
                         self._time_lower = 0
                 else:
-                    if not self.extend_enabled and self._state == PhaseState.GO:
-                        if total_demand > 0:
+                    if self._state == PhaseState.WALK:
+                        if flasher:
                             self.update()
                             changed = True
-                        else:
-                            self._resting = True
                     else:
-                        self.update()
-                        changed = True
+                        if not self.extend_enabled and \
+                                self._state == PhaseState.GO:
+                            if total_demand > 0:
+                                self.update()
+                                changed = True
+                            else:
+                                self._resting = True
+                        else:
+                            self.update()
+                            changed = True
             else:
                 self._resting = True
 
@@ -413,7 +435,6 @@ class InputAction(IntEnum):
 
 
 class InputActivation(IntEnum):
-    OFF = 0
     LOW = 1
     HIGH = 2
     RISING = 3

@@ -222,6 +222,8 @@ class Bus(Thread):
                 f'Serial bus started ({self._formatParameterText()})')
             while self.running:
                 if self._serial is not None and self._serial.is_open:
+                    if self.rx_miss:
+                        self.LOG.bus(f'Dropped bus response frame')
                     if self._write():
                         time.sleep(0.05)
                     if not self._read():

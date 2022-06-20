@@ -1,23 +1,23 @@
 {
   "version": 3,
   "random-calls": {
-    "delay": 40,
+    "delay": 80,
     "min": 1,
-    "max": 20,
+    "max": 40,
     "enabled": true
   },
   "init": {
     "mode": "cet"
   },
   "device": {
-    "name": "ATSC Development Intersection (Raspberry Pi)",
+    "name": "ATSC Development Intersection",
     "location": {
       "timezone": "America/Boise"
     }
   },
   "network": {
     "enabled": true,
-    "interface": "any",
+    "interface": "localhost",
     "monitor": {
       "enabled": true,
       "port": 7801
@@ -25,7 +25,7 @@
   },
   "bus": {
     "enabled": true,
-    "port": "/dev/serial0",
+    "port": "COM4",
     "baud": 115200,
     "response-attempts": 5
   },
@@ -33,7 +33,7 @@
     {
       "timing": {
         "extend": 3.0,
-        "go": 4.0
+        "go": 5.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -50,7 +50,7 @@
     {
       "timing": {
         "extend": 3.0,
-        "go": 4.0
+        "go": 5.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -67,7 +67,7 @@
     {
       "timing": {
         "extend": 3.0,
-        "go": 4.0
+        "go": 5.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -84,7 +84,7 @@
     {
       "timing": {
         "extend": 3.0,
-        "go": 4.0
+        "go": 5.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -115,11 +115,11 @@
   },
   "default-timing": {
     "red-clearance": 1.0,
-    "caution": 4.0,
-    "extend": 3.0,
-    "go": 9.0,
-    "ped-clear": 6.0,
-    "walk": 3.0
+    "caution": 5.0,
+    "extend": 4.0,
+    "go": 45.0,
+    "ped-clear": 22.0,
+    "walk": 4.0
   },
   "inputs": [
     {

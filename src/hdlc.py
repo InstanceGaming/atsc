@@ -168,7 +168,7 @@ class HDLCContext:
 
             if process:
                 # get section of bytes that form the original data
-                content_bytes = unescaped_bytes[:-2]
+                content_bytes = bytes(unescaped_bytes[:-2])
 
                 # calculate our own CRC from the unescaped data to compare
                 local_crc = self._crc_func(content_bytes)

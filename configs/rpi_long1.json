@@ -1,9 +1,9 @@
 {
   "version": 3,
   "random-calls": {
-    "delay": 40,
+    "delay": 80,
     "min": 1,
-    "max": 20,
+    "max": 40,
     "enabled": true
   },
   "init": {
@@ -115,11 +115,11 @@
   },
   "default-timing": {
     "red-clearance": 1.0,
-    "caution": 4.0,
-    "extend": 3.0,
-    "go": 9.0,
-    "ped-clear": 6.0,
-    "walk": 3.0
+    "caution": 5.0,
+    "extend": 4.0,
+    "go": 45.0,
+    "ped-clear": 30.0,
+    "walk": 15.0
   },
   "inputs": [
     {

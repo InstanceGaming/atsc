@@ -238,7 +238,7 @@ class Controller:
         self._inputs: Dict[int, Input] = self.getInputs(config.get('inputs'))
         # the last input bitfield received from the serial bus used in
         # comparison to the latest for change detection
-        self._last_input_bitfield: Optional[bitarray] = None
+        self._last_input_bitfield: Optional[bitarray] = bitarray()
 
         # communications
         self._bus: Optional[serialbus.Bus] = self.getBus(
@@ -353,8 +353,12 @@ class Controller:
                 if slot in reserved_slots:
                     raise RuntimeError('Input slot redefined')
 
+                ignore = input_node['ignore']
+                if ignore:
+                    action = InputAction.NOTHING
+                else:
+                    action = textToEnum(InputAction, input_node['action'])
                 active = textToEnum(InputActivation, input_node['active'])
-                action = textToEnum(InputAction, input_node['action'])
                 targets_node = input_node['targets']
 
                 targets = []
@@ -744,12 +748,10 @@ class Controller:
                 if phase == lone:
                     return False
 
-                self.LOG.verbose(f'Call {call.getTag()} '
-                                 f'({phase.getTag()}) '
-                                 f'was selected as partner to '
+                self.LOG.verbose(f'{phase.getTag()} was selected as partner to '
                                  f'{lone.getTag()}')
 
-            self.LOG.debug(f'Serving call {call.getTag()}')
+            self.LOG.debug(f'Recall {call.getTag()}')
             self._barrier_phase_count += 1
             self._skip_pool = []
             return True
@@ -799,13 +801,25 @@ class Controller:
                 input_text = f' (ped service)'
 
             if input_slot is not None:
-                input_text = f' (from input slot {input_slot})'
+                input_text = f' (input #{input_slot})'
 
-            self.LOG.debug(f'Recall {call.getTag()} '
+            self.LOG.debug(f'Call {call.getTag()} '
                            f'{target.getTag()}{input_text}')
             self._calls.append(call)
             self._call_counter += 1
             self.sortCalls()
+
+    def detection(self, phase: Phase, ped_service=False, input_slot=None):
+        input_text = ''
+
+        if input_slot is not None:
+            input_text = f' (input #{input_slot})'
+
+        if phase.extend_active:
+            self.LOG.debug(f'Detection on {phase.getTag()}{input_text}')
+            phase.reduce()
+        elif phase.state not in PHASE_GO_STATES:
+            self.recall(phase, ped_service=ped_service, input_slot=input_slot)
 
     def setOperationState(self, new_state: OperationMode):
         """Set controller state for a given `OperationMode`"""
@@ -949,6 +963,9 @@ class Controller:
         if self._last_input_bitfield is None or \
                 bf != self._last_input_bitfield:
             for slot, inp in self._inputs.items():
+                if inp.action == InputAction.NOTHING:
+                    continue
+
                 try:
                     state = bf[slot - 1]
 
@@ -959,9 +976,15 @@ class Controller:
                         if inp.action == InputAction.CALL:
                             for target in inp.targets:
                                 self.recall(target,
-                                            input_slot=slot,
-                                            ped_service=True)
-                        # raise NotImplementedError()
+                                            ped_service=True,
+                                            input_slot=slot)
+                        elif inp.action == InputAction.DETECT:
+                            for target in inp.targets:
+                                self.detection(target,
+                                               ped_service=True,
+                                               input_slot=slot)
+                        else:
+                            raise NotImplementedError()
                 except IndexError:
                     self.LOG.fine('Discarding signal for unused input slot '
                                   f'{slot}')
@@ -972,10 +995,7 @@ class Controller:
         self.setOperationState(OperationMode.NORMAL)
         self._cet_timer.cancel()
 
-    def handleBus(self, lss: List[LoadSwitch]):
-        if self._bus.rx_miss:
-            self.LOG.fine(f'Mishandled bus response')
-
+    def handleBusFrame(self):
         frame = self._bus.get()
 
         if frame is not None:
@@ -988,14 +1008,20 @@ class Controller:
                     ft = FrameType.UNKNOWN
 
                 if ft == FrameType.INPUTS:
-                    bitfield = frame.data[3:]
+                    bitfield = bitarray()
+                    bitfield.frombytes(frame.data[3:])
                     self.handleInputs(bitfield)
 
+    def updateBusOutputs(self, lss: List[LoadSwitch]):
         osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self._transfer)
         self._bus.sendFrame(osf)
 
     def tick(self):
         """Polled once every 100ms"""
+
+        if self.bus_enabled:
+            self.handleBusFrame()
+
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
                 active = self.getActivePhases()
@@ -1039,7 +1065,7 @@ class Controller:
                 self._half_counter += 1
 
         if self.bus_enabled:
-            self.handleBus(self._load_switches)
+            self.updateBusOutputs(self._load_switches)
 
         if self.monitor_enabled:
             pmd = []
