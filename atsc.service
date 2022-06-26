@@ -13,8 +13,10 @@ KillMode=mixed
 WorkingDirectory=/home/pi/atsc/
 Restart=on-failure
 RestartSec=5s
+RestrictRealtime=false
 LimitRTPRIO=infinity
-Nice=-20
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=99
 
 [Install]
 WantedBy=multi-user.target

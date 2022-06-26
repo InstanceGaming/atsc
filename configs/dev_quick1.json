@@ -1,13 +1,18 @@
 {
   "version": 3,
-  "random-calls": {
+  "random-actuation": {
     "delay": 40,
     "min": 1,
     "max": 20,
     "enabled": true
   },
+  "misc": {
+    "early-cycle-delay": 2
+  },
   "init": {
-    "mode": "cet"
+    "mode": "cet",
+    "cet-delay": 10,
+    "recall-all": true
   },
   "device": {
     "name": "ATSC Development Intersection",
@@ -110,7 +115,8 @@
   "calls": {
     "max-age": 600,
     "weights": {
-      "system": 600
+      "system": 600,
+      "duplicate-factor": 2
     }
   },
   "default-timing": {

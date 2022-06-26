@@ -242,8 +242,8 @@ class Phase(IdentifiableBase):
         next_state = force_state or self.getNextState(self.ped_service)
         tv = self._timing.get(next_state, 0.0)
 
-        if tv >= 1.0:
-            tv -= 1.0
+        if tv > 1.0:
+            tv -= self._increment
 
         self._time_upper = tv
         if next_state == PhaseState.STOP:
@@ -404,6 +404,7 @@ class Call(IdentifiableBase):
         self._age: float = 0.0
         self._increment = increment
         self._ped_service = ped_service
+        self.duplicates: int = 0
 
     def tick(self):
         self._age += self._increment

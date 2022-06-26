@@ -17,7 +17,8 @@
     "barriers",
     "calls",
     "default-timing",
-    "random-calls"
+    "random-actuation",
+    "misc"
   ],
   "properties": {
     "version": {
@@ -61,7 +62,7 @@
         "weights": {
           "type": "object",
           "properties": {
-            "^system|active-barrier$": {
+            "^system|active-barrier|duplicate-factor$": {
               "type": "integer",
               "minimum": 0
             }
@@ -69,10 +70,24 @@
         }
       }
     },
+    "misc": {
+      "type": "object",
+      "required": [
+        "early-cycle-delay"
+      ],
+      "properties": {
+        "early-cycle-delay": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
     "init": {
       "type": "object",
       "required": [
-        "mode"
+        "mode",
+        "recall-all",
+        "cet-delay"
       ],
       "properties": {
         "mode": {
@@ -84,6 +99,13 @@
             "ls-flash",
             "normal"
           ]
+        },
+        "recall-all": {
+          "type": "boolean"
+        },
+        "cet-delay": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },
@@ -215,7 +237,7 @@
         }
       }
     },
-    "random-calls": {
+    "random-actuation": {
       "type": "object",
       "required": ["min", "max", "enabled", "delay"],
       "properties": {
