@@ -17,8 +17,7 @@
     "barriers",
     "calls",
     "default-timing",
-    "random-actuation",
-    "misc"
+    "random-actuation"
   ],
   "properties": {
     "version": {
@@ -67,18 +66,6 @@
               "minimum": 0
             }
           }
-        }
-      }
-    },
-    "misc": {
-      "type": "object",
-      "required": [
-        "early-cycle-delay"
-      ],
-      "properties": {
-        "early-cycle-delay": {
-          "type": "integer",
-          "minimum": 1
         }
       }
     },
@@ -163,15 +150,17 @@
     "default-timing": {
       "type": "object",
       "required": [
-        "red-clearance",
+        "min-stop",
+        "rclr",
         "caution",
         "extend",
         "go",
-        "ped-clear",
-        "walk"
+        "pclr",
+        "walk",
+        "max-go"
       ],
       "properties": {
-        "^red-clearance|caution|extend|go|ped-clear|walk$": {
+        "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
             "type": "integer",
             "minimum": 0,
             "maximum": 999
@@ -213,7 +202,7 @@
           "timing": {
             "type": "object",
             "properties": {
-              "^red-clearance|caution|extend|go|ped-clear|walk$": {
+              "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 999

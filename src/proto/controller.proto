@@ -10,13 +10,14 @@ message LoadSwitchUpdate {
 
 enum PhaseState {
   STOP = 0;
-  RED_CLEARANCE = 1;
-  CAUTION = 2;
-  EXTEND = 3;
-  GO = 4;
-  PED_CLEAR = 5;
-  WALK = 6;
-  FYA = 7;
+  MIN_STOP = 2;
+  RCLR = 4;
+  CAUTION = 6;
+  EXTEND = 8;
+  GO = 10;
+  PCLR = 12;
+  WALK = 14;
+  FYA = 16;
 }
 
 enum PhaseStatus {

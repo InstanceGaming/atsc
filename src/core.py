@@ -92,12 +92,14 @@ class LoadSwitch(IdentifiableBase):
 
 class PhaseState(IntEnum):
     STOP = 0
-    RED_CLEARANCE = 1
-    CAUTION = 2
-    EXTEND = 3
-    GO = 4
-    PED_CLEAR = 5
-    WALK = 6
+    MIN_STOP = 2
+    RCLR = 4
+    CAUTION = 6
+    EXTEND = 8
+    GO = 10
+    PCLR = 12
+    WALK = 14
+    MAX_GO = 32
 
 
 PHASE_REST_STATES = [
@@ -108,18 +110,20 @@ PHASE_REST_STATES = [
 
 
 PHASE_TIMED_STATES = [
-    PhaseState.RED_CLEARANCE,
+    PhaseState.MIN_STOP,
+    PhaseState.RCLR,
     PhaseState.CAUTION,
     PhaseState.EXTEND,
     PhaseState.GO,
-    PhaseState.PED_CLEAR,
-    PhaseState.WALK
+    PhaseState.PCLR,
+    PhaseState.WALK,
+    PhaseState.MAX_GO
 ]
 
 PHASE_GO_STATES = [
     PhaseState.EXTEND,
     PhaseState.GO,
-    PhaseState.PED_CLEAR,
+    PhaseState.PCLR,
     PhaseState.WALK
 ]
 
@@ -154,7 +158,7 @@ class Phase(IdentifiableBase):
 
     @property
     def active(self) -> bool:
-        return self._state.value > 0
+        return self._state.value > 2
 
     @property
     def state(self) -> PhaseState:
@@ -204,6 +208,7 @@ class Phase(IdentifiableBase):
         self._state: PhaseState = PhaseState.STOP
         self._time_lower: float = 0
         self._time_upper: float = 0
+        self._max_time: float = 0
         self._ped_inhibit: bool = True
         self._ped_cycle: bool = False
         self._resting: bool = False
@@ -217,10 +222,12 @@ class Phase(IdentifiableBase):
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
-        elif self._state == PhaseState.RED_CLEARANCE:
+        elif self._state == PhaseState.MIN_STOP:
             return PhaseState.STOP
+        elif self._state == PhaseState.RCLR:
+            return PhaseState.MIN_STOP
         elif self._state == PhaseState.CAUTION:
-            return PhaseState.RED_CLEARANCE
+            return PhaseState.RCLR
         elif self._state == PhaseState.EXTEND:
             return PhaseState.CAUTION
         elif self._state == PhaseState.GO:
@@ -228,11 +235,11 @@ class Phase(IdentifiableBase):
                 return PhaseState.EXTEND
             else:
                 return PhaseState.CAUTION
-        elif self._state == PhaseState.PED_CLEAR:
+        elif self._state == PhaseState.PCLR:
             return PhaseState.GO
         elif self._state == PhaseState.WALK:
             if self.ped_clear_enable:
-                return PhaseState.PED_CLEAR
+                return PhaseState.PCLR
             else:
                 return PhaseState.GO
         else:
@@ -249,6 +256,7 @@ class Phase(IdentifiableBase):
         if next_state == PhaseState.STOP:
             self._ped_inhibit = True
             self._ped_cycle = False
+            self._max_time = 0
         elif next_state == PhaseState.EXTEND:
             self._time_lower = 0.0
         elif next_state == PhaseState.GO:
@@ -257,7 +265,7 @@ class Phase(IdentifiableBase):
                 walk_time = self._timing[PhaseState.WALK]
                 self._time_lower = go_time - walk_time
                 if self.ped_clear_enable:
-                    self._time_lower -= self._timing[PhaseState.PED_CLEAR]
+                    self._time_lower -= self._timing[PhaseState.PCLR]
                 if self._time_lower < 0:
                     self._time_lower = 0
             else:
@@ -301,6 +309,12 @@ class Phase(IdentifiableBase):
                 self._time_lower += self._increment
         else:
             if self._state != PhaseState.STOP:
+                if self._state in PHASE_GO_STATES:
+                    self._max_time += self._increment
+
+                    if self._max_time > self._timing[PhaseState.MAX_GO]:
+                        self.update(force_state=PhaseState.CAUTION)
+
                 if self._time_lower > 0:
                     self._time_lower -= self._increment
                     if self._time_lower < 0:
@@ -329,7 +343,8 @@ class Phase(IdentifiableBase):
         pc = False
 
         if self._state == PhaseState.STOP or \
-                self._state == PhaseState.RED_CLEARANCE:
+                self.state == PhaseState.MIN_STOP or \
+                self._state == PhaseState.RCLR:
             self._vls.a = True
             self._vls.b = False
             self._vls.c = False
@@ -347,7 +362,7 @@ class Phase(IdentifiableBase):
             self._vls.c = True
             pa = True
             pc = False
-        elif self._state == PhaseState.PED_CLEAR:
+        elif self._state == PhaseState.PCLR:
             self._vls.a = False
             self._vls.b = False
             self._vls.c = True

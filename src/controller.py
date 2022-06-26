@@ -11,8 +11,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import functools
-
 import finelog  # will break if omitted! must be imported in its entirety.
 import time
 import random
@@ -23,7 +21,7 @@ from core import *
 from utils import textToEnum, getIPAddress
 from frames import FrameType, DeviceAddress, OutputStateFrame
 from timing import SecondTimer
-from typing import Set, Iterable, FrozenSet, Tuple
+from typing import Set, Iterable, FrozenSet
 from bitarray import bitarray
 from functools import cmp_to_key, lru_cache
 from itertools import cycle
@@ -202,9 +200,6 @@ class Controller:
         self._phases: List[Phase] = self.getPhases(config['phases'],
                                                    default_timing)
 
-        # rolling 4-wide window of previous phases
-        self._phase_window: List[Phase] = []
-
         self._rings: List[Ring] = self.getRings(config['rings'])
         self._barriers: List[Barrier] = self.getBarriers(config['barriers'])
 
@@ -225,13 +220,6 @@ class Controller:
 
         # cycle tracking window
         self._cycle_window: List[Phase] = []
-
-        # for early cycle termination, must have delay
-        self._ecd_time: int = config['misc']['early-cycle-delay']
-        self._ecd_timer = Timer(
-            self._ecd_time,
-            self.endEarlyCycleDelay
-        )
 
         # 500ms timer counter (0-4)
         # don't try and use an actual timer here,
@@ -506,7 +494,7 @@ class Controller:
                     for act in active]):
                 continue
 
-            if phase in self._phase_window:
+            if phase.state == PhaseState.MIN_STOP:
                 continue
 
             results.add(phase)
@@ -613,22 +601,12 @@ class Controller:
         self._active_barrier = barrier
         self.LOG.debug(f'Crossed to {barrier.getTag()}')
 
-    def endEarlyCycleDelay(self):
-        self._phase_window = []
-        self.LOG.debug(f'ECD ended')
-
     def endCycle(self, early=True) -> None:
         """End phasing for this control cycle iteration"""
-        if early:
-            if self._ecd_timer.is_alive():
-                self._ecd_timer = Timer(self._ecd_time, self.endEarlyCycleDelay)
-            else:
-                self._ecd_timer.start()
-
         self._cycle_count += 1
-        msg = f' early, will delay {self._ecd_time}s'
+        self._cycle_window = []
         self.LOG.debug(f'Ended cycle {self._cycle_count}'
-                       f'{msg if early else ""}')
+                       f'{" (early)" if early else ""}')
 
     @lru_cache(maxsize=8)
     def getPhaseById(self, i: int) -> Phase:
@@ -707,7 +685,7 @@ class Controller:
             to_remove = []
             for uc in unordered_calls:
                 if uc.target not in phases:
-                    to_remove.remove(uc)
+                    to_remove.append(uc)
             for tr in to_remove:
                 unordered_calls.remove(tr)
 
@@ -716,22 +694,12 @@ class Controller:
 
         return ordered_calls
 
-    def getCallsByPhase(self, phase: Phase) -> List[Call]:
-        """Get an ordered list of calls belonging to a `Phase` instance"""
-        results = []
-        for call in self._calls:
-            if call.target == phase:
-                results.append(call)
-        return results
-
     def handleCalls(self,
                     existing: List[Phase],
                     available: FrozenSet[Phase],
-                    lone_phase: Optional[Phase]) -> \
-            Tuple[Optional[Phase], List[Call]]:
+                    lone_phase: Optional[Phase]) -> Optional[Phase]:
         """Attempt to serve calls and remove expired ones"""
         choice: Optional[Call] = None
-        removals = []
 
         for call in self._calls:
             call.tick()
@@ -741,14 +709,14 @@ class Controller:
                               available,
                               lone_phase):
                 choice = call
-                removals.extend(self.getCallsByPhase(call.target))
+                self._calls.remove(call)
                 break
 
             if call.age > self._max_call_age:
                 self.LOG.debug(f'Call {call.getTag()} has expired')
-                removals.append(call)
+                self._calls.remove(call)
 
-        return choice, removals
+        return choice
 
     def serveCall(self,
                   call: Call,
@@ -854,11 +822,9 @@ class Controller:
                 if ph.flash_mode == FlashMode.YELLOW:
                     ph.update(force_state=PhaseState.CAUTION)
 
-            if self._cet_timer.is_alive():
-                self._cet_timer = Timer(self._cet_time,
-                                        self.endControlEntranceTransition)
-            else:
-                self._cet_timer.start()
+            self._cet_timer = Timer(self._cet_time,
+                                    self.endControlEntranceTransition)
+            self._cet_timer.start()
         elif new_state == OperationMode.NORMAL:
             if self._recall_all:
                 self.recallAll()
@@ -867,16 +833,6 @@ class Controller:
         self._op_mode = new_state
         self.LOG.info(f'Operation state is now {new_state.name} '
                       f'(was {previous_state.name})')
-
-    def filterCallsByPhases(self, phases: Iterable) -> List[Call]:
-        """Filter call stack for calls only associated with `Phase`
-                instances in the given iterable"""
-        calls = []
-
-        for phase in phases:
-            calls.extend(self.getCallsByPhase(phase))
-
-        return calls
 
     def getPhasesWithCalls(self, barrier: Optional[Barrier] = None) -> \
             FrozenSet[Phase]:
@@ -906,7 +862,7 @@ class Controller:
     def waitingOnRedClearance(self):
         """Are any phases timing mandatory red clearance"""
         for ph in self._phases:
-            if ph.state == PhaseState.RED_CLEARANCE:
+            if ph.state == PhaseState.RCLR:
                 return True
         return False
 
@@ -917,9 +873,9 @@ class Controller:
             phase = call.target
             for ap in active:
                 if phase != ap:
-                    if not self.checkPhaseConflict(phase,
-                                                   ap,
-                                                   check_barrier=False):
+                    if self.checkPhaseConflict(phase,
+                                               ap,
+                                               check_barrier=False):
                         demand += 1
 
         return demand
@@ -932,7 +888,7 @@ class Controller:
         c1 = len(available) == 0
 
         # there are no calls for available phases
-        c2 = len(self.filterCallsByPhases(available)) == 0
+        c2 = len(self.getRankedCalls(phases=available)) == 0
 
         if c1 or c2:
             if self.allPhasesInactive():
@@ -968,7 +924,7 @@ class Controller:
         return False
 
     def handlePhases(self,
-                     demand: int,
+                     active: List[Phase],
                      choice: Optional[Call],
                      barrier_pool: Optional[List[Phase]] = None):
         """Handle phase ticking and completed phases"""
@@ -984,12 +940,10 @@ class Controller:
                                 f'Attempted to start phase out-of-barrier')
 
                     ph.activate(ped_inhibit=not choice.ped_service)
+            demand = self.getDemand(active)
             if ph.tick(demand, self.flasher):
                 if ph.state == PhaseState.STOP:
-                    self._phase_window.insert(0, ph)
                     self._cycle_window.insert(0, ph)
-                    if len(self._phase_window) > 4:
-                        del self._phase_window[4]
 
     def busHealthCheck(self):
         """Ensure bus thread is still running, if enabled"""
@@ -1087,16 +1041,10 @@ class Controller:
                     choice = self.getRankedCalls()[0]
                     self.serveCall(choice, active, None, lone_phase)
                 else:
-                    choice, removals = self.handleCalls(active,
-                                                        available,
-                                                        lone_phase)
-
-                demand = self.getDemand(active)
-                self.handlePhases(demand, choice, barrier_pool)
-                if choice is not None:
-                    call = self.getAssociatedCall(choice)
-                    if call is not None:
-                        self._calls.remove(call)
+                    choice = self.handleCalls(active,
+                                              available,
+                                              lone_phase)
+                self.handlePhases(active, choice, barrier_pool)
             elif self._op_mode == OperationMode.CET:
                 for ph in self._phases:
                     ph.tick(0, self._flasher)

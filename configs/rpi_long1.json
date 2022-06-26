@@ -11,7 +11,7 @@
   },
   "init": {
     "mode": "cet",
-    "cet-delay": 10,
+    "cet-delay": 8,
     "recall-all": false
   },
   "device": {
@@ -120,12 +120,14 @@
     }
   },
   "default-timing": {
-    "red-clearance": 1.0,
+    "min-stop": 16.0,
+    "rclr": 1.0,
     "caution": 5.0,
     "extend": 4.0,
     "go": 45.0,
-    "ped-clear": 30.0,
-    "walk": 15.0
+    "pclr": 22.0,
+    "walk": 4.0,
+    "max-go": 64.0
   },
   "inputs": [
     {
