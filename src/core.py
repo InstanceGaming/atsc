@@ -255,7 +255,6 @@ class Phase(IdentifiableBase):
         if next_state == PhaseState.STOP:
             self._ped_inhibit = True
             self._ped_cycle = False
-            self._max_time = 0
         elif next_state == PhaseState.EXTEND:
             self._time_lower = 0.0
         elif next_state == PhaseState.GO:
@@ -272,6 +271,8 @@ class Phase(IdentifiableBase):
         else:
             if next_state == PhaseState.WALK:
                 self._ped_cycle = True
+            if next_state == PhaseState.CAUTION:
+                self._max_time = 0
             self._time_lower = tv
         self._state = next_state
 
@@ -297,6 +298,14 @@ class Phase(IdentifiableBase):
              flasher: bool) -> bool:
         changed = False
         self._resting = False
+
+        if self._state in PHASE_GO_STATES:
+            if self._max_time > self._timing[PhaseState.MAX_GO]:
+                self.update(force_state=PhaseState.CAUTION)
+                changed = True
+            else:
+                self._max_time += self._increment
+
         if self.extend_active:
             if self._time_lower >= self._timing[PhaseState.EXTEND]:
                 if total_demand > 0:
@@ -308,33 +317,28 @@ class Phase(IdentifiableBase):
                 self._time_lower += self._increment
         else:
             if self._state != PhaseState.STOP:
-                if self._state in PHASE_GO_STATES:
-                    self._max_time += self._increment
-
-                    if self._max_time > self._timing[PhaseState.MAX_GO]:
-                        self.update(force_state=PhaseState.CAUTION)
-
-                if self._time_lower > 0:
-                    self._time_lower -= self._increment
-                    if self._time_lower < 0:
-                        self._time_lower = 0
-                else:
-                    if self._state == PhaseState.WALK:
-                        if flasher:
-                            self.update()
-                            changed = True
+                if not changed:
+                    if self._time_lower > 0:
+                        self._time_lower -= self._increment
+                        if self._time_lower < 0:
+                            self._time_lower = 0
                     else:
-                        if self.extend_enabled:
-                            self.update()
-                            changed = True
+                        if self._state == PhaseState.WALK:
+                            if flasher:
+                                self.update()
+                                changed = True
                         else:
-                            if self._state == PhaseState.GO or \
-                                    self._state == PhaseState.WALK:
-                                if total_demand > 0:
-                                    self.update()
-                                    changed = True
-                                else:
-                                    self._resting = True
+                            if self.extend_enabled:
+                                self.update()
+                                changed = True
+                            else:
+                                if self._state == PhaseState.GO or \
+                                        self._state == PhaseState.WALK:
+                                    if total_demand > 0:
+                                        self.update()
+                                        changed = True
+                                    else:
+                                        self._resting = True
             else:
                 self._resting = True
 

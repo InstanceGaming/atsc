@@ -117,14 +117,14 @@
     }
   },
   "default-timing": {
-    "min-stop": 16.0,
+    "min-stop": 30.0,
     "rclr": 1.0,
     "caution": 5.0,
     "extend": 4.0,
     "go": 45.0,
     "pclr": 22.0,
     "walk": 4.0,
-    "max-go": 64.0
+    "max-go": 55.0
   },
   "inputs": [
     {
