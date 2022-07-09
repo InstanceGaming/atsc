@@ -11,10 +11,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import time
-
-import finelog  # will break if omitted! must be imported in its entirety.
 import hdlc
+import time
 import serial
 import timing
 import logging

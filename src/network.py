@@ -12,7 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import finelog  # will break if omitted! must be imported in its entirety.
 import time
 import socket
 import logging

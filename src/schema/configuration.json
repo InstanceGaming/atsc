@@ -161,9 +161,9 @@
       ],
       "properties": {
         "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 999
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999
         }
       }
     },
@@ -211,11 +211,16 @@
           },
           "flash-mode": {
             "type": "string",
-            "enum": ["red", "yellow"]
+            "enum": [
+              "red",
+              "yellow"
+            ]
           },
           "load-switches": {
             "type": "object",
-            "required": ["vehicle"],
+            "required": [
+              "vehicle"
+            ],
             "properties": {
               "^vehicle|ped$": {
                 "type": "integer",
@@ -228,7 +233,12 @@
     },
     "random-actuation": {
       "type": "object",
-      "required": ["min", "max", "enabled", "delay"],
+      "required": [
+        "min",
+        "max",
+        "enabled",
+        "delay"
+      ],
       "properties": {
         "min": {
           "type": "number",
@@ -263,7 +273,9 @@
         },
         "location": {
           "type": "object",
-          "required": ["timezone"],
+          "required": [
+            "timezone"
+          ],
           "properties": {
             "timezone": {
               "type": "string"
@@ -281,7 +293,10 @@
       "properties": {
         "monitor": {
           "type": "object",
-          "required": ["port", "enabled"],
+          "required": [
+            "port",
+            "enabled"
+          ],
           "properties": {
             "port": {
               "type": "number",

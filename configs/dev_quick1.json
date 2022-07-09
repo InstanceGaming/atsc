@@ -1,13 +1,13 @@
 {
   "version": 3,
   "random-actuation": {
-    "delay": 40,
+    "delay": 5,
     "min": 1,
-    "max": 20,
+    "max": 10,
     "enabled": true
   },
   "init": {
-    "mode": "cet",
+    "mode": "normal",
     "cet-delay": 4,
     "recall-all": true
   },
@@ -121,8 +121,8 @@
     "rclr": 1.0,
     "caution": 4.0,
     "extend": 3.0,
-    "go": 9.0,
-    "pclr": 6.0,
+    "go": 12.0,
+    "pclr": 9.0,
     "walk": 3.0,
     "max-go": 24.0
   },

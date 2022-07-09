@@ -12,9 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import functools
-from logging import Filter, Logger, addLevelName, setLoggerClass
 from enum import IntEnum
 from typing import Type
+from logging import Filter, Logger, addLevelName, setLoggerClass
 
 
 class CustomLogLevels(IntEnum):
@@ -71,6 +71,7 @@ def registerCustomLevels(klass: Type[Logger]):
                 lvl.name.lower(),
                 functools.partialmethod(_customLog, __custom_level=lvl))
         addLevelName(lvl.value, lvl.name)
+
 
 registerCustomLevels(FineLogger)
 setLoggerClass(FineLogger)

@@ -12,10 +12,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import finelog  # will break if omitted! must be imported in its entirety.
 import os
 import utils
 import timing
+import finelog  # will break if omitted! must be imported in its entirety.
 import logging
 import argparse
 import configfile

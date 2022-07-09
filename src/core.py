@@ -108,7 +108,6 @@ PHASE_REST_STATES = [
     PhaseState.WALK,
 ]
 
-
 PHASE_TIMED_STATES = [
     PhaseState.MIN_STOP,
     PhaseState.RCLR,
@@ -149,7 +148,7 @@ class Phase(IdentifiableBase):
         return self._state == PhaseState.EXTEND
 
     @property
-    def idling(self):
+    def resting(self):
         return self._resting
 
     @property
@@ -325,16 +324,17 @@ class Phase(IdentifiableBase):
                             self.update()
                             changed = True
                     else:
-                        if not self.extend_enabled and \
-                                self._state == PhaseState.GO:
-                            if total_demand > 0:
-                                self.update()
-                                changed = True
-                            else:
-                                self._resting = True
-                        else:
+                        if self.extend_enabled:
                             self.update()
                             changed = True
+                        else:
+                            if self._state == PhaseState.GO or \
+                                    self._state == PhaseState.WALK:
+                                if total_demand > 0:
+                                    self.update()
+                                    changed = True
+                                else:
+                                    self._resting = True
             else:
                 self._resting = True
 
@@ -430,7 +430,7 @@ class Call(IdentifiableBase):
         return False
 
     def __repr__(self):
-        return f'<Call #{self._id:02d} A{self._age:04d}>'
+        return f'<Call #{self._id:02d} A{self._age:0>5.2f}>'
 
 
 class InputAction(IntEnum):

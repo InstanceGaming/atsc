@@ -1,18 +1,15 @@
 {
   "version": 3,
   "random-actuation": {
-    "delay": 80,
+    "delay": 60,
     "min": 1,
-    "max": 40,
+    "max": 10,
     "enabled": true
-  },
-  "misc": {
-    "early-cycle-delay": 2
   },
   "init": {
     "mode": "cet",
-    "cet-delay": 8,
-    "recall-all": false
+    "cet-delay": 4,
+    "recall-all": true
   },
   "device": {
     "name": "ATSC Development Intersection (Raspberry Pi)",
