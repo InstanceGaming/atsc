@@ -768,13 +768,14 @@ class Controller:
     def recall(self,
                target: Phase,
                ped_service=False,
-               input_slot=None):
+               input_slot=None) -> bool:
         """
         Create a new call for traffic service.
 
         :param target: the desired Phase to service
         :param ped_service: activate ped signal with vehicle
         :param input_slot: associate call with input slot number
+        :returns: False when ignored (due to phase being active)
         """
         input_text = ''
 
@@ -784,24 +785,27 @@ class Controller:
         if input_slot is not None:
             input_text = f' (input #{input_slot})'
 
-        for call in self._calls:
-            if call.target == target:
-                call.duplicates += 1
-                self.LOG.debug(f'Adding to existing call {call.getTag()} '
-                               f'({target.getTag()}), now {call.duplicates}'
-                               f'{input_text}')
-                self._call_counter += 1
-                break
-        else:
-            call = Call(self._call_counter + 1,
-                        self.INCREMENT,
-                        target,
-                        ped_service=ped_service)
+        if not target.active:
+            for call in self._calls:
+                if call.target == target:
+                    call.duplicates += 1
+                    self.LOG.debug(f'Adding to existing call {call.getTag()} '
+                                   f'({target.getTag()}), now {call.duplicates}'
+                                   f'{input_text}')
+                    self._call_counter += 1
+                    return True
+            else:
+                call = Call(self._call_counter + 1,
+                            self.INCREMENT,
+                            target,
+                            ped_service=ped_service)
 
-            self.LOG.debug(f'Call {call.getTag()} '
-                           f'{target.getTag()}{input_text}')
-            self._calls.add(call)
-            self._call_counter += 1
+                self.LOG.debug(f'Call {call.getTag()} '
+                               f'{target.getTag()}{input_text}')
+                self._calls.add(call)
+                self._call_counter += 1
+                return True
+        return False
 
     def detection(self, phase: Phase, ped_service=False, input_slot=None):
         input_text = ''
@@ -1072,7 +1076,9 @@ class Controller:
                                 break
                 else:
                     if call_choice is not None:
-                        self.activatePhase(call_choice.target,
+                        phase = call_choice.target
+                        self.changeBarrier(self.getBarrierByPhase(phase))
+                        self.activatePhase(phase,
                                            ped_service=call_choice.ped_service,
                                            barrier_pool=barrier_pool)
 
