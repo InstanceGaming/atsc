@@ -1042,6 +1042,16 @@ class Controller:
                     thrashing = self.handleRingAndBarrier(available,
                                                           with_calls,
                                                           barrier_pool)
+                    # handleRingAndBarrier may change active barrier, so update
+                    # to the latest pools for activatePhase methods below
+                    if self._active_barrier is not None:
+                        barrier_pool = self.getBarrierPhases(
+                            self._active_barrier
+                        )
+                        available = self.getAvailablePhases(
+                            barrier_pool,
+                            active
+                        )
                 else:
                     available = self.getAvailablePhases(self._phases, active)
 
