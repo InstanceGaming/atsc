@@ -13,7 +13,6 @@
 #  limitations under the License.
 from time import perf_counter_ns
 from typing import Optional
-from threading import Timer
 
 
 def micros() -> int:
@@ -48,13 +47,6 @@ _TIMING_STANDALONE_FUNCS = [
     hours,
     days
 ]
-
-
-class RepeatingTimer(Timer):
-
-    def run(self):
-        while not self.finished.wait(self.interval):
-            self.function(*self.args, **self.kwargs)
 
 
 class HardwareTimer:

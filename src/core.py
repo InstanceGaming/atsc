@@ -141,7 +141,7 @@ class Phase(IdentifiableBase):
 
     @property
     def extend_enabled(self):
-        return self._timing[PhaseState.EXTEND] > 0
+        return self._timing[PhaseState.EXTEND] > 0 and not self._extend_inhibit
 
     @property
     def extend_active(self):
@@ -205,12 +205,13 @@ class Phase(IdentifiableBase):
         self._pls = ped_ls
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
-        self._time_lower: float = 0
-        self._time_upper: float = 0
-        self._max_time: float = 0
+        self._time_lower: float = 0.0
+        self._time_upper: float = 0.0
+        self._max_time: float = 0.0
         self._ped_inhibit: bool = True
         self._ped_cycle: bool = False
         self._resting: bool = False
+        self._extend_inhibit = False
         self.ped_clear_enable: bool = ped_clear_enable
 
         self._validate_timing()
@@ -248,13 +249,13 @@ class Phase(IdentifiableBase):
         next_state = force_state or self.getNextState(self.ped_service)
         tv = self._timing.get(next_state, 0.0)
 
-        if tv > 1.0:
+        if tv > self._increment:
             tv -= self._increment
 
         self._time_upper = tv
         if next_state == PhaseState.STOP:
-            self._ped_inhibit = True
             self._ped_cycle = False
+            self._extend_inhibit = False
         elif next_state == PhaseState.EXTEND:
             self._time_lower = 0.0
         elif next_state == PhaseState.GO:
@@ -265,16 +266,15 @@ class Phase(IdentifiableBase):
                 if self.ped_clear_enable:
                     self._time_lower -= self._timing[PhaseState.PCLR]
                 if self._time_lower < 0:
-                    self._time_lower = 0
+                    self._time_lower = 0.0
             else:
                 self._time_lower = tv
         else:
             if next_state == PhaseState.WALK:
                 self._ped_cycle = True
-            if next_state == PhaseState.CAUTION:
-                self._max_time = 0
             self._time_lower = tv
         self._state = next_state
+        self._max_time = 0.0
 
     def changeTiming(self, revised: Dict[PhaseState, float]):
         self._timing = revised
@@ -294,21 +294,21 @@ class Phase(IdentifiableBase):
         self.update()
 
     def tick(self,
-             total_demand: int,
+             conflicting_demand: bool,
              flasher: bool) -> bool:
         changed = False
         self._resting = False
 
         if self._state in PHASE_GO_STATES:
             if self._max_time > self._timing[PhaseState.MAX_GO]:
-                self.update(force_state=PhaseState.CAUTION)
-                return True
-            else:
-                self._max_time += self._increment
+                if conflicting_demand:
+                    # todo: make this condition configurable per phase
+                    self.update()
+                    return True
 
         if self.extend_active:
             if self._time_lower >= self._timing[PhaseState.EXTEND]:
-                if total_demand > 0:
+                if conflicting_demand:
                     self.update()
                     changed = True
                 else:
@@ -323,23 +323,28 @@ class Phase(IdentifiableBase):
                         self._time_lower = 0
                 else:
                     if self._state == PhaseState.WALK:
-                        if flasher:
-                            self.update()
-                            changed = True
-                    else:
-                        if self.extend_enabled:
-                            self.update()
-                            changed = True
+                        if conflicting_demand:
+                            if flasher:
+                                self.update()
+                                changed = True
                         else:
-                            if self._state == PhaseState.GO or \
-                                    self._state == PhaseState.WALK:
-                                if total_demand > 0:
-                                    self.update()
-                                    changed = True
-                                else:
-                                    self._resting = True
+                            self._resting = True
+                            self._extend_inhibit = True
+                    else:
+                        if self._state == PhaseState.GO or \
+                                self._state == PhaseState.EXTEND:
+                            if conflicting_demand:
+                                self.update()
+                                changed = True
+                            else:
+                                self._resting = True
+                        else:
+                            self.update()
+                            changed = True
             else:
                 self._resting = True
+
+        self._max_time += self._increment
 
         pa = False
         pb = False

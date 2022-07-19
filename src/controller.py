@@ -72,8 +72,8 @@ class RandomCallsManager:
                 choice = random.choice(self._pool)
                 delay = random.randrange(self._min,
                                          self._max)
-                self.LOG.info(f'Random calls: picking {choice}, next in '
-                              f'{delay}')
+                self.LOG.debug(f'Random calls: picking {choice}, next in '
+                               f'{delay}')
                 self._timer.trigger = delay
                 self._timer.reset()
 
@@ -236,7 +236,7 @@ class Controller:
         self._calls: Set[Call] = set()
         self._max_call_age = config['calls']['max-age']
         self._call_weights = config['calls']['weights']
-        self._last_demand: int = 0
+        self._last_call_count: int = 0
 
         # inputs data structure instances
         self._inputs: Dict[int, Input] = self.getInputs(config.get('inputs'))
@@ -394,7 +394,7 @@ class Controller:
     ]:
         """Create the network monitor thread, if enabled"""
         if configuration_node['enabled']:
-            self.LOG.info('Networking enabled')
+            self.LOG.info('Networking subsystem ENABLED')
 
             if_name = configuration_node['interface'].lower().strip()
 
@@ -470,9 +470,9 @@ class Controller:
         return False
 
     def getAvailablePhases(
-            self,
-            phases: Iterable,
-            active: List[Phase]) \
+        self,
+        phases: Iterable,
+        active: List[Phase]) \
             -> FrozenSet[Phase]:
         """
         Determine what phases from a given pool can run given
@@ -568,7 +568,8 @@ class Controller:
         """
         if len(phases) > 0:
             phase_calls = self.getRankedCalls(phases)
-            return phase_calls[0].target
+            if len(phase_calls) > 0:
+                return phase_calls[0].target
         return None
 
     @lru_cache(maxsize=2)
@@ -635,8 +636,7 @@ class Controller:
 
         - Calls are weighted by current age. The older, the higher the priority.
         - Calls in the current barrier are optionally given an advantage.
-        - System calls are optionally given an advantage.
-        - System calls are sorted least-to-greatest against other system calls.
+        - Calls with duplicates are given advantage based on factor.
 
         :param left: Phase comparator on the left
         :param right: Phase comparator on the right
@@ -723,7 +723,7 @@ class Controller:
                   existing: List[Phase],
                   available: Optional[FrozenSet[Phase]],
                   lone: Optional[Phase]) -> bool:
-        """Attempt to start the given call's target `Phase`, if possible"""
+        """See if serving a call is possible"""
         phase = call.target
 
         if phase in existing:
@@ -733,9 +733,6 @@ class Controller:
             if lone is None:
                 if not self.allPhasesInactive():
                     return False
-
-                if self._active_barrier is None:
-                    self.changeBarrier(self.getBarrierByPhase(phase))
             else:
                 if phase == lone:
                     return False
@@ -786,13 +783,16 @@ class Controller:
             input_text = f' (input #{input_slot})'
 
         if not target.active:
+            phase_barrier = self.getBarrierByPhase(target)
             for call in self._calls:
                 if call.target == target:
                     call.duplicates += 1
+                    self._call_counter += 1
+                    if self._active_barrier is None:
+                        self.changeBarrier(phase_barrier)
                     self.LOG.debug(f'Adding to existing call {call.getTag()} '
                                    f'({target.getTag()}), now {call.duplicates}'
                                    f'{input_text}')
-                    self._call_counter += 1
                     return True
             else:
                 call = Call(self._call_counter + 1,
@@ -800,10 +800,12 @@ class Controller:
                             target,
                             ped_service=ped_service)
 
-                self.LOG.debug(f'Call {call.getTag()} '
-                               f'{target.getTag()}{input_text}')
                 self._calls.add(call)
                 self._call_counter += 1
+                if self._active_barrier is None:
+                    self.changeBarrier(phase_barrier)
+                self.LOG.debug(f'Call {call.getTag()} '
+                               f'{target.getTag()}{input_text}')
                 return True
         return False
 
@@ -871,24 +873,10 @@ class Controller:
                 return True
         return False
 
-    def getDemand(self, active: List[Phase]) -> int:
-        demand = 0
-
-        for call in self._calls:
-            phase = call.target
-            for ap in active:
-                if phase != ap:
-                    if self.checkPhaseConflict(phase,
-                                               ap,
-                                               check_barrier=False):
-                        demand += 1
-
-        return demand
-
     def handleRingAndBarrier(self,
                              available: FrozenSet[Phase],
                              with_calls: FrozenSet[Phase],
-                             barrier_phases: List[Phase]) -> bool:
+                             barrier_phases: List[Phase]) -> int:
         # no available phases for barrier
         c1 = len(available) == 0
 
@@ -922,11 +910,11 @@ class Controller:
 
                 if self._barrier_skip_counter >= len(self._barriers) * 2:
                     self.LOG.debug(f'Barrier thrashing detected')
-                    self._active_barrier = None
-                    return True
+                    return 1
                 else:
                     self.changeBarrier(next_barrier)
-        return False
+                    return 0
+        return -1
 
     def activatePhase(self,
                       choice: Optional[Phase],
@@ -945,11 +933,21 @@ class Controller:
 
         choice.activate(ped_inhibit=not ped_service)
 
-    def handlePhases(self,
-                     demand: int):
+    def hasConflictingDemand(self,
+                             ranked_calls: List[Call],
+                             ph: Phase) -> bool:
+        for call in ranked_calls:
+            call_phase = call.target
+            if ph != call_phase:
+                if self.checkPhaseConflict(ph, call_phase):
+                    return True
+        return False
+
+    def handlePhases(self, ranked_calls: List[Call]):
         """Handle phase ticking and completed phases"""
         for ph in self._phases:
-            if ph.tick(demand, self.flasher):
+            conflicting_demand = self.hasConflictingDemand(ranked_calls, ph)
+            if ph.tick(conflicting_demand, self.flasher):
                 if ph.state == PhaseState.STOP:
                     self._cycle_window.insert(0, ph)
 
@@ -1029,71 +1027,52 @@ class Controller:
             if self._op_mode == OperationMode.NORMAL:
                 active = self.getActivePhases()
                 ranked_calls = self.getRankedCalls()
-                thrashing = False
 
                 barrier_pool = None
                 if self._active_barrier is not None:
                     barrier_pool = self.getBarrierPhases(self._active_barrier)
-                    with_calls = self.getPhasesWithCalls(self._active_barrier)
                     available = self.getAvailablePhases(
                         barrier_pool,
                         active
                     )
-                    thrashing = self.handleRingAndBarrier(available,
-                                                          with_calls,
-                                                          barrier_pool)
-                    # handleRingAndBarrier may change active barrier, so update
-                    # to the latest pools for activatePhase methods below
-                    if self._active_barrier is not None:
-                        barrier_pool = self.getBarrierPhases(
-                            self._active_barrier
-                        )
-                        available = self.getAvailablePhases(
-                            barrier_pool,
-                            active
-                        )
                 else:
                     available = self.getAvailablePhases(self._phases, active)
 
                 lone_phase = active[0] if len(active) == 1 else None
+                call_choice = self.handleCalls(ranked_calls,
+                                               active,
+                                               available,
+                                               lone_phase)
 
-                if thrashing:
-                    call_choice = ranked_calls[0]
-                    self.serveCall(call_choice, active, None, lone_phase)
-                else:
-                    call_choice = self.handleCalls(ranked_calls,
-                                                   active,
-                                                   available,
-                                                   lone_phase)
-
-                current_demand = self.getDemand(active)
-
-                if lone_phase is not None and \
-                        call_choice is None and \
-                        current_demand == 0 and \
-                        self._last_demand == 0:
-                    # todo: config preference for column/diagonal selection
-                    diagonal = self.getDiagonalPartner(lone_phase)
-                    column = self.getColumnPartner(lone_phase)
-                    for ph in [diagonal, column]:
-                        if ph is not None:
-                            if ph.state == PhaseState.STOP:
-                                # todo: add default state for ped service in
-                                #  config
-                                self.activatePhase(ph,
-                                                   ped_service=True,
-                                                   barrier_pool=barrier_pool)
-                                break
-                else:
-                    if call_choice is not None:
-                        phase = call_choice.target
-                        self.changeBarrier(self.getBarrierByPhase(phase))
-                        self.activatePhase(phase,
+                call_count = len(self._calls)
+                if call_choice is not None:
+                    if lone_phase is not None and \
+                            call_count == 0 and \
+                            self._last_call_count == 0:
+                        # todo: config preference for column/diagonal selection
+                        diagonal = self.getDiagonalPartner(lone_phase)
+                        column = self.getColumnPartner(lone_phase)
+                        for ph in [diagonal, column]:
+                            if ph is not None:
+                                if ph.state == PhaseState.STOP:
+                                    # todo: add default state for ped service in
+                                    #  config
+                                    self.activatePhase(
+                                        ph,
+                                        ped_service=True,
+                                        barrier_pool=barrier_pool
+                                    )
+                                    break
+                    else:
+                        self.activatePhase(call_choice.target,
                                            ped_service=call_choice.ped_service,
                                            barrier_pool=barrier_pool)
-
-                self.handlePhases(current_demand)
-                self._last_demand = current_demand
+                self._last_call_count = call_count
+                self.handlePhases(ranked_calls)
+                with_calls = self.getPhasesWithCalls(self._active_barrier)
+                rb_result = self.handleRingAndBarrier(available,
+                                                      with_calls,
+                                                      barrier_pool)
             elif self._op_mode == OperationMode.CET:
                 for ph in self._phases:
                     ph.tick(0, self._flasher)
