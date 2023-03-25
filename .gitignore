@@ -1,0 +1,6 @@
+env/
+**/__pycache__/
+.idea/
+*.zip
+picp.bat
+profiling/

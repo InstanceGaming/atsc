@@ -1,0 +1,237 @@
+{
+  "version": 3,
+  "random-actuation": {
+    "delay": 30,
+    "min": 10,
+    "max": 20,
+    "enabled": true
+  },
+  "init": {
+    "mode": "cet",
+    "cet-delay": 3,
+    "recall-all": true
+  },
+  "device": {
+    "name": "ATSC Development Intersection",
+    "location": {
+      "timezone": "America/Boise"
+    }
+  },
+  "network": {
+    "enabled": true,
+    "interface": "localhost",
+    "monitor": {
+      "enabled": true,
+      "port": 7801
+    }
+  },
+  "bus": {
+    "enabled": false,
+    "port": "COM4",
+    "baud": 115200,
+    "response-attempts": 5
+  },
+  "default-timing": {
+    "min-stop": 1.0,
+    "rclr": 1.0,
+    "caution": 4.0,
+    "extend": 3.0,
+    "go": 12.0,
+    "pclr": 9.0,
+    "walk": 3.0,
+    "max-go": 24.0
+  },
+  "phases": [
+    {
+      "timing": {
+        "extend": 2.5,
+        "go": 4.0
+      },
+      "pclr-enable": false,
+      "flash-mode": "red",
+      "load-switches": {
+        "vehicle": 1
+      }
+    },
+    {
+      "timing": {
+        "extend": 0
+      },
+      "pclr-enable": true,
+      "flash-mode": "red",
+      "load-switches": {
+        "vehicle": 2,
+        "ped": 5
+      }
+    },
+    {
+      "timing": {
+        "extend": 2.5,
+        "go": 4.0
+      },
+      "pclr-enable": false,
+      "flash-mode": "red",
+      "load-switches": {
+        "vehicle": 3
+      }
+    },
+    {
+      "pclr-enable": true,
+      "flash-mode": "red",
+      "load-switches": {
+        "vehicle": 4,
+        "ped": 6
+      }
+    },
+    {
+      "timing": {
+        "extend": 2.5,
+        "go": 4.0
+      },
+      "pclr-enable": false,
+      "flash-mode": "red",
+      "load-switches": {
+        "vehicle": 7
+      }
+    },
+    {
+      "timing": {
+        "extend": 0
+      },
+      "pclr-enable": true,
+      "flash-mode": "red",
+      "load-switches": {
+        "vehicle": 8,
+        "ped": 11
+      }
+    },
+    {
+      "timing": {
+        "extend": 2.5,
+        "go": 4.0
+      },
+      "pclr-enable": false,
+      "flash-mode": "red",
+      "load-switches": {
+        "vehicle": 9
+      }
+    },
+    {
+      "pclr-enable": true,
+      "flash-mode": "red",
+      "load-switches": {
+        "vehicle": 10,
+        "ped": 12
+      }
+    }
+  ],
+  "rings": [
+    [
+      1,
+      2,
+      3,
+      4
+    ],
+    [
+      5,
+      6,
+      7,
+      8
+    ]
+  ],
+  "barriers": [
+    [
+      1,
+      2,
+      5,
+      6
+    ],
+    [
+      3,
+      4,
+      7,
+      8
+    ]
+  ],
+  "calls": {
+    "max-age": 600,
+    "weights": {
+      "system": 600,
+      "duplicate-factor": 4
+    }
+  },
+  "inputs": [
+    {
+      "slot": 1,
+      "ignore": false,
+      "active": "rising",
+      "action": "detect",
+      "targets": [
+        1
+      ]
+    },
+    {
+      "slot": 2,
+      "ignore": false,
+      "active": "rising",
+      "action": "detect",
+      "targets": [
+        2
+      ]
+    },
+    {
+      "slot": 3,
+      "ignore": false,
+      "active": "rising",
+      "action": "detect",
+      "targets": [
+        3
+      ]
+    },
+    {
+      "slot": 4,
+      "ignore": false,
+      "active": "rising",
+      "action": "detect",
+      "targets": [
+        4
+      ]
+    },
+    {
+      "slot": 5,
+      "ignore": false,
+      "active": "rising",
+      "action": "detect",
+      "targets": [
+        5
+      ]
+    },
+    {
+      "slot": 6,
+      "ignore": false,
+      "active": "rising",
+      "action": "detect",
+      "targets": [
+        6
+      ]
+    },
+    {
+      "slot": 7,
+      "ignore": false,
+      "active": "rising",
+      "action": "detect",
+      "targets": [
+        7
+      ]
+    },
+    {
+      "slot": 8,
+      "ignore": false,
+      "active": "rising",
+      "action": "detect",
+      "targets": [
+        8
+      ]
+    }
+  ]
+}

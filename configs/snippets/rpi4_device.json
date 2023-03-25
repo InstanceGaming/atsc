@@ -1,0 +1,24 @@
+{
+ "version": 2,
+ "device": {
+  "name": "Raspberry Pi 4",
+  "location": {
+   "timezone": "America/Boise"
+  }
+ },
+ "network": {
+  "enabled": true,
+  "interface": "eth0",
+  "monitor": {
+   "enabled": true,
+   "port": 7801
+  }
+ },
+ "bus": {
+  "enabled": true,
+  "port": "/dev/serial0",
+  "baud": 115200,
+  "response-attempts": 5,
+  "response-timeout": 1000
+ }
+}

@@ -1,0 +1,30 @@
+syntax = "proto3";
+package atsc;
+
+service Controller
+{
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
+}
+
+enum ControlMode
+{
+  MODE_UNKNOWN = 0;
+  MODE_OFF = 10;
+  MODE_CET = 20;
+  MODE_NORMAL = 30;
+  MODE_CXT = 40;
+  MODE_LS_FLASH = 50;
+}
+
+message StatusRequest {}
+message StatusResponse
+{
+  ControlMode mode = 10;
+  uint32 state_flags = 20;
+  uint32 plan_id = 30;
+  float avg_demand = 40;
+  float peek_demand = 41;
+  uint64 runtime = 50;
+  uint64 control_time = 51;
+  uint64 transfer_count = 60;
+}

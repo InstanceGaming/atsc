@@ -1,0 +1,8 @@
+pyserial
+crcmod
+grpcio
+jsonschema
+dateutils
+bitarray
+loguru
+netifaces
