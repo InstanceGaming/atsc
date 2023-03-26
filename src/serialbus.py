@@ -115,7 +115,6 @@ class Bus(Thread):
         try:
             self._serial.write(data)
             self._stats[0]['tx_bytes'] += 1
-            self._serial.flushOutput()
         except serial.SerialTimeoutException:
             pass
         except SerialException as e:
@@ -149,7 +148,6 @@ class Bus(Thread):
                                 in_frame = True
                         else:
                             drydock.append(b)
-                    self._serial.flushInput()
                     self._rx_lock.release()
         except serial.SerialTimeoutException:
             pass
