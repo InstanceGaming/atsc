@@ -174,7 +174,6 @@ def run():
     LOG.info(dt.now(tzo).strftime('Started at %I:%M %p %b %d %Y'))
 
     controller = Controller(config, tzo)
-    print(controller.bus_enabled)
     try:
         controller.run()
     except KeyboardInterrupt:

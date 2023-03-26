@@ -1146,9 +1146,9 @@ class Controller:
                 self._bus.start()
 
                 while not self._bus.ready:
-                    self.LOG.debug(f'Waiting on bus...')
+                    self.LOG.info(f'Waiting on bus...')
 
-                self.LOG.debug(f'Bus ready')
+                self.LOG.info(f'Bus ready')
 
             self.setOperationState(self._op_mode)
             self.transfer()
