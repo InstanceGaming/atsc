@@ -30,19 +30,7 @@ class Bus(Thread):
     CRC_REVERSE = True
     CRC_XOR_OUT = 0
     BYTE_ORDER = 'big'
-    LOCK_TIMEOUT = 0.025
-
-    @property
-    def tx_wait(self):
-        return self._tx_buf is not None
-
-    @property
-    def rx_wait(self):
-        return self._rx_buf is not None
-
-    @property
-    def rx_miss(self):
-        return self._rx_miss
+    LOCK_TIMEOUT = 0.05
 
     @property
     def hdlc_context(self):
@@ -52,12 +40,18 @@ class Bus(Thread):
     def stats(self):
         return self._stats.copy()
 
+    @property
+    def ready(self):
+        return self._ready
+
     def __init__(self,
                  port: str,
                  baud: int):
         Thread.__init__(self)
         self.name = 'SerialBus'
-        self.running = False
+        self.daemon = True
+        self._running = False
+        self._ready = False
         self._port = port
         self._baud = baud
         self._hdlc = hdlc.HDLCContext(self.CRC_POLY,
@@ -67,12 +61,9 @@ class Bus(Thread):
                                       byte_order=self.BYTE_ORDER)
 
         self._serial = None
-        self._tx_frame: Optional[GenericFrame] = None
         self._tx_lock = Lock()
-        self._tx_buf: Optional[bytes] = None
         self._rx_lock = Lock()
         self._rx_buf: Optional[hdlc.Frame] = None
-        self._rx_miss: bool = False
         self._stats: Dict[int, dict] = defaultdict(self._statsPopulator)
 
     def _statsPopulator(self) -> dict:
@@ -92,24 +83,6 @@ class Bus(Thread):
             'tx_frames': tx_map,
             'rx_frames': rx_map
         }
-
-    def _updateStatsTx(self, data: bytes):
-        size = len(data)
-        if self._tx_frame is not None:
-            addr = self._tx_frame.address
-            ft = self._tx_frame.type
-            try:
-                da = DeviceAddress(addr)
-            except ValueError:
-                da = DeviceAddress.UNKNOWN
-
-            self.LOG.bus(f'Sent frame type '
-                         f'{self._tx_frame.type.name} to '
-                         f'{da} '
-                         f'({size}B)')
-
-            self._stats[addr]['tx_frames'][ft][0] += 1
-            self._stats[addr]['tx_frames'][ft][1] = timing.millis()
 
     def _updateStatsRx(self, f: hdlc.Frame):
         data = f.data
@@ -138,25 +111,18 @@ class Bus(Thread):
     def _formatParameterText(self):
         return f'port={self._port}, baud={self._baud}'
 
-    def _write(self) -> bool:
-        if self.tx_wait > 0:
-            if self._tx_lock.acquire(timeout=self.LOCK_TIMEOUT):
-                data = self._tx_buf
-                try:
-                    self._serial.write(data)
-                    self._serial.flushOutput()
-                    self._updateStatsTx(data)
-                    self._tx_frame = None
-                except serial.SerialTimeoutException:
-                    pass
-                except SerialException as e:
-                    self.LOG.bus(f'Serial error: {str(e)}')
-                    self.shutdown()
-                self._tx_lock.release()
-                return True
-        return False
+    def _write(self, data: bytes):
+        try:
+            self._serial.write(data)
+            self._stats[0]['tx_bytes'] += 1
+            self._serial.flushOutput()
+        except serial.SerialTimeoutException:
+            pass
+        except SerialException as e:
+            self.LOG.bus(f'Serial error: {str(e)}')
+            self.shutdown()
 
-    def _read(self) -> bool:
+    def _read(self):
         try:
             iw = self._serial.in_waiting
             # in_waiting can be None in a pypy environment
@@ -175,12 +141,9 @@ class Bus(Thread):
                                     self.LOG.bus(
                                         f'Framing error {error.name}')
                                 else:
+                                    self._stats[0]['rx_bytes'] += len(drydock)
                                     self._updateStatsRx(frame)
-
                                     self._rx_buf = frame
-                                    if self.rx_wait:
-                                        self._rx_miss = True
-
                                 drydock = bytearray()
                             else:
                                 in_frame = True
@@ -188,78 +151,72 @@ class Bus(Thread):
                             drydock.append(b)
                     self._serial.flushInput()
                     self._rx_lock.release()
-                    return True
         except serial.SerialTimeoutException:
             pass
         except SerialException as e:
             self.LOG.bus(f'Serial error: {str(e)}')
             self.shutdown()
-        return False
 
     def run(self):
-        self.running = True
         try:
             self._serial = serial.Serial(port=self._port,
                                          baudrate=self._baud,
-                                         stopbits=serial.STOPBITS_ONE,
-                                         parity=serial.PARITY_NONE,
-                                         bytesize=serial.EIGHTBITS,
                                          timeout=self.LOCK_TIMEOUT,
                                          write_timeout=self.LOCK_TIMEOUT)
+            self._running = True
         except ValueError as e:
             self.LOG.error('Invalid settings configured for serial bus '
                            f'({self._formatParameterText()}): '
                            f'{str(e)}')
-            self.running = False
         except SerialException as e:
             self.LOG.bus(f'Serial error: {str(e)}')
             self.shutdown()
 
-        if self.running:
-            self.LOG.bus(
-                f'Serial bus started ({self._formatParameterText()})')
-            while self.running:
-                if self._serial is not None and self._serial.is_open:
-                    if self.rx_miss:
-                        self.LOG.bus(f'Dropped bus response frame')
-                    if self._write():
-                        time.sleep(0.05)
-                    if not self._read():
-                        time.sleep(0.05)
+        if self._running:
+            self.LOG.bus(f'Serial bus started ({self._formatParameterText()})')
+            while self._running:
+                time.sleep(0.1)
+                if self._serial is not None:
+                    self._ready = True
+                    if self._serial.is_open:
+                        self._read()
                 else:
-                    time.sleep(0.25)
+                    self._ready = False
 
-    def send(self, data: bytes, no_lock=False):
-        if no_lock or self._tx_lock.acquire(timeout=self.LOCK_TIMEOUT):
-            self._tx_buf = data
-            if not no_lock:
-                self._tx_lock.release()
+    def send(self, data: bytes):
+        if self._tx_lock.acquire(timeout=self.LOCK_TIMEOUT):
+            self._write(data)
+            self._tx_lock.release()
         else:
             self.LOG.bus('Failed to acquire transmit lock within timeout')
 
     def sendFrame(self, f: GenericFrame):
-        payload = f.build(self._hdlc)
         if self._tx_lock.acquire(timeout=self.LOCK_TIMEOUT):
-            self._tx_frame = f
-            self.send(payload, no_lock=True)
+            payload = f.build(self._hdlc)
+            self._write(payload)
+
+            addr = f.address
+            ft = f.type
+            self._stats[addr]['tx_frames'][ft][0] += 1
+            self._stats[addr]['tx_frames'][ft][1] = timing.millis()
+            self.LOG.bus(f'Sent frame type {f.type.name} to {addr} ({len(payload)}B)')
+
             self._tx_lock.release()
         else:
-            self.LOG.bus('Failed to acquire transmit lock within timeout '
-                         '(with frame)')
+            self.LOG.bus('Failed to acquire transmit lock within timeout (with frame)')
 
     def get(self) -> Optional[hdlc.Frame]:
         if self._rx_lock.acquire(timeout=self.LOCK_TIMEOUT):
             rv = self._rx_buf
             self._rx_buf = None
-            self._rx_miss = False
             self._rx_lock.release()
             return rv
         else:
             self.LOG.bus('Failed to acquire receive lock within timeout')
 
     def shutdown(self):
-        if self.running:
-            self.running = False
+        if self._running:
+            self._running = False
             if self._serial is not None and self._serial.is_open:
                 self._serial.close()
             self.LOG.bus('Bus shutdown')

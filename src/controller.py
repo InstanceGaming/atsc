@@ -602,7 +602,7 @@ class Controller:
         self._active_barrier = barrier
         self.LOG.debug(f'Crossed to {barrier.getTag()}')
 
-    def endCycle(self, early=True) -> None:
+    def endCycle(self, early: bool) -> None:
         """End phasing for this control cycle iteration"""
         self._cycle_count += 1
         self._cycle_window = []
@@ -740,7 +740,7 @@ class Controller:
                 self.LOG.verbose(f'{phase.getTag()} was selected as partner to '
                                  f'{lone.getTag()}')
 
-            self.LOG.debug(f'Serving call {call.getTag()}')
+            self.LOG.debug(f'Serving call {call.getTag()} {call.target.getTag()}')
             self._barrier_phase_count += 1
             self._barrier_skip_counter = 0
             return True
@@ -876,17 +876,17 @@ class Controller:
     def handleRingAndBarrier(self,
                              available: FrozenSet[Phase],
                              with_calls: FrozenSet[Phase],
-                             barrier_phases: List[Phase]) -> int:
-        # no available phases for barrier
+                             barrier_phases: List[Phase]):
+        # no available phases for barrier and demand exists
         c1 = len(available) == 0
 
         # there are no calls for available phases
-        c2 = len(self.getRankedCalls(phases=available)) == 0
+        c2 = len(self.getRankedCalls(phases=available)) == 0 and len(with_calls)
 
         if c1 or c2:
             if self.allPhasesInactive():
                 if len(self._cycle_window) == len(self._phases):
-                    self.endCycle()
+                    self.endCycle(False)
 
                 next_barrier = next(self._barrier_pool)
 
@@ -906,15 +906,13 @@ class Controller:
                                 f'on only unavailable phases'
                             )
                             next_barrier = self.getPriorityBarrier()
-                            self.endCycle(early=True)
+                            self.endCycle(True)
 
-                if self._barrier_skip_counter >= len(self._barriers) * 2:
+                if self._barrier_skip_counter > len(self._barriers):
                     self.LOG.debug(f'Barrier thrashing detected')
-                    return 1
+                    self._active_barrier = None
                 else:
                     self.changeBarrier(next_barrier)
-                    return 0
-        return -1
 
     def activatePhase(self,
                       choice: Optional[Phase],
@@ -954,7 +952,7 @@ class Controller:
     def busHealthCheck(self):
         """Ensure bus thread is still running, if enabled"""
         if self.bus_enabled:
-            if not self._bus.running:
+            if not self._bus.ready:
                 self.LOG.error('Bus not running')
                 self.shutdown()
 
@@ -1028,6 +1026,14 @@ class Controller:
                 active = self.getActivePhases()
                 ranked_calls = self.getRankedCalls()
 
+                if len(ranked_calls):
+                    top = ranked_calls[0]
+                    threshold = self._max_call_age // 2
+                    if top.age > threshold:
+                        raise RuntimeError(f'Age of top call {top.getTag()} '
+                                           'exceeded no-serve timeout threshold '
+                                           f'({threshold})')
+
                 barrier_pool = None
                 if self._active_barrier is not None:
                     barrier_pool = self.getBarrierPhases(self._active_barrier)
@@ -1070,12 +1076,10 @@ class Controller:
                 self._last_call_count = call_count
                 self.handlePhases(ranked_calls)
                 with_calls = self.getPhasesWithCalls(self._active_barrier)
-                rb_result = self.handleRingAndBarrier(available,
-                                                      with_calls,
-                                                      barrier_pool)
+                self.handleRingAndBarrier(available, with_calls, barrier_pool)
             elif self._op_mode == OperationMode.CET:
                 for ph in self._phases:
-                    ph.tick(0, self._flasher)
+                    ph.tick(False, self._flasher)
 
             if self._half_counter == 4:
                 self._half_counter = 0
@@ -1141,7 +1145,7 @@ class Controller:
             if self.bus_enabled:
                 self._bus.start()
 
-                while not self._bus.running:
+                while not self._bus.ready:
                     self.LOG.debug(f'Waiting on bus...')
 
                 self.LOG.debug(f'Bus ready')
@@ -1149,8 +1153,8 @@ class Controller:
             self.setOperationState(self._op_mode)
             self.transfer()
             while True:
+                time.sleep(0.1)
                 self.tick()
-                time.sleep(self.INCREMENT)
 
     def shutdown(self):
         """Run termination tasks to stop control loop"""

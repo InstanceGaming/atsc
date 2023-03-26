@@ -103,7 +103,7 @@ class HDLCContext:
                 # inject ESCAPE_OCTET
                 escaped.append(HDLC_ESCAPE)
                 # mask original byte with ESCAPE_MASK
-                b = b ^ HDLC_ESCAPE_MASK
+                b ^= HDLC_ESCAPE_MASK
             escaped.append(b)
 
         if frame:

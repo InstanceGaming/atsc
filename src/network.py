@@ -35,9 +35,8 @@ class Monitor(Thread):
 
     def __init__(self, controller, host, port):
         Thread.__init__(self)
-        self.setName('Monitor')
+        self.name = 'NetMonitor'
         self.daemon = True
-
         self._controller = controller
 
         self._running = False
@@ -83,6 +82,7 @@ class Monitor(Thread):
         while self._running:
             if self.socket:
                 try:
+                    time.sleep(0.1)
                     (connection, (ip, port)) = self.socket.accept()
                     client_count = len(self._clients) + 1
                     ct = MonitorClient(connection,
@@ -93,7 +93,6 @@ class Monitor(Thread):
                         info_payload = self._control_info.SerializeToString()
                         ct.send(self._prefix(info_payload))
                     self._clients.append(ct)
-                    time.sleep(0.25)
                 except OSError:
                     pass
 

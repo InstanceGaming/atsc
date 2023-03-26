@@ -4,12 +4,12 @@
     "delay": 60,
     "min": 1,
     "max": 10,
-    "enabled": false
+    "enabled": true
   },
   "init": {
     "mode": "cet",
     "cet-delay": 4,
-    "recall-all": false
+    "recall-all": true
   },
   "device": {
     "name": "ATSC Development Intersection",

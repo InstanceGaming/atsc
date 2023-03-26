@@ -7,7 +7,7 @@
     "enabled": true
   },
   "init": {
-    "mode": "normal",
+    "mode": "cet",
     "cet-delay": 4,
     "recall-all": true
   },
