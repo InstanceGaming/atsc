@@ -77,7 +77,7 @@ class Bus(Thread):
         
         return {
             'tx_bytes': 0, 'rx_bytes': 0, 'tx_frames': tx_map, 'rx_frames': rx_map
-            }
+        }
     
     def _updateStatsRx(self, f: hdlc.Frame):
         data = f.data
