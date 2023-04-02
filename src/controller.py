@@ -634,9 +634,9 @@ class Controller:
         calls.sort(key=cmp_to_key(self._sortCallsKeyFunc), reverse=True)
         
         ocs = len(calls)
-        if ocs == 1:
+        if ocs >= 1:
             self.LOG.sorting(f'Call sorting 1st place {calls[0].getTag()}')
-        elif ocs == 1:
+        if ocs >= 2:
             self.LOG.sorting(f'Call sorting 2nd place {calls[0].getTag()}, '
                              f'{calls[1].getTag()}')
         
@@ -667,13 +667,10 @@ class Controller:
             input_text = f' (input #{input_slot})'
         
         if not target.active:
-            phase_barrier = self.getBarrierByPhase(target)
             for call in self._calls:
                 if call.target == target:
                     call.duplicates += 1
                     self._call_counter += 1
-                    if self._active_barrier is None:
-                        self.changeBarrier(phase_barrier)
                     self.LOG.debug(f'Adding to existing call {call.getTag()} '
                                    f'({target.getTag()}), now {call.duplicates}'
                                    f'{input_text}')
@@ -683,8 +680,6 @@ class Controller:
                 
                 self._calls.add(call)
                 self._call_counter += 1
-                if self._active_barrier is None:
-                    self.changeBarrier(phase_barrier)
                 self.LOG.debug(f'Call {call.getTag()} '
                                f'{target.getTag()}{input_text}')
                 return True
@@ -760,13 +755,13 @@ class Controller:
         barrier_phases = self.getBarrierPhases(self._active_barrier)
         available_phases = self.getAvailablePhases(barrier_phases, active_phases)
         
-        # no available phases for barrier and demand exists
+        # no available phases for barrier
         c1 = len(available_phases) == 0
         
-        # there are no calls for available phases
-        c2 = len(available_calls) == 0 and len(self._calls)
+        # there are no available calls
+        c2 = len(available_calls) == 0
         
-        if c1 or c2:
+        if (c1 or c2) and len(self._calls):
             if self.allPhasesInactive():
                 if len(self._cycle_window) == len(self._phases):
                     self.endCycle(False)
@@ -797,6 +792,10 @@ class Controller:
                     self.changeBarrier(next_barrier)
     
     def serveCall(self, call: Call):
+        if self._active_barrier is None:
+            self.changeBarrier(self.getBarrierByPhase(call.target))
+            self.LOG.debug(f'Active barrier set serving call {call.getTag()}')
+        
         self.LOG.debug(f'Serving call {call.getTag()} {call.target.getTag()}')
         self._barrier_phase_count += 1
         self._barrier_skip_counter = 0
@@ -880,14 +879,16 @@ class Controller:
                 while len(active) < 2:
                     if len(available_calls):
                         ranked_calls = self.rankCalls(available_calls)
-                        for rc in ranked_calls:
-                            if len(active):
+                        
+                        if len(active):
+                            for rc in ranked_calls:
                                 if not self.checkPhaseConflicts(rc.target, active):
                                     self.serveCall(rc)
                                     break
                             else:
-                                self.serveCall(rc)
                                 break
+                        else:
+                            self.serveCall(ranked_calls[0])
                     else:
                         break
                     
