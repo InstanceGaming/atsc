@@ -18,11 +18,7 @@ from utils import condText
 from typing import List, Tuple, Optional, FrozenSet
 from natsort import natsorted
 from datetime import datetime
-from timespan import (Timespan,
-                      day_of_year,
-                      datetime_month,
-                      datetime_weekday,
-                      sort_overlap_duration)
+from timespan import (Timespan, day_of_year, datetime_month, datetime_weekday, sort_overlap_duration)
 from functools import lru_cache
 from dataclasses import dataclass
 from ringbarrier import Ring, Barrier
@@ -39,12 +35,8 @@ class Schedule:
     rings: List[Ring]
     barriers: List[Barrier]
     last_active: Optional[datetime] = None
-
-    def getRankedBlocks(self,
-                        current: datetime,
-                        doy=True,
-                        weekdays=True,
-                        months=True) -> List[Timespan]:
+    
+    def getRankedBlocks(self, current: datetime, doy=True, weekdays=True, months=True) -> List[Timespan]:
         """
         Get activation timespans overlapping with the current datetime ordered
         by duration remaining of the overlap from most to least. Will
@@ -68,31 +60,31 @@ class Schedule:
                 if doy:
                     if day_of_year(current) in block.day_exceptions:
                         continue
-
+                
                 if weekdays:
                     if datetime_weekday(current) not in block.weekdays:
                         continue
-
+                
                 if months:
                     if datetime_month(current) not in block.months:
                         continue
-
+                
                 if block.overlap(current):
                     usable.append(block)
-
+            
             usable.sort(key=lambda b: sort_overlap_duration(b, current))
             return usable
         else:
             if len(self.activation_blocks) > 0:
                 return [list(self.activation_blocks)[0]]
             return []
-
+    
     def getActivationBlocksText(self) -> str:
         return ', '.join([b.getDurationText() for b in self.activation_blocks])
-
+    
     def __hash__(self):
         return hash(self.name)
-
+    
     def __repr__(self):
         return f'<Schedule "{self.name}" {"ENABLED" if self.enabled else ""} ' \
                f'{self.getActivationBlocksText()} ' \
@@ -103,70 +95,68 @@ class Schedule:
 
 class ScheduleManager:
     LOG = logging.getLogger('atsc.scheduling')
-
+    
     @property
     def active(self) -> Schedule:
         return self._active
-
+    
     @property
     def timespan(self) -> Optional[Timespan]:
         return self._timespan
-
+    
     @property
     def mode(self) -> OperationMode:
         return self._active.mode
-
+    
     @property
     def free(self) -> bool:
         return self._active.free
-
+    
     @property
     def rings(self) -> List[Ring]:
         return self._active.rings
-
+    
     @property
     def barriers(self) -> List[Barrier]:
         return self._active.barriers
-
+    
     @property
     def phases(self) -> FrozenSet[Phase]:
         return self._active.phases
-
-    def __init__(self,
-                 schedules: FrozenSet[Schedule],
-                 tz=None):
+    
+    def __init__(self, schedules: FrozenSet[Schedule], tz=None):
         self._tz = tz
         self._schedules = schedules
         self._active: Schedule = self.getDefaultSchedule()
         self.LOG.info(f'Default schedule is "{self._active.name}"')
         self._timespan: Optional[Timespan] = None
-
+    
     @lru_cache(32)
     def getAlphabetical(self) -> List[Schedule]:
         return natsorted(self._schedules, key=lambda s: s.name)
-
+    
     @lru_cache(32)
     def getScheduleByName(self, name: str) -> Schedule:
         for sch in self._schedules:
             if sch.name == name:
                 return sch
-
+        
         raise RuntimeError(f'Failed to locate schedule "{name}"')
-
+    
     def getDefaultSchedule(self) -> Schedule:
         rv = None
-
+        
         for sch in self.getAlphabetical():
             if sch.enabled:
                 rv = sch
-
+        
         return rv
-
+    
     def getNextSchedule(self) -> Tuple[Schedule, Optional[Timespan]]:
         for sch in self.getAlphabetical():
             if sch.enabled:
                 blocks = sch.getRankedBlocks(datetime.now(self._tz))
-
+                
                 if len(blocks) > 0:
                     chosen_timespan = blocks[0]
                     self.LOG.debug(f'Next schedule is '
@@ -174,15 +164,14 @@ class ScheduleManager:
                                    f'{chosen_timespan.getDurationText()}')
                     return sch, chosen_timespan
         return self.getDefaultSchedule(), None
-
+    
     def setActive(self, s: Schedule, ts: Optional[Timespan] = None):
         s.last_active = datetime.now(self._tz)
         self._active = s
         self._timespan = ts
-
+        
         ts_text = ''
         if ts is not None:
-            ts_text = condText(f'and changed block to {ts.getDurationText()}',
-                               paren=True)
-
+            ts_text = condText(f'and changed block to {ts.getDurationText()}', paren=True)
+        
         self.LOG.info(f'Changed schedule to "{s.name}"{ts_text}')

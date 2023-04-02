@@ -49,12 +49,8 @@ def get_cli_args():
                         action='store_true',
                         dest='pid_disable',
                         help='For development only. Disable use of PID file.')
-    parser.add_argument('-v',
-                        dest='verbosity',
-                        action='count',
-                        default=0,
-                        help='Increase verbosity the '
-                             'more this flag is defined.')
+    parser.add_argument('-v', dest='verbosity', action='count', default=0, help='Increase verbosity the '
+                                                                                'more this flag is defined.')
     parser.add_argument(dest='config_paths',
                         nargs='+',
                         metavar='FILENAMES',
@@ -67,7 +63,7 @@ def generate_pid(filepath, disabled):
     pid = os.getpid()
     path = os.path.abspath(filepath)
     file = None
-
+    
     if disabled:
         LOG.info(f'PID {pid} (file disabled)')
     else:
@@ -79,12 +75,12 @@ def generate_pid(filepath, disabled):
         except OSError as e:
             LOG.error(f'Could not create PID file at {path}: {str(e)}')
             exit(5)
-
+        
         file.write(str(pid))
         file.flush()
-
+        
         LOG.info(f'PID {pid} ({path})')
-
+    
     return file
 
 
@@ -98,18 +94,18 @@ def cleanup_pid(file, disabled):
         except OSError as e:
             LOG.error(f'Could not remove PID file at {pid_path}: {str(e)}')
             exit(6)
-
+        
         LOG.info(f'Removed PID file at {pid_path}')
 
 
 def run():
     cla = get_cli_args()
-
+    
     pid_path = cla.pid_path[0]
     pid_disable = cla.pid_disable
     config_paths = cla.config_paths
     verbosity = cla.verbosity
-
+    
     if verbosity == 0:
         LOG.setLevel(logging.INFO)
     elif verbosity == 1:
@@ -120,28 +116,28 @@ def run():
         LOG.setLevel(finelog.CustomLogLevels.BUS)
     elif verbosity >= 4:
         LOG.setLevel(finelog.CustomLogLevels.SORTING)
-
+    
     LOG.info(WELCOME_MSG)
     LOG.info(f'Logging level {LOG.level}')
-
+    
     config_schema_path = configfile.get_config_schema_path()
-
+    
     if not os.path.exists(config_schema_path):
         LOG.fatal(f'Configuration file schema not found at '
                   f'"{config_schema_path}", exiting; '
                   f'this is a developer issue, NOT a user issue!')
         exit(100)
-
+    
     schema_validator = configfile.ConfigValidator(config_schema_path)
-
+    
     pid = generate_pid(pid_path, pid_disable)
-
+    
     config = None
     try:
         for cp in config_paths:
             cp = os.path.abspath(cp)
             LOG.info(f'Configuration ingest from "{cp}"')
-
+        
         if CONFIG_SCHEMA_CHECK:
             LOG.debug('Running static validation analysis...')
             config = schema_validator.load(config_paths)
@@ -153,35 +149,34 @@ def run():
             for k, v in e.details.items():
                 LOG.debug(f'- {k} = {v}')
         exit(10)
-
+    
     if CONFIG_LOGIC_CHECK:
         LOG.debug('Running dynamic validation analysis...')
-        complaint = configfile.validate_config_dynamic(config,
-                                                       schema_validator.version)
-
+        complaint = configfile.validate_config_dynamic(config, schema_validator.version)
+        
         if complaint:
             LOG.error('Configuration failed dynamic inspection tests: '
                       f'{complaint}')
             exit(11)
         else:
             LOG.debug('Dynamic validation analysis passed')
-
+    
     run_timer = timing.SecondTimer(0)
-
+    
     timezone = config['device']['location']['timezone']
     tzo = tz.gettz(timezone)
     LOG.info(f'Timezone set to "{timezone}"')
     LOG.info(dt.now(tzo).strftime('Started at %I:%M %p %b %d %Y'))
-
+    
     controller = Controller(config, tzo)
     try:
         controller.run()
     except KeyboardInterrupt:
         controller.shutdown()
-
+    
     ed, eh, em, es = utils.dhmsText(run_timer.getDelta())
     LOG.info(f'Runtime of {ed} days, {eh} hours, {em} minutes and {es} seconds')
-
+    
     cleanup_pid(pid, pid_disable)
 
 

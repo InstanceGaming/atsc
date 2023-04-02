@@ -1,24 +1,24 @@
 {
- "version": 2,
- "device": {
-  "name": "ATSC Development Intersection",
-  "location": {
-   "timezone": "America/Boise"
+  "version": 2,
+  "device": {
+    "name": "ATSC Development Intersection",
+    "location": {
+      "timezone": "America/Boise"
+    }
+  },
+  "network": {
+    "enabled": true,
+    "interface": "localhost",
+    "monitor": {
+      "enabled": true,
+      "port": 7801
+    }
+  },
+  "bus": {
+    "enabled": true,
+    "port": "COM4",
+    "baud": 115200,
+    "response-attempts": 5,
+    "response-timeout": 1000
   }
- },
- "network": {
-  "enabled": true,
-  "interface": "localhost",
-  "monitor": {
-   "enabled": true,
-   "port": 7801
-  }
- },
- "bus": {
-  "enabled": true,
-  "port": "COM4",
-  "baud": 115200,
-  "response-attempts": 5,
-  "response-timeout": 1000
- }
 }

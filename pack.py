@@ -10,29 +10,14 @@ import zipfile
 # style wildcard filenames in each directory.
 
 OUTPUT_FILENAME = 'atsc.zip'
-BLACKLIST_PATTERNS = [
-    '**/.idea/**',
-    '**/.idea/**/.*',
-    '**/env/**/.*',
-    '**/notes/**',
-    '**/env/**',
-    '**/__pycache__/**',
-    '.git/**',
-    '*.zip'
-]
+BLACKLIST_PATTERNS = ['**/.idea/**', '**/.idea/**/.*', '**/env/**/.*', '**/notes/**', '**/env/**', '**/__pycache__/**',
+                      '.git/**', '*.zip']
 
-BLACKLIST_PATTERNS_DEV = [
-    '**/env/**/.*',
-    '**/env/**',
-    '**/__pycache__/**',
-    '.git/**',
-    'screend/frames/*.jpg',
-    'screend/frames/*.jpeg',
-    'screend/frames/*.png',
-    '*.zip'
-]
+BLACKLIST_PATTERNS_DEV = ['**/env/**/.*', '**/env/**', '**/__pycache__/**', '.git/**', 'screend/frames/*.jpg',
+                          'screend/frames/*.jpeg', 'screend/frames/*.png', '*.zip']
 
 BASE_DIR = '.'
+
 
 def run():
     active_blacklist = BLACKLIST_PATTERNS
@@ -46,15 +31,15 @@ def run():
             
             if matched_name not in blacklisted_paths:
                 blacklisted_paths.append(os.path.join(BASE_DIR, matched_name))
-
+    
     print(f'{len(blacklisted_paths)} blacklisted files from {len(active_blacklist)} patterns')
-
+    
     all_paths = set()
     
     for current_dir, dirs, files in os.walk(BASE_DIR):
         for file in files:
             all_paths.add(os.path.join(current_dir, file))
-
+    
     print(f'{len(all_paths)} total files')
     
     whitelisted_paths = all_paths - set(blacklisted_paths)
@@ -67,6 +52,7 @@ def run():
         archive_file.write(whitelisted)
     
     print(f'created archive "{OUTPUT_FILENAME}"')
+
 
 if __name__ == '__main__':
     run()

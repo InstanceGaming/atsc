@@ -17,28 +17,28 @@ from dataclasses import dataclass
 
 
 class IdentifiableBase:
-
+    
     @property
     def id(self) -> int:
         return self._id
-
+    
     def __init__(self, id_: int):
         self._id = id_
-
+    
     def __hash__(self) -> int:
         return self._id
-
+    
     def __eq__(self, other) -> bool:
         if other is None:
             return False
         return self._id == other.id
-
+    
     def __lt__(self, other) -> bool:
         return self._id < other.id
-
+    
     def getTag(self):
         return f'{type(self).__name__[:2].upper()}{self.id:02d}'
-
+    
     def __repr__(self):
         return f'<{type(self).__name__} #{self.id}>'
 
@@ -46,19 +46,19 @@ class IdentifiableBase:
 @dataclass(frozen=True)
 class FrozenIdentifiableBase:
     id: int
-
+    
     def __hash__(self) -> int:
         return self.id
-
+    
     def __eq__(self, other):
         return self.id == other.id
-
+    
     def __lt__(self, other):
         return self.id < other.id
-
+    
     def getTag(self):
         return f'{type(self).__name__[:2].upper()}{self.id:02d}'
-
+    
     def __repr__(self):
         return f'<{type(self).__name__} #{self.id}>'
 
@@ -82,7 +82,7 @@ class OperationMode(IntEnum):
 
 
 class LoadSwitch(IdentifiableBase):
-
+    
     def __init__(self, id_: int):
         super().__init__(id_)
         self.a = False
@@ -102,83 +102,66 @@ class PhaseState(IntEnum):
     MAX_GO = 32
 
 
-PHASE_REST_STATES = [
-    PhaseState.STOP,
-    PhaseState.GO,
-    PhaseState.WALK,
-]
+PHASE_REST_STATES = [PhaseState.STOP, PhaseState.GO, PhaseState.WALK, ]
 
-PHASE_TIMED_STATES = [
-    PhaseState.MIN_STOP,
-    PhaseState.RCLR,
-    PhaseState.CAUTION,
-    PhaseState.EXTEND,
-    PhaseState.GO,
-    PhaseState.PCLR,
-    PhaseState.WALK,
-    PhaseState.MAX_GO
-]
+PHASE_TIMED_STATES = [PhaseState.MIN_STOP, PhaseState.RCLR, PhaseState.CAUTION, PhaseState.EXTEND, PhaseState.GO,
+                      PhaseState.PCLR, PhaseState.WALK, PhaseState.MAX_GO]
 
-PHASE_GO_STATES = [
-    PhaseState.EXTEND,
-    PhaseState.GO,
-    PhaseState.PCLR,
-    PhaseState.WALK
-]
+PHASE_GO_STATES = [PhaseState.EXTEND, PhaseState.GO, PhaseState.PCLR, PhaseState.WALK]
 
 
 class Phase(IdentifiableBase):
     FYA_LOCAL = -1
     FYA_PED = -2
-
+    
     @property
     def ped_enabled(self) -> bool:
         return self._pls is not None
-
+    
     @property
     def ped_service(self) -> bool:
         return not self._ped_inhibit and self.ped_enabled
-
+    
     @property
     def extend_enabled(self):
         return self._timing[PhaseState.EXTEND] > 0 and not self._extend_inhibit
-
+    
     @property
     def extend_active(self):
         return self._state == PhaseState.EXTEND
-
+    
     @property
     def resting(self):
         return self._resting
-
+    
     @property
     def flash_mode(self) -> FlashMode:
         return self._flash_mode
-
+    
     @property
     def active(self) -> bool:
         return self._state.value > 2
-
+    
     @property
     def state(self) -> PhaseState:
         return self._state
-
+    
     @property
     def time_upper(self):
         return self._time_upper
-
+    
     @property
     def time_lower(self):
         return self._time_lower
-
+    
     @property
     def veh_ls(self) -> LoadSwitch:
         return self._vls
-
+    
     @property
     def ped_ls(self) -> Optional[LoadSwitch]:
         return self._pls
-
+    
     def _validate_timing(self):
         if self.active:
             raise RuntimeError('Cannot changing timing map while active')
@@ -189,7 +172,7 @@ class Phase(IdentifiableBase):
             raise RuntimeError('Timing map mismatched size')
         elif PhaseState.STOP in keys:
             raise KeyError('STOP cannot be in timing map')
-
+    
     def __init__(self,
                  id_: int,
                  time_increment: float,
@@ -197,7 +180,8 @@ class Phase(IdentifiableBase):
                  veh_ls: LoadSwitch,
                  ped_ls: Optional[LoadSwitch],
                  flash_mode: FlashMode = FlashMode.RED,
-                 ped_clear_enable: bool = True):
+                 ped_clear_enable: bool = True
+                 ):
         super().__init__(id_)
         self._increment = time_increment
         self._timing = timing
@@ -213,9 +197,9 @@ class Phase(IdentifiableBase):
         self._resting: bool = False
         self._extend_inhibit = False
         self.ped_clear_enable: bool = ped_clear_enable
-
+        
         self._validate_timing()
-
+    
     def getNextState(self, ped_service: bool) -> PhaseState:
         if self._state == PhaseState.STOP:
             if ped_service:
@@ -244,20 +228,20 @@ class Phase(IdentifiableBase):
                 return PhaseState.GO
         else:
             raise NotImplementedError()
-
+    
     def update(self, force_state: Optional[PhaseState] = None):
         if force_state is not None:
             next_state = force_state
         else:
             next_state = self.getNextState(self.ped_service)
         tv = self._timing.get(next_state, 0.0)
-
+        
         if tv > self._increment:
             tv -= self._increment
-
+        
         self._time_upper = tv
         self._time_lower = tv
-
+        
         if next_state == PhaseState.STOP:
             self._ped_cycle = False
             self._extend_inhibit = False
@@ -275,37 +259,35 @@ class Phase(IdentifiableBase):
                 self._ped_cycle = True
         self._state = next_state
         self._max_time = 0.0
-
+    
     def changeTiming(self, revised: Dict[PhaseState, float]):
         self._timing = revised
         self._validate_timing()
-
+    
     def reduce(self):
         if self.extend_active:
             self._time_lower = 0.0
         else:
             raise RuntimeError('Cannot reduce, not extending')
-
+    
     def activate(self, ped_inhibit: bool = True):
         if self.active:
             raise RuntimeError('Cannot activate active phase')
-
+        
         self._ped_inhibit = ped_inhibit
         self.update()
-
-    def tick(self,
-             conflicting_demand: bool,
-             flasher: bool) -> bool:
+    
+    def tick(self, conflicting_demand: bool, flasher: bool) -> bool:
         changed = False
         self._resting = False
-
+        
         if self._state in PHASE_GO_STATES:
             if self._max_time > self._timing[PhaseState.MAX_GO]:
                 if conflicting_demand:
                     # todo: make this condition configurable per phase
                     self.update()
                     return True
-
+        
         if self.extend_active:
             if self._time_lower >= self._timing[PhaseState.EXTEND]:
                 if conflicting_demand:
@@ -331,8 +313,7 @@ class Phase(IdentifiableBase):
                             self._resting = True
                             self._extend_inhibit = True
                     else:
-                        if self._state == PhaseState.GO or \
-                                self._state == PhaseState.EXTEND:
+                        if self._state == PhaseState.GO or self._state == PhaseState.EXTEND:
                             if conflicting_demand:
                                 self.update()
                                 changed = True
@@ -343,16 +324,14 @@ class Phase(IdentifiableBase):
                             changed = True
             else:
                 self._resting = True
-
+        
         self._max_time += self._increment
-
+        
         pa = False
         pb = False
         pc = False
-
-        if self._state == PhaseState.STOP or \
-                self.state == PhaseState.MIN_STOP or \
-                self._state == PhaseState.RCLR:
+        
+        if self._state == PhaseState.STOP or self.state == PhaseState.MIN_STOP or self._state == PhaseState.RCLR:
             self._vls.a = True
             self._vls.b = False
             self._vls.c = False
@@ -382,14 +361,14 @@ class Phase(IdentifiableBase):
             self._vls.c = True
             pa = False
             pc = True
-
+        
         if self._pls is not None:
             self._pls.a = pa
             self._pls.b = pb
             self._pls.c = pc
-
+        
         return changed
-
+    
     def __repr__(self):
         return f'<{self.getTag()} {self.state.name} {self.time_upper: 05.1f}' \
                f' {self.time_lower: 05.1f}>'
@@ -404,39 +383,35 @@ class FrozenPhaseSetup:
 
 
 class Call(IdentifiableBase):
-
+    
     @property
     def target(self) -> Phase:
         return self._target
-
+    
     @property
     def ped_service(self):
         return self._ped_service
-
+    
     @property
     def age(self) -> float:
         return self._age
-
-    def __init__(self,
-                 id_: int,
-                 increment: float,
-                 target: Phase,
-                 ped_service=False):
+    
+    def __init__(self, id_: int, increment: float, target: Phase, ped_service=False):
         super().__init__(id_)
         self._target = target
         self._age: float = 0.0
         self._increment = increment
         self._ped_service = ped_service
         self.duplicates: int = 0
-
+    
     def tick(self):
         self._age += self._increment
-
+    
     def __lt__(self, other):
         if isinstance(other, Call):
             return self._age < other.age
         return False
-
+    
     def __repr__(self):
         return f'<Call #{self._id:02d} A{self._age:0>5.2f}>'
 
@@ -447,12 +422,12 @@ class InputAction(IntEnum):
     DETECT = 2
     PREEMPTION = 3
     TIME_FREEZE = 4
-
+    
     PED_CLEAR_INHIBIT = 5
     FYA_INHIBIT = 6
     CALL_INHIBIT = 7
     REDUCE_INHIBIT = 8
-
+    
     MODE_DARK = 9
     MODE_NORMAL = 10
     MODE_LS_FLASH = 11
@@ -470,12 +445,12 @@ class Input:
     trigger: InputActivation
     action: InputAction
     targets: List[Phase]
-
+    
     # update states and changed together
     state: bool = False
     last_state: bool = False
     changed: bool = False
-
+    
     def activated(self) -> bool:
         if self.trigger == InputActivation.LOW:
             if not self.state and not self.last_state:
@@ -490,7 +465,7 @@ class Input:
             if not self.state and self.last_state:
                 return True
         return False
-
+    
     def __repr__(self):
         return f'<Input {self.trigger.name} {self.action.name} ' \
                f'{"ACTIVE" if self.state else "INACTIVE"}' \

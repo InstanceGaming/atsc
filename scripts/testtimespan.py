@@ -13,13 +13,9 @@ def run():
     start = '3pm'
     end = '8pm'
     tzi = tz.gettz('America/Boise')
-
-    ts, error_message = parse_timespan_text(calendar,
-                                            day_exceptions,
-                                            start,
-                                            end,
-                                            tzi)
-
+    
+    ts, error_message = parse_timespan_text(calendar, day_exceptions, start, end, tzi)
+    
     if error_message is None:
         print(ts.__repr__())
     else:

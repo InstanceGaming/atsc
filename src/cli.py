@@ -58,39 +58,39 @@ def rce(code: ReturnCode):
 
 def validate_configs(args):
     global PRINT_STDOUT
-
+    
     source_daemon = args.daemon
     json_enabled = args.json
     error_abort = args.error_abort
     invalid_paths = []
     sources = args.config_paths
     paths = []
-
+    
     if json_enabled:
         PRINT_STDOUT = False
-
+    
     config_schema_path = configfile.get_config_schema_path()
-
+    
     if not os.path.exists(config_schema_path):
         cprint(f'configuration file schema not found at '
                f'"{config_schema_path}", exiting; '
                f'this is a developer issue, NOT a user issue!')
         rce(ReturnCode.DEVELOPER_ISSUE)
-
+    
     schema_validator = configfile.ConfigValidator(config_schema_path)
-
+    
     if not source_daemon and sources is None:
         cprint('no work')
         rce(ReturnCode.NO_WORK)
-
+    
     if source_daemon:
         cprint('evaluating configuration from paths last known by the running '
                'daemon:')
         raise NotImplementedError()
-
+    
     if len(sources) > 0:
         cprint('evaluating configuration from the following files:')
-
+    
     for item in sources:
         if os.path.exists(item):
             abs_path = os.path.abspath(item)
@@ -98,14 +98,14 @@ def validate_configs(args):
             cprint('- {}'.format(abs_path))
             continue
         invalid_paths.append(item)
-
+    
     if len(invalid_paths) > 0:
         cprint('the following argument paths are invalid or do not exist:')
         for ia in invalid_paths:
             cprint('- {}'.format(ia))
         if error_abort:
             rce(ReturnCode.INVALID_CONFIG_PATHS)
-
+    
     config = None
     try:
         config = schema_validator.load(paths)
@@ -149,46 +149,42 @@ def validate_configs(args):
                 for k, v in e.details.items():
                     cprint('\t{}={}'.format(k, v))
             rce(ReturnCode.CONFIG_PARSE_ERROR)
-
-    result = configfile.validate_config_dynamic(config,
-                                                schema_validator.version)
-
+    
+    result = configfile.validate_config_dynamic(config, schema_validator.version)
+    
     if result is not None:
         cprint(f'failed dynamic validation: {result}')
         rce(ReturnCode.CONFIG_DYNAMIC_ERROR)
-
+    
     cprint(f'configuration version: {schema_validator.version}')
     cprint('validation passed')
-
+    
     if json_enabled:
         print(json.dumps(config))
-
+    
     rce(ReturnCode.OK)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=PROGRAM_DESCRIPTION)
     sp = parser.add_subparsers(dest='subparser_name')
-
+    
     # config validation
-    sp_validate = sp.add_parser('validate',
-                                aliases=['val', 'vd'],
-                                description='Validate one or more files as one'
-                                            ' configuration object.')
-    sp_validate.add_argument('-d', '--daemon',
+    sp_validate = sp.add_parser('validate', aliases=['val', 'vd'], description='Validate one or more files as one'
+                                                                               ' configuration object.')
+    sp_validate.add_argument('-d',
+                             '--daemon',
                              dest='daemon',
                              action='store_true',
                              help='validate config from paths last known by the'
                                   ' running daemon')
-    sp_validate.add_argument('-a', '--abort',
+    sp_validate.add_argument('-a',
+                             '--abort',
                              dest='error_abort',
                              action='store_true',
                              help='exit upon encountering first error')
-    sp_validate.add_argument('--json',
-                             dest='json',
-                             action='store_true',
-                             help='upon success, print the overall '
-                                  'configuration to STDOUT as JSON')
+    sp_validate.add_argument('--json', dest='json', action='store_true', help='upon success, print the overall '
+                                                                              'configuration to STDOUT as JSON')
     sp_validate.add_argument(dest='config_paths',
                              type=str,
                              nargs='*',
@@ -198,7 +194,7 @@ if __name__ == '__main__':
     sp_validate.set_defaults(func=validate_configs)
     parser_result = parser.parse_args()
     subparser_name = parser_result.subparser_name
-
+    
     if subparser_name is not None:
         parser_result.func(parser_result)
     else:

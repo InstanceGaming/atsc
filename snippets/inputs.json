@@ -79,7 +79,8 @@
       "active": "high",
       "action": "preemption",
       "targets": [
-        1, 6
+        1,
+        6
       ]
     },
     {
@@ -88,7 +89,8 @@
       "active": "high",
       "action": "preemption",
       "targets": [
-        2, 5
+        2,
+        5
       ]
     },
     {
@@ -97,7 +99,8 @@
       "active": "high",
       "action": "preemption",
       "targets": [
-        3, 8
+        3,
+        8
       ]
     },
     {
@@ -106,7 +109,8 @@
       "active": "high",
       "action": "preemption",
       "targets": [
-        4, 7
+        4,
+        7
       ]
     }
   ]

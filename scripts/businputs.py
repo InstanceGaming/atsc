@@ -15,10 +15,9 @@ from serialbus import Bus
 
 
 class MockBus(Bus):
-
+    
     def sendInputsState(self, input_states: bytearray):
-        self.sendFrame(InputStateFrame(DeviceAddress.CONTROLLER,
-                                       input_states))
+        self.sendFrame(InputStateFrame(DeviceAddress.CONTROLLER, input_states))
 
 
 LOG = logging.getLogger('atsc')
@@ -45,11 +44,11 @@ def termSig(signum, frame):
 def run():
     signal.signal(signal.SIGINT, intSig)
     signal.signal(signal.SIGTERM, termSig)
-
+    
     LOG.setLevel(finelog.CustomLogLevels.BUS)
     LOG.info('Starting bus.')
     BUS.start()
-
+    
     t1 = timing.MillisecondTimer(1000)
     while loop_enabled:
         if t1.poll():
@@ -57,7 +56,7 @@ def run():
             mock_data = random.randbytes(3)
             LOG.info(PBA(mock_data))
             BUS.sendInputsState(bytearray(mock_data))
-
+    
     BUS.join()
     LOG.info('Exiting.')
 

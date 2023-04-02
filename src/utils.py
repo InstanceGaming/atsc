@@ -23,19 +23,17 @@ from datetime import datetime
 
 def configureLogger(log):
     handler = logging.StreamHandler(sys.stdout)
-
+    
     # noinspection PyUnreachableCode
     if __debug__:
         log.setLevel(logging.DEBUG)
-        handler.setFormatter(
-            logging.Formatter('{levelname:>8}: {message} [{name}@{lineno}]',
-                              datefmt='%x %H:%M:%S',
-                              style='{'))
+        handler.setFormatter(logging.Formatter('{levelname:>8}: {message} [{name}@{lineno}]',
+                                               datefmt='%x %H:%M:%S',
+                                               style='{'))
     else:
         log.setLevel(logging.INFO)
-        handler.setFormatter(logging.Formatter('{levelname:>8}: {message}',
-                                               style='{'))
-
+        handler.setFormatter(logging.Formatter('{levelname:>8}: {message}', style='{'))
+    
     log.handlers = []
     log.addHandler(handler)
 
@@ -68,7 +66,7 @@ def prettyMilliseconds(milliseconds):
 def prettyTimedelta(td, prefix=None, format_spec=None):
     prefix = prefix if not None else ''
     format_spec = format_spec if format_spec is not None else '02.2f'
-
+    
     if td is not None:
         seconds = td.total_seconds()
         if seconds < 60:
@@ -101,36 +99,36 @@ def compactDatetime(dt: datetime, tz=None) -> str:
         no_pad_char = '#'
     else:
         no_pad_char = '-'
-
+    
     now = datetime.now(tz)
     time_part = dt.time()
     date_part = dt.date()
-
+    
     if time_part.minute == 0:
         time_fmt = f'%{no_pad_char}I%p'
     else:
         time_fmt = f'%{no_pad_char}I:%M%p'
-
+    
     time_text = time_part.strftime(time_fmt).lower()
     date_text = ''
     year_text = ''
-
+    
     if date_part is not None:
         if date_part != now.date():
             date_text = date_part.strftime(f'%b %{no_pad_char}d')
-
+            
             yearpart = date_part.year
             if yearpart != now.year:
                 year_text = f', {yearpart} '
             else:
                 date_text += ' '
-
+    
     return f'{date_text}{year_text}{time_text}'
 
 
 def getIPAddress(filter_if_name: str):
     from netifaces import AF_INET, ifaddresses
-
+    
     interface = ifaddresses(filter_if_name)
     protocol = interface[AF_INET]
     return protocol[0]['addr']
@@ -140,18 +138,18 @@ def dhmsText(seconds) -> Tuple[int, int, int, int]:
     seconds_to_minute = 60
     seconds_to_hour = 60 * seconds_to_minute
     seconds_to_day = 24 * seconds_to_hour
-
+    
     days = seconds // seconds_to_day
     seconds %= seconds_to_day
-
+    
     hours = seconds // seconds_to_hour
     seconds %= seconds_to_hour
-
+    
     minutes = seconds // seconds_to_minute
     seconds %= seconds_to_minute
-
+    
     seconds = seconds
-
+    
     return days, hours, minutes, seconds
 
 
@@ -183,10 +181,7 @@ def condText(msg, paren=False, prefix=' ', postfix='', cond=False):
     return ''
 
 
-def textToEnum(et: Type[Enum],
-               v,
-               to_length=None,
-               dash_underscore=True):
+def textToEnum(et: Type[Enum], v, to_length=None, dash_underscore=True):
     """
     Attempt to return the matching enum value based off of
     the text name of a value.
@@ -200,12 +195,12 @@ def textToEnum(et: Type[Enum],
     """
     if v is None:
         return None
-
+    
     v = v.strip().lower()
-
+    
     if dash_underscore:
         v = v.replace('-', '_')
-
+    
     for e in et:
         name = e.name.lower()
         if isinstance(to_length, int):

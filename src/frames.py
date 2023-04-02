@@ -37,60 +37,52 @@ class FrameType(enum.IntEnum):
 
 
 class GenericFrame(abc.ABC):
-
+    
     @property
     def address(self):
         return self._address
-
+    
     @property
     def type(self):
         return self._type
-
+    
     @property
     def awk_type(self):
         return self._awk_type
-
-    def __init__(self,
-                 address: int,
-                 fr_version: int,
-                 fr_type: FrameType,
-                 awk_type: Optional[FrameType]):
+    
+    def __init__(self, address: int, fr_version: int, fr_type: FrameType, awk_type: Optional[FrameType]):
         self._address = address
         self._version = fr_version
         self._type = fr_type
         self._awk_type = awk_type
-
+    
     def getHeader(self) -> bytearray:
         """
         Get the bytes that form the header structure.
 
         :return: PrettyByteArray
         """
-        return bytearray([
-            self._address,
-            self._version,
-            self._type
-        ])
-
+        return bytearray([self._address, self._version, self._type])
+    
     @abc.abstractmethod
     def getPayload(self) -> bytearray:
         """
         Get the data to be included after the header in the frame.
         """
         pass
-
+    
     def getContent(self) -> bytearray:
         """
         Get the bytes that form the overall frame data.
         """
         header = self.getHeader()
         payload = self.getPayload()
-
+        
         if payload is not None:
             header.extend(payload)
-
+        
         return header
-
+    
     def build(self, hdlc: HDLCContext) -> bytes:
         """
         Build an HDLC frame.
@@ -98,7 +90,7 @@ class GenericFrame(abc.ABC):
         :return: Frame bytes
         """
         return hdlc.encode(self.getContent())
-
+    
     def __repr__(self):
         return f'<GenericFrame type={self._type} address={self._address} ' \
                f'V{self._version}>'
@@ -106,32 +98,23 @@ class GenericFrame(abc.ABC):
 
 class BeaconFrame(GenericFrame):
     VERSION = 11
-
+    
     def __init__(self, address: int):
-        super(BeaconFrame, self).__init__(address,
-                                          self.VERSION,
-                                          FrameType.BEACON,
-                                          FrameType.AWK)
-
+        super(BeaconFrame, self).__init__(address, self.VERSION, FrameType.BEACON, FrameType.AWK)
+    
     def getPayload(self):
         return None
 
 
 class OutputStateFrame(GenericFrame):
     VERSION = 11
-
-    def __init__(self,
-                 address: int,
-                 lss: List[LoadSwitch],
-                 transfer: bool):
-        super(OutputStateFrame, self).__init__(address,
-                                               self.VERSION,
-                                               FrameType.OUTPUTS,
-                                               FrameType.INPUTS)
+    
+    def __init__(self, address: int, lss: List[LoadSwitch], transfer: bool):
+        super(OutputStateFrame, self).__init__(address, self.VERSION, FrameType.OUTPUTS, FrameType.INPUTS)
         assert len(lss) == 12
         self._channel_states = lss
         self._transfer = transfer
-
+    
     def getPayload(self):
         sf = bytearray([0] * 6)
         ci = 0
@@ -145,35 +128,30 @@ class OutputStateFrame(GenericFrame):
             sf[i] += r.b * 2
             sf[i] += r.c * 1
             ci += 2
-
+        
         payload = bytearray([128 if self._transfer else 0])
         payload.extend(sf)
-
+        
         return payload
 
 
 class InputStateFrame(GenericFrame):
     VERSION = 11
-
+    
     @property
     def bitfield(self):
         return self._bitfield
-
-    def __init__(self,
-                 address: int,
-                 bf: Union[bitarray, bytearray]):
+    
+    def __init__(self, address: int, bf: Union[bitarray, bytearray]):
         if isinstance(bf, bytearray):
             bitfield = bitarray()
             bitfield.frombytes(bytes(bf))
         else:
             bitfield = bf
-
-        super(InputStateFrame, self).__init__(address,
-                                              self.VERSION,
-                                              FrameType.INPUTS,
-                                              None)
-
+        
+        super(InputStateFrame, self).__init__(address, self.VERSION, FrameType.INPUTS, None)
+        
         self._bitfield: bitarray = bitfield
-
+    
     def getPayload(self):
         return self._bitfield

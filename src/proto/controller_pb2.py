@@ -43,7 +43,7 @@ DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'controller_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
-
+    
     DESCRIPTOR._options = None
     _PHASESTATE._serialized_start = 559
     _PHASESTATE._serialized_end = 667
@@ -60,5 +60,4 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _PHASEINFO._serialized_start = 373
     _PHASEINFO._serialized_end = 478
     _CONTROLINFO._serialized_start = 480
-    _CONTROLINFO._serialized_end = 557
-# @@protoc_insertion_point(module_scope)
+    _CONTROLINFO._serialized_end = 557  # @@protoc_insertion_point(module_scope)

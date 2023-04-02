@@ -40,9 +40,10 @@ Do note, this software is NOT yet complete and is regularly changed and expanded
 
 For demonstration setup, configure a virtual environment with Python 3.6 or higher. Then install the packages listed in `requirements.txt` (`pip install -r requirements.txt`).
 
-Entrypoint for the control loop is `src/main.py`. Specify the following configuration files as ending arguments: `configs/device.json`, `configs/quick.json` OR `configs/long.json`, `configs/inputs.json`. 
+Entrypoint for the control loop is `src/main.py`. Specify the following configuration files as ending arguments: `configs/device.json`, `configs/quick.json`
+OR `configs/long.json`, `configs/inputs.json`.
 
-Entrypoint for the CLI utility is `src/cli.py`. 
+Entrypoint for the CLI utility is `src/cli.py`.
 
 You can use the argument `-h` to view command line option help texts for all entrypoints.
 

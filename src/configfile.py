@@ -40,15 +40,15 @@ class ErrorType(enum.Enum):
 
 
 class ConfigError(Exception):
-
+    
     @property
     def generic_error(self):
         return self._error
-
+    
     @property
     def details(self):
         return self._details
-
+    
     def __init__(self, generic_error: ErrorType, **details):
         self._error = generic_error
         self._details = details
@@ -56,22 +56,22 @@ class ConfigError(Exception):
 
 class ConfigValidator:
     LOG = logging.getLogger('atsc.validator')
-
+    
     @property
     def version(self):
         return self._version
-
+    
     def __init__(self, config_schema: str):
         self._schema_path = config_schema
-
+        
         with open(config_schema, 'r') as sf:
             self._schema = json.load(sf)
-
+        
         self._version = None
-
+    
     def load(self, paths: List[str]) -> dict:
         cm = ChainMap()
-
+        
         if len(paths) > 0:
             for path in paths:
                 if not os.path.exists(path):
@@ -80,57 +80,46 @@ class ConfigValidator:
                     with open(path, 'r') as f:
                         file_data = json.load(f)
                         file_version = file_data.get('version')
-
+                        
                         if file_version is None:
-                            raise ConfigError(ErrorType.NO_VERSION,
-                                              file=path)
-
-                        if self._version is not None and \
-                                file_version != self._version:
-                            raise ConfigError(ErrorType.MIXING_VERSIONS,
-                                              file=path)
+                            raise ConfigError(ErrorType.NO_VERSION, file=path)
+                        
+                        if self._version is not None and file_version != self._version:
+                            raise ConfigError(ErrorType.MIXING_VERSIONS, file=path)
                         else:
                             if file_version != CONFIG_SCHEMA_VERSION:
-                                raise ConfigError(ErrorType.UNKNOWN_VERSION,
-                                                  file=path)
-
+                                raise ConfigError(ErrorType.UNKNOWN_VERSION, file=path)
+                            
                             self._version = file_version
-
+                        
                         for root_node in file_data.keys():
                             if root_node in cm.keys():
-                                raise ConfigError(ErrorType.DUPLICATE_ROOT_NODE,
-                                                  file=path,
-                                                  node_name=root_node)
-
+                                raise ConfigError(ErrorType.DUPLICATE_ROOT_NODE, file=path, node_name=root_node)
+                        
                         cm.update(file_data)
                 except OSError as e:
-                    raise ConfigError(ErrorType.CANNOT_READ,
-                                      file=path,
-                                      underlying=e)
+                    raise ConfigError(ErrorType.CANNOT_READ, file=path, underlying=e)
         else:
             raise ConfigError(ErrorType.NO_PATHS)
-
+        
         final_data = dict(cm)
-
+        
         try:
             jsonschema.validate(final_data, self._schema)
         except SchemaError as e:
-            raise ConfigError(ErrorType.SCHEMA_INVALID,
-                              message=e.message)
+            raise ConfigError(ErrorType.SCHEMA_INVALID, message=e.message)
         except ValidationError as e:
             raise ConfigError(ErrorType.INVALID_BY_SCHEMA,
                               message=e.message,
                               validator=e.validator_value,
                               node_path=e.json_path)
-
+        
         return final_data
 
 
 def get_config_schema_path() -> str:
     entry_script_dir = os.path.abspath(os.path.dirname(__file__))
-    config_schema_path = os.path.join(entry_script_dir,
-                                      'schema',
-                                      'configuration.json')
+    config_schema_path = os.path.join(entry_script_dir, 'schema', 'configuration.json')
     return config_schema_path
 
 
@@ -145,7 +134,7 @@ def validate_time_text(text):
 def validate_config_dynamic(config: dict, version: int) -> Optional[str]:
     if version != CONFIG_SCHEMA_VERSION:
         raise ValueError(f'unknown version {version} for dynamic inspection')
-
+    
     # todo
-
+    
     return None

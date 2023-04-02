@@ -29,7 +29,7 @@ FINE_LOG_OMIT_DUPLICATES = True
 
 class DuplicateFilter(Filter):
     __LAST_LOG_ATTR = 'last_log'
-
+    
     def filter(self, record):
         current_log = (record.module, record.levelno, record.getMessage())
         if current_log != getattr(self, self.__LAST_LOG_ATTR, None):
@@ -43,13 +43,13 @@ class FineLogger(Logger):
     A more detailed logging facility with three new levels:
     verbose, fine and bus.
     """
-
+    
     def __init__(self, name: str):
         super().__init__(name)
-
+        
         if FINE_LOG_OMIT_DUPLICATES:
             self.addFilter(DuplicateFilter())
-
+    
     def setLevel(self, v):
         if isinstance(v, CustomLogLevels):
             lvl = v.value
@@ -67,9 +67,7 @@ def _customLog(self, msg: str, *args, **kwargs):
 
 def registerCustomLevels(klass: Type[Logger]):
     for lvl in CustomLogLevels:
-        setattr(klass,
-                lvl.name.lower(),
-                functools.partialmethod(_customLog, __custom_level=lvl))
+        setattr(klass, lvl.name.lower(), functools.partialmethod(_customLog, __custom_level=lvl))
         addLevelName(lvl.value, lvl.name)
 
 

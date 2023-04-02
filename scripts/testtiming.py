@@ -14,10 +14,7 @@ try:
         if t1.poll():
             t1.reset()
             print('reset')
-        print(t1.getRemaining(),
-              t1.getDelta(),
-              t1.getMarkerGoal(),
-              t1.marker)
+        print(t1.getRemaining(), t1.getDelta(), t1.getMarkerGoal(), t1.marker)
         sleep(0.1)
 except KeyboardInterrupt:
     pass

@@ -20,7 +20,6 @@ class MockBus(Bus):
 LOG = logging.getLogger('atsc')
 configureLogger(LOG)
 
-
 BUS = Bus('COM5', 115200, 1000)
 loop_enabled = True
 
@@ -42,32 +41,25 @@ def termSig(signum, frame):
 def run():
     signal.signal(signal.SIGINT, intSig)
     signal.signal(signal.SIGTERM, termSig)
-
+    
     LOG.setLevel(finelog.BUS)
     LOG.info('Starting bus.')
     BUS.start()
-
+    
     pt1 = timing.MillisecondTimer(500, pause=True)
-
+    
     states = []
     for si in range(12):
-        states.append(FrozenChannelState(si,
-                                         1,
-                                         0,
-                                         0,
-                                         ChannelState.STOP_REST,
-                                         0))
-
+        states.append(FrozenChannelState(si, 1, 0, 0, ChannelState.STOP_REST, 0))
+    
     flasher = True
     while loop_enabled:
         if pt1.poll():
             for si in range(12):
                 states[si].a = flasher if si % 2 == 0 else not flasher
-            BUS.sendFrame(OutputStateFrame(DeviceAddress.TFIB1,
-                                           states,
-                                           True))
+            BUS.sendFrame(OutputStateFrame(DeviceAddress.TFIB1, states, True))
             flasher = not flasher
-
+    
     BUS.join()
     LOG.info('Exiting.')
 

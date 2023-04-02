@@ -36,44 +36,36 @@ class HDLCError(enum.IntEnum):
 
 
 class Frame:
-
+    
     @property
     def data(self):
         return self._data
-
+    
     @property
     def crc(self):
         return self._crc
-
+    
     def __init__(self, data: bytes, crc: int):
         self._data = data
         self._crc = crc
-
+    
     def __eq__(self, other):
         if other is None:
             return False
-
+        
         return self._crc == other.crc
-
+    
     def __repr__(self):
         return f'<Frame {PBL(self._data)} CRC{self._crc:05d} ' \
                f'{prettyByteSize(len(self._data))}>'
 
 
 class HDLCContext:
-
-    def __init__(self,
-                 polynomial: int,
-                 initial: int,
-                 reverse: bool,
-                 xor_out: int,
-                 byte_order='big'):
-        self._crc_func = crcmod.mkCrcFun(polynomial,
-                                         initial,
-                                         reverse,
-                                         xor_out)
+    
+    def __init__(self, polynomial: int, initial: int, reverse: bool, xor_out: int, byte_order='big'):
+        self._crc_func = crcmod.mkCrcFun(polynomial, initial, reverse, xor_out)
         self._order = byte_order
-
+    
     def encode(self, data: bytes, frame=True) -> bytearray:
         """
         Encode bytes into HDLC format.
@@ -84,17 +76,17 @@ class HDLCContext:
         """
         # calculate 16-bit checksum
         crc_number = self._crc_func(data)
-
+        
         # append checksum to data
         data += crc_number.to_bytes(2, byteorder=self._order)
-
+        
         # create a new buffer to hold the start flag, escaped data and end flag
         escaped = bytearray()
-
+        
         if frame:
             # add start flag
             escaped.append(HDLC_FLAG)
-
+        
         # escape data
         for b in data:
             # if the byte happens to be HDLC_FLAG or HDLC_ESCAPE,
@@ -105,15 +97,14 @@ class HDLCContext:
                 # mask original byte with ESCAPE_MASK
                 b ^= HDLC_ESCAPE_MASK
             escaped.append(b)
-
+        
         if frame:
             # add end flag
             escaped.append(HDLC_FLAG)
-
+        
         return escaped
-
-    def decode(self, data: bytes, max_length=256) -> Tuple[Optional[Frame],
-                                                           Optional[HDLCError]]:
+    
+    def decode(self, data: bytes, max_length=256) -> Tuple[Optional[Frame], Optional[HDLCError]]:
         """
         Decode captured bytes into an HDLC frame.
 
@@ -122,11 +113,11 @@ class HDLCContext:
         :param max_length: error if frame length exceeds this many bytes
         :return: Frame instance or None if error, error enum
         """
-
+        
         error = HDLCError.UNKNOWN
         frame = None
         length = len(data)
-
+        
         if max_length and length > max_length:
             # frame is longer than allowed
             error = HDLCError.TOO_LONG
@@ -149,7 +140,7 @@ class HDLCContext:
                     process = False
                     error = HDLCError.FLAG
                     break
-
+                
                 # skip current char if escaping (once)
                 if escaping:
                     # unmask the byte to its original form
@@ -157,7 +148,7 @@ class HDLCContext:
                     # done escaping, can skip to next byte
                     escaping = False
                     continue
-
+                
                 if b == HDLC_ESCAPE:
                     # the next byte needs to be unescaped
                     # which could be either 0x7E or 0x7D
@@ -165,26 +156,25 @@ class HDLCContext:
                 else:
                     # by default, consider the current byte already unescaped
                     unescaped_bytes.append(b)
-
+            
             if process:
                 # get section of bytes that form the original data
                 content_bytes = bytes(unescaped_bytes[:-2])
-
+                
                 # calculate our own CRC from the unescaped data to compare
                 local_crc = self._crc_func(content_bytes)
-
+                
                 # get the last two bytes that form the CRC
                 crc_bytes = unescaped_bytes[-2:]
-
+                
                 # transform the CRC bytes into an integer
-                remote_crc = int.from_bytes(crc_bytes,
-                                            byteorder=self._order)
-
+                remote_crc = int.from_bytes(crc_bytes, byteorder=self._order)
+                
                 # check for CRC match
                 if local_crc != remote_crc:
                     error = HDLCError.BAD_CRC
                 else:
                     error = None
                     frame = Frame(content_bytes, local_crc)
-
+        
         return frame, error
