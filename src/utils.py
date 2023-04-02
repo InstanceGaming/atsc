@@ -215,3 +215,14 @@ def textToEnum(et: Type[Enum],
             if v == name:
                 return e
     raise ValueError(f'Could not match "{v}" to {str(et)}')
+
+
+def formatFields(a, b, c, colored=False):
+    r = '<r>R</r>' if colored else 'R'
+    y = '<y>Y</y>' if colored else 'Y'
+    g = '<g>G</g>' if colored else 'G'
+    off = '<d>-</d>' if colored else '-'
+    first = r if a else off
+    second = y if b else off
+    third = g if c else off
+    return first + second + third

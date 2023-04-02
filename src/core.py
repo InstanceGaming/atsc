@@ -246,18 +246,21 @@ class Phase(IdentifiableBase):
             raise NotImplementedError()
 
     def update(self, force_state: Optional[PhaseState] = None):
-        next_state = force_state or self.getNextState(self.ped_service)
+        if force_state is not None:
+            next_state = force_state
+        else:
+            next_state = self.getNextState(self.ped_service)
         tv = self._timing.get(next_state, 0.0)
 
         if tv > self._increment:
             tv -= self._increment
 
         self._time_upper = tv
+        self._time_lower = tv
+
         if next_state == PhaseState.STOP:
             self._ped_cycle = False
             self._extend_inhibit = False
-        elif next_state == PhaseState.EXTEND:
-            self._time_lower = 0.0
         elif next_state == PhaseState.GO:
             if self._ped_cycle:
                 go_time = self._timing[PhaseState.GO]
@@ -267,12 +270,9 @@ class Phase(IdentifiableBase):
                     self._time_lower -= self._timing[PhaseState.PCLR]
                 if self._time_lower < 0:
                     self._time_lower = 0.0
-            else:
-                self._time_lower = tv
         else:
             if next_state == PhaseState.WALK:
                 self._ped_cycle = True
-            self._time_lower = tv
         self._state = next_state
         self._max_time = 0.0
 

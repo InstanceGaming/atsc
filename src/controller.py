@@ -14,17 +14,18 @@
 import time
 import random
 import logging
+from collections import defaultdict
+
 import network
 import serialbus
+import utils
 from core import *
-from utils import textToEnum, getIPAddress
 from frames import FrameType, DeviceAddress, OutputStateFrame
 from timing import SecondTimer
 from typing import Set, Iterable, FrozenSet
 from bitarray import bitarray
 from functools import lru_cache, cmp_to_key
 from itertools import cycle
-from threading import Timer
 from ringbarrier import Ring, Barrier
 from dateutil.parser import parse as _dt_parser
 
@@ -173,8 +174,8 @@ class Controller:
         self._transfer = False
 
         # operation functionality of the controller
-        self._op_mode: OperationMode = textToEnum(OperationMode,
-                                                  config['init']['mode'])
+        self._op_mode: OperationMode = utils.textToEnum(OperationMode,
+                                                        config['init']['mode'])
 
         # there are two trigger sources for time freeze: system, input
         # see self.time_freeze for a scalar state
@@ -227,9 +228,9 @@ class Controller:
         self._half_counter: int = 0
 
         # control entrance transition timer
-        self._cet_time: int = config['init']['cet-delay']
-        self._cet_timer: Timer = Timer(self._cet_time,
-                                       self.endControlEntranceTransition)
+        yellow_time = default_timing[PhaseState.CAUTION]
+        self._cet_time: int = config['init']['cet-delay'] + yellow_time
+        self._cet_counter: float = self._cet_time
 
         # actuation
         self._call_counter: int = 0
@@ -266,7 +267,7 @@ class Controller:
             Dict[PhaseState, float]:
         timing = {}
         for name, value in configuration_node.items():
-            ps = textToEnum(PhaseState, name)
+            ps = utils.textToEnum(PhaseState, name)
             timing.update({ps: value})
         return timing
 
@@ -277,13 +278,13 @@ class Controller:
 
         for i, node in enumerate(configuration_node, start=1):
             flash_mode_text = node['flash-mode']
-            flash_mode = textToEnum(FlashMode, flash_mode_text)
+            flash_mode = utils.textToEnum(FlashMode, flash_mode_text)
             phase_timing: Dict[PhaseState, float] = default_timing.copy()
             timing_data = node.get('timing')
 
             if timing_data is not None:
                 for name, value in timing_data.items():
-                    ps = textToEnum(PhaseState, name)
+                    ps = utils.textToEnum(PhaseState, name)
                     phase_timing.update({ps: value})
 
             ls_node = node['load-switches']
@@ -324,8 +325,7 @@ class Controller:
                      self.INCREMENT,
                      timing,
                      veh,
-                     ped,
-                     FlashMode.RED)
+                     ped)
 
     @lru_cache(maxsize=8)
     def getPhaseLoadSwitchIndexMapping(self) -> Dict[Phase, List[int]]:
@@ -361,8 +361,8 @@ class Controller:
                 if ignore:
                     action = InputAction.NOTHING
                 else:
-                    action = textToEnum(InputAction, input_node['action'])
-                active = textToEnum(InputActivation, input_node['active'])
+                    action = utils.textToEnum(InputAction, input_node['action'])
+                active = utils.textToEnum(InputActivation, input_node['active'])
                 targets_node = input_node['targets']
 
                 targets = []
@@ -404,7 +404,7 @@ class Controller:
 
                 if if_name != 'localhost' and if_name != 'any':
                     try:
-                        auto_ip = getIPAddress(if_name)
+                        auto_ip = utils.getIPAddress(if_name)
                         host = auto_ip
                     except Exception as e:
                         self.LOG.warning(f'Failed to get address of network '
@@ -567,10 +567,16 @@ class Controller:
         :return: top choice Phase or None if list was empty
         """
         if len(phases) > 0:
-            phase_calls = self.getRankedCalls(phases)
+            phase_calls = self.rankCalls(self.filterCallsByPhases(self._calls, phases))
             if len(phase_calls) > 0:
                 return phase_calls[0].target
         return None
+
+    def filterCallsByPhases(self, calls: Iterable[Call], phases: Iterable[Phase]) -> List[Call]:
+        return [c for c in calls if c.target in phases]
+
+    def filterCallsByBarrier(self, calls: Iterable[Call], barrier: Barrier) -> List[Call]:
+        return [c for c in calls if c.target.id in barrier.phases]
 
     @lru_cache(maxsize=2)
     def getBarrierByPhase(self, phase: Phase) -> Barrier:
@@ -624,11 +630,10 @@ class Controller:
         raise RuntimeError(f'Failed to find load switch {i}')
 
     def getActivePhases(self) -> List[Phase]:
-        active = []
-        for ph in self._phases:
-            if ph.active:
-                active.append(ph)
-        return active
+        return [ph for ph in self._phases if ph.active]
+
+    def getInactivePhases(self) -> List[Phase]:
+        return [ph for ph in self._phases if not ph.active]
 
     def _sortCallsKeyFunc(self, left: Call, right: Call) -> int:
         """
@@ -671,24 +676,14 @@ class Controller:
 
         return weight
 
-    def getRankedCalls(self, phases=None) -> List[Call]:
-        calls = list(self._calls)
-
-        if phases is not None:
-            to_remove = []
-            for uc in calls:
-                if uc.target not in phases:
-                    to_remove.append(uc)
-            for tr in to_remove:
-                calls.remove(tr)
-
+    def rankCalls(self, calls: List[Call]) -> List[Call]:
         calls.sort(key=cmp_to_key(self._sortCallsKeyFunc), reverse=True)
 
         ocs = len(calls)
         if ocs == 1:
-            self.LOG.sorting(f'Top call is {calls[0].getTag()}')
+            self.LOG.sorting(f'Call sorting 1st place {calls[0].getTag()}')
         elif ocs == 1:
-            self.LOG.sorting(f'Top two calls are {calls[0].getTag()}, '
+            self.LOG.sorting(f'Call sorting 2nd place {calls[0].getTag()}, '
                              f'{calls[1].getTag()}')
 
         return calls
@@ -718,49 +713,11 @@ class Controller:
 
         return choice
 
-    def serveCall(self,
-                  call: Call,
-                  existing: List[Phase],
-                  available: Optional[FrozenSet[Phase]],
-                  lone: Optional[Phase]) -> bool:
-        """See if serving a call is possible"""
-        phase = call.target
-
-        if phase in existing:
-            return False
-
-        if available is not None and phase in available or available is None:
-            if lone is None:
-                if not self.allPhasesInactive():
-                    return False
-            else:
-                if phase == lone:
-                    return False
-
-                self.LOG.verbose(f'{phase.getTag()} was selected as partner to '
-                                 f'{lone.getTag()}')
-
-            self.LOG.debug(f'Serving call {call.getTag()} {call.target.getTag()}')
-            self._barrier_phase_count += 1
-            self._barrier_skip_counter = 0
-            return True
-        return False
-
     def getAssociatedCall(self, phase: Phase) -> Optional[Call]:
         for call in self._calls:
             if call.target == phase:
                 return call
         return None
-
-    def removeAssociatedCall(self, phase: Phase) -> bool:
-        to_remove = None
-        for call in self._calls:
-            if call.target == phase:
-                to_remove = call
-        if to_remove is not None:
-            self._calls.remove(to_remove)
-            return True
-        return False
 
     def recall(self,
                target: Phase,
@@ -829,10 +786,10 @@ class Controller:
                 if ph.flash_mode == FlashMode.YELLOW:
                     ph.update(force_state=PhaseState.CAUTION)
 
-            self._cet_timer = Timer(self._cet_time,
-                                    self.endControlEntranceTransition)
-            self._cet_timer.start()
+            self._cet_counter = self._cet_time
         elif new_state == OperationMode.NORMAL:
+            for ph in self._phases:
+                ph.update(force_state=PhaseState.STOP)
             if self._recall_all:
                 self.recallAll(ped_service=True)
 
@@ -875,13 +832,13 @@ class Controller:
 
     def handleRingAndBarrier(self,
                              available: FrozenSet[Phase],
-                             with_calls: FrozenSet[Phase],
                              barrier_phases: List[Phase]):
         # no available phases for barrier and demand exists
         c1 = len(available) == 0
 
         # there are no calls for available phases
-        c2 = len(self.getRankedCalls(phases=available)) == 0 and len(with_calls)
+        available_calls = self.filterCallsByPhases(self._calls, available)
+        c2 = len(available_calls) == 0 and len(self._calls)
 
         if c1 or c2:
             if self.allPhasesInactive():
@@ -898,6 +855,7 @@ class Controller:
                     if not self.waitingOnRedClearance():
                         # if only available phase has no calls, prematurely
                         # end cycle as it will cause deadlock otherwise
+                        with_calls = self.getPhasesWithCalls(self._active_barrier)
                         no_calls = set(barrier_phases) - with_calls
 
                         if len(available - no_calls) == 0:
@@ -909,7 +867,7 @@ class Controller:
                             self.endCycle(True)
 
                 if self._barrier_skip_counter > len(self._barriers):
-                    self.LOG.debug(f'Barrier thrashing detected')
+                    self.LOG.debug(f'Barriers exhausted')
                     self._active_barrier = None
                 else:
                     self.changeBarrier(next_barrier)
@@ -918,10 +876,6 @@ class Controller:
                       choice: Optional[Phase],
                       ped_service=False,
                       barrier_pool: Optional[List[Phase]] = None):
-        active = self.getActivePhases()
-        if len(active) >= 2:
-            raise RuntimeError('Two phases already active')
-
         if choice.active:
             raise RuntimeError('Phase already active')
 
@@ -930,24 +884,6 @@ class Controller:
                 raise RuntimeError(f'Attempted to start phase out-of-barrier')
 
         choice.activate(ped_inhibit=not ped_service)
-
-    def hasConflictingDemand(self,
-                             ranked_calls: List[Call],
-                             ph: Phase) -> bool:
-        for call in ranked_calls:
-            call_phase = call.target
-            if ph != call_phase:
-                if self.checkPhaseConflict(ph, call_phase):
-                    return True
-        return False
-
-    def handlePhases(self, ranked_calls: List[Call]):
-        """Handle phase ticking and completed phases"""
-        for ph in self._phases:
-            conflicting_demand = self.hasConflictingDemand(ranked_calls, ph)
-            if ph.tick(conflicting_demand, self.flasher):
-                if ph.state == PhaseState.STOP:
-                    self._cycle_window.insert(0, ph)
 
     def busHealthCheck(self):
         """Ensure bus thread is still running, if enabled"""
@@ -990,10 +926,6 @@ class Controller:
 
         self._last_input_bitfield = bf
 
-    def endControlEntranceTransition(self):
-        self.setOperationState(OperationMode.NORMAL)
-        self._cet_timer.cancel()
-
     def handleBusFrame(self):
         frame = self._bus.get()
 
@@ -1024,62 +956,75 @@ class Controller:
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
                 active = self.getActivePhases()
-                ranked_calls = self.getRankedCalls()
 
-                if len(ranked_calls):
-                    top = ranked_calls[0]
-                    threshold = self._max_call_age // 2
-                    if top.age > threshold:
-                        raise RuntimeError(f'Age of top call {top.getTag()} '
-                                           'exceeded no-serve timeout threshold '
-                                           f'({threshold})')
+                if len(active) > 2:
+                    raise RuntimeError('More than two active phases')
 
-                barrier_pool = None
+                available_calls = self.filterCallsByPhases(self._calls,
+                                                           self.getInactivePhases())
+                if self._active_barrier is not None:
+                    available_calls = self.filterCallsByBarrier(available_calls,
+                                                                self._active_barrier)
+
                 if self._active_barrier is not None:
                     barrier_pool = self.getBarrierPhases(self._active_barrier)
-                    available = self.getAvailablePhases(
-                        barrier_pool,
-                        active
-                    )
+                    available_phases = self.getAvailablePhases(barrier_pool, active)
                 else:
-                    available = self.getAvailablePhases(self._phases, active)
+                    barrier_pool = None
+                    available_phases = self.getAvailablePhases(self._phases, active)
 
-                lone_phase = active[0] if len(active) == 1 else None
-                call_choice = self.handleCalls(ranked_calls,
-                                               active,
-                                               available,
-                                               lone_phase)
+                while len(active) < 2:
+                    if len(available_calls):
+                        ranked_calls = self.rankCalls(available_calls)
 
-                call_count = len(self._calls)
-                if call_choice is not None:
-                    if lone_phase is not None and \
-                            call_count == 0 and \
-                            self._last_call_count == 0:
-                        # todo: config preference for column/diagonal selection
-                        diagonal = self.getDiagonalPartner(lone_phase)
-                        column = self.getColumnPartner(lone_phase)
-                        for ph in [diagonal, column]:
-                            if ph is not None:
-                                if ph.state == PhaseState.STOP:
-                                    # todo: add default state for ped service in
-                                    #  config
-                                    self.activatePhase(
-                                        ph,
-                                        ped_service=True,
-                                        barrier_pool=barrier_pool
-                                    )
-                                    break
-                    else:
-                        self.activatePhase(call_choice.target,
-                                           ped_service=call_choice.ped_service,
+                        top = ranked_calls[0]
+                        threshold = self._max_call_age // 2
+                        if top.age > threshold:
+                            self.LOG.warning(f'Age of top call {top.getTag()} exceeded '
+                                             f'no-serve timeout threshold ({threshold})')
+
+                        self.LOG.debug(f'Serving call {top.getTag()} {top.target.getTag()}')
+                        self._barrier_phase_count += 1
+                        self._barrier_skip_counter = 0
+                        self._calls.remove(top)
+                        self.activatePhase(top.target,
+                                           ped_service=top.ped_service,
                                            barrier_pool=barrier_pool)
-                self._last_call_count = call_count
-                self.handlePhases(ranked_calls)
-                with_calls = self.getPhasesWithCalls(self._active_barrier)
-                self.handleRingAndBarrier(available, with_calls, barrier_pool)
+                    else:
+                        break
+
+                    active = self.getActivePhases()
+                    available_calls = self.filterCallsByPhases(self._calls,
+                                                               self.getInactivePhases())
+                    if self._active_barrier is not None:
+                        available_calls = self.filterCallsByBarrier(available_calls,
+                                                                    self._active_barrier)
+
+                self.handleRingAndBarrier(available_phases, barrier_pool)
+
+                for phase in self._phases:
+                    conflicting_demand = False
+
+                    for call in self._calls:
+                        if call.target != phase and \
+                                self.checkPhaseConflict(phase, call.target):
+                            conflicting_demand = True
+                            break
+
+                    if phase.tick(conflicting_demand, self.flasher):
+                        if phase.state == PhaseState.STOP:
+                            self._cycle_window.insert(0, phase)
+
+                for call in self._calls:
+                    call.tick()
             elif self._op_mode == OperationMode.CET:
                 for ph in self._phases:
                     ph.tick(False, self._flasher)
+
+                if self._cet_counter > self.INCREMENT:
+                    self._cet_counter -= self.INCREMENT
+                else:
+                    self.setOperationState(OperationMode.NORMAL)
 
             if self._half_counter == 4:
                 self._half_counter = 0
@@ -1101,6 +1046,12 @@ class Controller:
             self._monitor.broadcastControlUpdate(self._phases,
                                                  pmd,
                                                  self._load_switches)
+
+        field_text = ''
+        for ls in self._load_switches:
+            ft = utils.formatFields(ls.a, ls.b, ls.c)
+            field_text += f'{ls.id:02d}{ft} '
+        self.LOG.fine(field_text)
 
     def halfSecond(self):
         """Polled once every 500ms"""
@@ -1153,7 +1104,7 @@ class Controller:
             self.setOperationState(self._op_mode)
             self.transfer()
             while True:
-                time.sleep(0.1)
+                time.sleep(self.INCREMENT)
                 self.tick()
 
     def shutdown(self):
