@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from core import FrozenIdentifiableBase
+from core import FrozenIdentifiableBase, IdentifiableBase
 from typing import List
 from dataclasses import dataclass
 
@@ -22,6 +22,13 @@ class Ring(FrozenIdentifiableBase):
     phases: List[int]
 
 
-@dataclass(frozen=True)
-class Barrier(FrozenIdentifiableBase):
-    phases: List[int]
+class Barrier(IdentifiableBase):
+    
+    @property
+    def phases(self):
+        return self._phases
+
+    def __init__(self, id_: int, phases: List[int]):
+        super().__init__(id_)
+        self._phases = phases
+        self.cycle_count = 0

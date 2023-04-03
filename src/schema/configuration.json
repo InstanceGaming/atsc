@@ -13,6 +13,7 @@
     "network",
     "init",
     "phases",
+    "idle-phases",
     "rings",
     "barriers",
     "calls",
@@ -229,6 +230,16 @@
             }
           }
         }
+      }
+    },
+    "idle-phases": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 8,
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "uniqueItems": true
       }
     },
     "random-actuation": {

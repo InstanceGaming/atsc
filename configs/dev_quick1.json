@@ -1,15 +1,15 @@
 {
   "version": 3,
   "random-actuation": {
-    "delay": 10,
+    "delay": 15,
     "min": 1,
-    "max": 10,
+    "max": 20,
     "enabled": true
   },
   "init": {
     "mode": "normal",
     "cet-delay": 2,
-    "recall-all": true
+    "recall-all": false
   },
   "device": {
     "name": "ATSC Development Intersection",
@@ -129,6 +129,7 @@
       8
     ]
   ],
+  "idle-phases": [6, 2, 1, 5],
   "calls": {
     "max-age": 600,
     "weights": {

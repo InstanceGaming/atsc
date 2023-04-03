@@ -102,12 +102,25 @@ class PhaseState(IntEnum):
     MAX_GO = 32
 
 
-PHASE_REST_STATES = [PhaseState.STOP, PhaseState.GO, PhaseState.WALK, ]
+PHASE_REST_STATES = (PhaseState.STOP, PhaseState.GO, PhaseState.WALK)
 
-PHASE_TIMED_STATES = [PhaseState.MIN_STOP, PhaseState.RCLR, PhaseState.CAUTION, PhaseState.EXTEND, PhaseState.GO,
-                      PhaseState.PCLR, PhaseState.WALK, PhaseState.MAX_GO]
+PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
+                      PhaseState.RCLR,
+                      PhaseState.CAUTION,
+                      PhaseState.EXTEND,
+                      PhaseState.GO,
+                      PhaseState.PCLR,
+                      PhaseState.WALK,
+                      PhaseState.MAX_GO)
 
-PHASE_GO_STATES = [PhaseState.EXTEND, PhaseState.GO, PhaseState.PCLR, PhaseState.WALK]
+PHASE_GO_STATES = (PhaseState.EXTEND,
+                   PhaseState.GO,
+                   PhaseState.PCLR,
+                   PhaseState.WALK)
+
+PHASE_PARTNER_START_STATES = (PhaseState.EXTEND,
+                              PhaseState.GO,
+                              PhaseState.WALK)
 
 
 class Phase(IdentifiableBase):
@@ -273,6 +286,9 @@ class Phase(IdentifiableBase):
     def activate(self, ped_inhibit: bool = True):
         if self.active:
             raise RuntimeError('Cannot activate active phase')
+        
+        if self.state == PhaseState.MIN_STOP:
+            raise RuntimeError('Cannot activate phase during MIN_STOP interval')
         
         self._ped_inhibit = ped_inhibit
         self.update()
