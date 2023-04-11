@@ -1,13 +1,19 @@
-from enum import IntEnum, IntFlag
+from enum import IntEnum, IntFlag, Enum
 from typing import List
 from atsc.core.fundemental import Identifiable, IdentifiedCollection
 from atsc.utils import format_fields
 
 
+class PreemptionMode(Enum):
+    GO = 'go'
+    STOP = 'stop'
+
+
 class ControlMode(IntEnum):
-    UNKNOWN = 0
-    OFF = 10
-    CET = 20
+    UNKNOWN = -1
+    OFF = 0
+    CET = 10
+    START_DELAY = 20
     NORMAL = 30
     CXT = 40
     LS_FLASH = 50
@@ -111,7 +117,7 @@ class InputAction(IntEnum):
     MODE_LS_FLASH = 11
 
 
-class InputActivation(IntEnum):
+class Triggering(IntEnum):
     LOW = 1
     HIGH = 2
     RISING = 3
@@ -133,71 +139,3 @@ class Ring(PhaseIndexCollection):
 
 class Barrier(PhaseIndexCollection):
     pass
-
-
-class Input:
-
-    @property
-    def trigger(self):
-        return self._trigger
-
-    @property
-    def action(self):
-        return self._action
-
-    @property
-    def targets(self):
-        return self._targets
-
-    @property
-    def state(self):
-        return self._state
-
-    @property
-    def last_state(self):
-        return self._last_state
-
-    @property
-    def changed(self):
-        return self._changed
-
-    def __init__(self,
-                 trigger: InputActivation,
-                 action: InputAction,
-                 targets: List[int],
-                 state: bool = False,
-                 last_state: bool = False,
-                 changed: bool = False):
-        self._trigger = trigger
-        self._action = action
-        self._targets = targets
-        self._state = state
-        self._last_state = last_state
-        self._changed = changed
-
-    def activated(self) -> bool:
-        if self.trigger == InputActivation.LOW:
-            if not self.state and not self.last_state:
-                return True
-        elif self.trigger == InputActivation.HIGH:
-            if self.state and self.last_state:
-                return True
-        elif self.trigger == InputActivation.RISING:
-            if self.state and not self.last_state:
-                return True
-        elif self.trigger == InputActivation.FALLING:
-            if not self.state and self.last_state:
-                return True
-        return False
-
-    def update(self, s: bool) -> bool:
-        last = self._state
-        self._state = s
-        self._last_state = last
-        self._changed = s != last
-        return self._changed
-
-    def __repr__(self):
-        return f'<Input {self.trigger.name} {self.action.name} ' \
-               f'{"ACTIVE" if self.state else "INACTIVE"}' \
-               f'{" CHANGED" if self.changed else ""}>'

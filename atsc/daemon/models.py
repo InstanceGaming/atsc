@@ -11,16 +11,530 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from abc import ABC, abstractmethod
+from enum import Enum, IntEnum
 from typing import Set, Dict, List, Union, Iterable, Optional
 from threading import Lock
 
 from atsc.constants import FLOAT_ROUND_PLACES
-from atsc.core.fundemental import Identifiable, Tickable
+from atsc.daemon.collections import TickableCollection
+from atsc.daemon.context import RunContext
+from atsc.daemon.references import Referencable, reference
+from atsc.core.fundemental import Identifiable, Tickable, Nameable
 from atsc.core.models import (PhaseState,
                               FlashMode,
                               PHASE_TIMED_STATES,
-                              LoadSwitch, PHASE_GO_STATES, Ring, Barrier)
-from atsc.utils import cmp_key_args
+                              LoadSwitch, PHASE_GO_STATES, Ring, Barrier, Triggering, PreemptionMode)
+from atsc.core.serializing import Deserializable
+from atsc.utils import cmp_key_args, text_to_enum
+
+
+class ControlIO(Referencable, Tickable):
+
+    @property
+    def state(self):
+        return self._state
+
+    @property
+    def last_state(self):
+        return self._last_state
+
+    @property
+    def changed(self):
+        return self._changed
+
+    def __init__(self,
+                 context: RunContext,
+                 id_: int,
+                 initial_state: bool = False):
+        Tickable.__init__(self, context.tick_delay)
+        Referencable.__init__(self, id_)
+        self._state = initial_state
+        self._last_state = initial_state
+        self._changed = False
+
+    def update(self, s: bool) -> bool:
+        last = self._state
+        self._state = s
+        self._last_state = last
+        self._changed = s != last
+        return self._changed
+
+    def tick(self):
+        raise NotImplementedError()
+
+    def __bool__(self):
+        return self._state
+
+
+class Input(ControlIO):
+
+    def tick(self):
+        raise NotImplementedError()
+
+    @staticmethod
+    def deserialize(data, context=None):
+        if context is None:
+            raise ValueError('context kwarg required')
+
+        if isinstance(data, dict):
+            id_ = data['id']
+            type_ = data['type']
+            if type_ == 'flasher_internal':
+                fpm = data['fpm']
+                return InternalFlasherInput(context, id_, fpm)
+            elif type_ == 'preemption':
+                mode = text_to_enum(PreemptionMode, data['mode'])
+                triggering = text_to_enum(Triggering, data['triggering'])
+                return PreemptionInput(context, id_, triggering, mode)
+            else:
+                raise ValueError(f'unknown input type "{type_}"')
+        else:
+            raise TypeError()
+
+
+class InputCollection(TickableCollection):
+
+    @staticmethod
+    def deserialize(data: Iterable[Input], context=None):
+        if context is None:
+            raise ValueError('context kwarg required')
+
+        if isinstance(data, list):
+            items = []
+            for node in data:
+                items.append(Input.deserialize(node, context=context))
+            return InputCollection(items=items)
+        else:
+            raise TypeError()
+
+
+class DigitalInput(Input):
+
+    @property
+    def trigger(self):
+        return self._trigger
+
+    def __init__(self,
+                 context: RunContext,
+                 id_: int,
+                 trigger: Triggering,
+                 initial_state: bool = False):
+        super().__init__(context, id_, initial_state=initial_state)
+        self._trigger = trigger
+
+    def update(self, s: bool) -> bool:
+        if Input.update(self, s):
+            if self.trigger == Triggering.LOW:
+                if not self.state and not self.last_state:
+                    return True
+            elif self.trigger == Triggering.HIGH:
+                if self.state and self.last_state:
+                    return True
+            elif self.trigger == Triggering.RISING:
+                if self.state and not self.last_state:
+                    return True
+            elif self.trigger == Triggering.FALLING:
+                if not self.state and self.last_state:
+                    return True
+        return False
+
+    def tick(self):
+        raise NotImplementedError()
+
+
+class PreemptionInput(DigitalInput):
+
+    @property
+    def mode(self):
+        return self._mode
+
+    def __init__(self,
+                 context: RunContext,
+                 id_: int,
+                 triggering: Triggering,
+                 mode: PreemptionMode):
+        super().__init__(context, id_, triggering)
+        self._mode = mode
+
+    def tick(self):
+        pass
+
+
+class InternalFlasherInput(Input):
+
+    @property
+    def fpm(self):
+        return self._fpm
+
+    @property
+    def fps(self):
+        return self._fpm / 60
+
+    def __init__(self,
+                 context: RunContext,
+                 id_: int,
+                 fpm: int):
+        super().__init__(context, id_)
+        self._scaled_tick = context.tick_delay * context.tps
+        self._accumulator = 0
+        self._fpm = fpm
+        self._flasher = False
+
+    def tick(self):
+        self._accumulator += self._scaled_tick
+        if self._accumulator > self.fps:
+            self._accumulator = 0
+            self._flasher = not self._flasher
+            self.update(self._flasher)
+
+
+class Output(ControlIO):
+
+    def tick(self):
+        raise NotImplementedError()
+
+    @staticmethod
+    def deserialize(data, context=None):
+        if context is None:
+            raise ValueError('context kwarg required')
+
+        if isinstance(data, dict):
+            id_ = data['id']
+            type_ = data['type']
+            if type_ == 'field':
+                return FieldOutput(context, id_)
+            else:
+                raise ValueError(f'unknown output type "{type_}"')
+        else:
+            raise TypeError()
+
+
+class OutputCollection(TickableCollection):
+
+    @staticmethod
+    def deserialize(data: Iterable[Output], context=None):
+        if context is None:
+            raise ValueError('context kwarg required')
+
+        if isinstance(data, list):
+            items = []
+            for node in data:
+                items.append(Output.deserialize(node, context=context))
+            return OutputCollection(items=items)
+        else:
+            raise TypeError()
+
+
+class FieldOutputState(IntEnum):
+    OFF = 0
+    ON = 1
+    FLASHING = 2
+
+
+class FieldOutput(Output):
+
+    def __init__(self,
+                 context: RunContext,
+                 id_: int):
+        super().__init__(context, id_)
+        self._state = FieldOutputState.OFF
+        self._flasher: Optional[InternalFlasherInput] = None
+
+    def set_flasher(self, flasher: InternalFlasherInput):
+        self._flasher = flasher
+
+    def on(self):
+        if self._state != FieldOutputState.ON:
+            self._state = FieldOutputState.ON
+            self.update(True)
+
+    def flashing(self):
+        if self._state != FieldOutputState.FLASHING:
+            self._state = FieldOutputState.FLASHING
+
+    def off(self):
+        if self._state != FieldOutputState.OFF:
+            self._state = FieldOutputState.OFF
+            self.update(False)
+
+    def tick(self):
+        if self._state == FieldOutputState.FLASHING:
+            if self._flasher.changed:
+                self.update(self._flasher.state)
+
+    def __repr__(self):
+        return f'<FieldOutput #{self.id} {self._state.name}>'
+
+
+class Approach(Referencable, Nameable, Tickable):
+
+    @property
+    def phases(self):
+        return self._phases
+
+    def __init__(self,
+                 id_: int,
+                 phases: 'PhaseCollection',
+                 vehicle_service: bool,
+                 vehicle_recall: bool,
+                 vehicle_preemption: PreemptionInput,
+                 ped_service: bool,
+                 ped_recall: bool,
+                 ped_clearing: bool,
+                 name: Optional[str] = None):
+        Referencable.__init__(self, id_)
+        Nameable.__init__(self, name=name)
+        self._phases = phases
+        self._vehicle_service = vehicle_service
+        self._vehicle_recall = vehicle_recall
+        self._vehicle_preemption = vehicle_preemption
+        self._ped_service = ped_service
+        self._ped_recall = ped_recall
+        self._ped_clearing = ped_clearing
+
+    def tick(self):
+        self._phases.tick()
+
+    def get_outputs(self) -> List[FieldOutput]:
+        outputs = []
+        for phase in self._phases:
+            outputs.extend(phase.get_outputs())
+        return outputs
+
+    @staticmethod
+    def deserialize(data, **kwargs):
+        if isinstance(data, dict):
+            id_ = data['id']
+            name = data['name']
+            phase_ids = data['phases']
+
+            phases = PhaseCollection()
+            for pid in phase_ids:
+                phases.append(reference(pid, Phase))
+
+            vehicle_service = data['vehicle']['service']
+            vehicle_recall = data['vehicle']['recall']
+            vehicle_preemption_id = data['vehicle']['preemption']
+            vehicle_preemption = reference(vehicle_preemption_id,
+                                           PreemptionInput)
+
+            ped_service = data['pedestrian']['service']
+            ped_recall = data['pedestrian']['recall']
+            ped_clearing = data['pedestrian']['clearing']
+            return Approach(id_,
+                            phases,
+                            vehicle_service,
+                            vehicle_recall,
+                            vehicle_preemption,
+                            ped_service,
+                            ped_recall,
+                            ped_clearing,
+                            name=name)
+        else:
+            raise TypeError()
+
+
+class ApproachCollection(TickableCollection):
+
+    def get_outputs(self) -> List[FieldOutput]:
+        outputs = []
+        for approach in self:
+            outputs.extend(approach.get_outputs())
+        return outputs
+
+    def set_flasher(self, flasher: InternalFlasherInput):
+        for output in self.get_outputs():
+            output.set_flasher(flasher)
+
+    @staticmethod
+    def deserialize(data: Iterable[Approach]):
+        if isinstance(data, list):
+            items = []
+            for node in data:
+                items.append(Approach.deserialize(node))
+            return ApproachCollection(items=items)
+        else:
+            raise TypeError()
+
+
+class Roadway(Referencable, Nameable, Tickable):
+
+    @property
+    def approaches(self):
+        return self._approaches
+
+    @property
+    def cross_ids(self):
+        return self._cross_ids
+
+    def __init__(self,
+                 id_: int,
+                 flasher: InternalFlasherInput,
+                 approaches: ApproachCollection,
+                 cross_ids: Set[int],
+                 name: Optional[str] = None):
+        Referencable.__init__(self, id_)
+        Nameable.__init__(self, name=name)
+        self._flasher = flasher
+        self._approaches = approaches
+        self._approaches.set_flasher(flasher)
+        self._cross_ids = cross_ids
+
+    def tick(self):
+        self._approaches.tick()
+
+    def get_outputs(self) -> List[FieldOutput]:
+        outputs = []
+        for approach in self._approaches:
+            outputs.extend(approach.get_outputs())
+        return outputs
+
+    @staticmethod
+    def deserialize(data, **kwargs):
+        if isinstance(data, dict):
+            id_ = data['id']
+            name = data['name']
+
+            flasher_id = data['flasher']
+            flasher = reference(flasher_id, InternalFlasherInput)
+
+            approach_ids = data['approaches']
+            approaches = ApproachCollection()
+            for aid in approach_ids:
+                approaches.append(reference(aid, Approach))
+            cross_ids = data['crosses']
+            return Roadway(id_, flasher, approaches, cross_ids, name=name)
+        else:
+            raise TypeError()
+
+
+class RoadwayCollection(TickableCollection):
+
+    @staticmethod
+    def deserialize(data: Iterable[Roadway]):
+        if isinstance(data, list):
+            items = []
+            for node in data:
+                items.append(Roadway.deserialize(node))
+            return RoadwayCollection(items=items)
+        else:
+            raise TypeError()
+
+
+class PhaseType(Enum):
+    PROTECTED = 'protected'
+    THRU = 'thru'
+    PERMISSIVE = 'permissive'
+
+
+class Phase(Referencable, Tickable):
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def red(self):
+        return self._red
+
+    @property
+    def yellow(self):
+        return self._yellow
+
+    @property
+    def green(self):
+        return self._green
+
+    @property
+    def dont_walk(self):
+        return self._dont_walk
+
+    @property
+    def walk(self):
+        return self._walk
+
+    @property
+    def fya(self):
+        return self._fya
+
+    def __init__(self,
+                 id_: int,
+                 type: PhaseType,
+                 red: Union[int, FieldOutput],
+                 yellow: Union[int, FieldOutput],
+                 green: Union[int, FieldOutput],
+                 dont_walk: Optional[Union[int, FieldOutput]] = None,
+                 walk: Optional[Union[int, FieldOutput]] = None,
+                 fya: Optional[Union[int, FieldOutput]] = None):
+        super().__init__(id_)
+        self._type = type
+        self._red = reference(red, FieldOutput)
+        self._yellow = reference(yellow, FieldOutput)
+        self._green = reference(green, FieldOutput)
+        self._dont_walk = reference(dont_walk, FieldOutput)
+        self._walk = reference(walk, FieldOutput)
+        self._fya = reference(fya, FieldOutput)
+
+        if fya is not None:
+            if fya == red:
+                raise ValueError('cannot have FYA use red field output')
+            if dont_walk is not None and fya == dont_walk:
+                raise ValueError('cannot have FYA use dont walk output')
+            if type == PhaseType.THRU:
+                raise ValueError('cannot have FYA field output for thru phase')
+
+        if type != PhaseType.THRU:
+            if dont_walk is not None or walk is not None:
+                raise ValueError('cannot use ped field outputs for non-thru phase')
+
+    def get_outputs(self) -> List[FieldOutput]:
+        outputs = [self._red, self._yellow, self._green]
+        if self._type == PhaseType.THRU:
+            outputs.append(self._dont_walk)
+            outputs.append(self._walk)
+        if self._fya is not None:
+            outputs.append(self._fya)
+        return outputs
+
+    def tick(self):
+        pass
+
+    @staticmethod
+    def deserialize(data, **kwargs):
+        if isinstance(data, dict):
+            id_ = data['id']
+            type_ = text_to_enum(PhaseType, data['type'])
+            indications_node = data['indications']
+            red_ref = indications_node['red']
+            yellow_ref = indications_node['yellow']
+            green_ref = indications_node['green']
+            dont_walk = indications_node.get('dont_walk')
+            walk = indications_node.get('walk')
+            fya = indications_node.get('fya')
+            return Phase(id_,
+                         type_,
+                         red_ref,
+                         yellow_ref,
+                         green_ref,
+                         dont_walk=dont_walk,
+                         walk=walk,
+                         fya=fya)
+        else:
+            raise TypeError()
+
+
+class PhaseCollection(TickableCollection):
+
+    @staticmethod
+    def deserialize(data: Iterable[Phase]):
+        if isinstance(data, list):
+            items = []
+            for node in data:
+                items.append(Phase.deserialize(node))
+            return PhaseCollection(items=items)
+        else:
+            raise TypeError()
 
 
 class ControlPhase(Identifiable):
@@ -84,7 +598,7 @@ class ControlPhase(Identifiable):
         if len(keys) != len(PHASE_TIMED_STATES):
             raise RuntimeError('timing map mismatched size')
         elif PhaseState.STOP in keys:
-            raise KeyError('"STOP" state cannot be in timing map')
+            raise KeyError('"STOP" initial_state cannot be in timing map')
 
     def __init__(self,
                  id_: int,
@@ -311,6 +825,111 @@ class ControlPhase(Identifiable):
                f'{str(self._pls) if self._pls is not None else "DISABLED"}>'
 
 
+class DeviceInterface(Deserializable, ABC):
+
+    @staticmethod
+    @abstractmethod
+    def deserialize_parameters(node: dict) -> 'DeviceInterface':
+        pass
+
+    @staticmethod
+    def deserialize(data, **kwargs):
+        if isinstance(data, dict):
+            enabled = data['enabled']
+            if enabled:
+                return DeviceInterface.deserialize_parameters(data)
+            return None
+        else:
+            raise TypeError()
+
+
+class DeviceBusInterface(DeviceInterface):
+
+    @property
+    def port(self):
+        return self._port
+
+    @property
+    def baud(self):
+        return self._baud
+
+    def __init__(self, port: int, baud: int):
+        self._port = port
+        self._baud = baud
+
+    @staticmethod
+    def deserialize_parameters(node: dict) -> Optional['DeviceBusInterface']:
+        port = node['port']
+        baud = node['baud']
+        return DeviceBusInterface(port, baud)
+
+
+class DeviceEthernetInterface(DeviceInterface):
+
+    @property
+    def interface(self):
+        return self._interface
+
+    @property
+    def address(self):
+        return self._address
+
+    @property
+    def port(self):
+        return self._port
+
+    def __init__(self, interface: str, address: str, port: int):
+        self._interface = interface
+        self._address = address
+        self._port = port
+
+    @staticmethod
+    def deserialize_parameters(node: dict) -> Optional['DeviceEthernetInterface']:
+        interface = node['interface']
+        address = node['address']
+        port = node['port']
+        return DeviceEthernetInterface(interface, address, port)
+
+
+class DeviceInfo(Nameable):
+
+    @property
+    def timezone(self):
+        return self._timezone
+
+    @property
+    def bus(self):
+        return self._bus
+
+    @property
+    def ethernet(self):
+        return self._ethernet
+
+    def __init__(self,
+                 timezone: str,
+                 bus: Optional[DeviceBusInterface],
+                 ethernet: Optional[DeviceEthernetInterface],
+                 name: Optional[str] = None):
+        super().__init__(name=name)
+        self._timezone = timezone
+        self._bus = bus
+        self._ethernet = ethernet
+
+    @staticmethod
+    def deserialize(data, **kwargs):
+        if isinstance(data, dict):
+            name = data.get('name')
+            geo_node = data['geo']
+            geo_timezone = geo_node['timezone']
+            bus_node = data['bus']
+            bus = DeviceBusInterface.deserialize(bus_node)
+            ethernet_node = data['ethernet']
+            ethernet = DeviceEthernetInterface.deserialize(ethernet_node)
+            return DeviceInfo(geo_timezone, bus, ethernet, name=name)
+        else:
+            raise TypeError()
+
+
 def phases_by_number(phases: Iterable[ControlPhase],
                      id_: int) -> Optional[ControlPhase]:
     for phase in phases:
@@ -470,7 +1089,7 @@ class ControlCall(Tickable, Identifiable):
         self._age: float = age or 0.0
 
     def tick(self):
-        self._age += self.tick_size
+        self._age += self.tick_delay
 
     def __lt__(self, other):
         if isinstance(other, ControlCall):

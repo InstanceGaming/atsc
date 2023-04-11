@@ -2,7 +2,7 @@ from abc import abstractmethod
 from time import sleep
 from typing import Any
 from threading import Event, Thread
-from .fundemental import Tickable
+from atsc.core.fundemental import Tickable
 
 
 class ThreadedTickable(Thread, Tickable):
@@ -15,8 +15,8 @@ class ThreadedTickable(Thread, Tickable):
     def paused(self):
         return self._pause_event.is_set()
 
-    def __init__(self, tick_size: float, thread_name=None, daemon=True):
-        Tickable.__init__(self, tick_size)
+    def __init__(self, tick_delay: float, thread_name=None, daemon=True):
+        Tickable.__init__(self, tick_delay)
         Thread.__init__(self, name=thread_name, daemon=daemon)
         self._stop_event = Event()
         self._pause_event = Event()
@@ -35,9 +35,9 @@ class ThreadedTickable(Thread, Tickable):
                 break
             if not self._pause_event.is_set():
                 self.tick()
-                sleep(self.tick_size)
+                sleep(self.tick_delay)
             else:
-                sleep(self.tick_size * 2)
+                sleep(self.tick_delay * 2)
 
     def pause(self) -> bool:
         if not self._pause_event.is_set():

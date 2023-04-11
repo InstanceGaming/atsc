@@ -65,7 +65,7 @@ class FileSchemaValidator:
         self._known_versions = known_versions
         self._version = None
 
-    def load(self, paths: List[str]) -> dict:
+    def load(self, paths: List[os.PathLike]) -> dict:
         cm = ChainMap()
 
         if len(paths) > 0:
@@ -123,11 +123,10 @@ class FileSchemaValidator:
             raise FileSchemaError(FileSchemaErrorType.SCHEMA_INVALID,
                                   message=e.message)
         except ValidationError as e:
-            pth_txt = '.'.join([str(item) for item in e.absolute_path])
             raise FileSchemaError(FileSchemaErrorType.INVALID_BY_SCHEMA,
                                   message=e.message,
                                   validator=e.validator_value,
-                                  node_path=pth_txt)
+                                  node_path=e.json_path)
 
         return final_data
 

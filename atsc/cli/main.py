@@ -17,10 +17,10 @@ from importlib.util import find_spec
 
 from atsc.constants import START_BANNER
 from atsc.rpc import default_connection_string, validate_connection_str
-from atsc.utils import default_logger, register_logging_levels
+from atsc.utils import configure_logger, register_logging_levels
 
 
-logger = default_logger(20)
+logger = configure_logger(20)
 register_logging_levels()
 
 
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     # config validation
     sp_live = sp.add_parser('live',
                             description='Connect to daemon and show the'
-                                            'live state of the controller.')
+                                            'live initial_state of the daemon.')
     sp_live.add_argument('-r', '--rpc',
                          default=default_connection_string(),
                          dest='connection_string',

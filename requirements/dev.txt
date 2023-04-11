@@ -9,3 +9,4 @@ loguru
 netifaces
 asciimatics
 2to3
+genson

@@ -31,8 +31,8 @@ class ApplicationFrame(Frame):
             'debug': ('DBG', '?')
         })
         self._num_props = PropertyPopulator(1, {
-            'runtime': ('RT', ElapsedSecondsFormatter(0)),
-            'control_time': ('CT', ElapsedSecondsFormatter(0)),
+            'runtime': ('RT', ElapsedSecondsFormatter()),
+            'control_time': ('CT', ElapsedSecondsFormatter()),
             'transfer_count': ('FTC', IntegerFormatter('0000')),
             'avg_demand': ('DD_AVG', FloatFormatter()),
             'peek_demand': ('DD_PK', FloatFormatter())

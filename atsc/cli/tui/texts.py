@@ -1,4 +1,3 @@
-import sys
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
@@ -31,9 +30,6 @@ class ValueFormatter(ABC):
 
 class ElapsedSecondsFormatter(ValueFormatter):
 
-    def __init__(self, limit=sys.maxsize):
-        self._limit = limit
-
     def format(self, v: Optional[int]) -> str:
         if v is None:
             v = 0
@@ -43,22 +39,19 @@ class ElapsedSecondsFormatter(ValueFormatter):
 
         digits = str(v)
         unit = 'S'
-        if self._limit:
-            if self._limit < SECONDS_WEEK <= v:
-                digits = str(round(v / SECONDS_WEEK))
-                unit = 'W'
-            elif self._limit < SECONDS_DAY <= v:
-                digits = str(round(v / SECONDS_DAY))
-                unit = 'D'
-            elif self._limit < SECONDS_HOUR <= v:
-                digits = str(round(v / SECONDS_HOUR))
-                unit = 'H'
-            elif self._limit < SECONDS_MINUTE <= v:
-                digits = str(round(v / SECONDS_MINUTE))
-                unit = 'M'
-            else:
-                digits = str(v)
-                unit = 'S'
+
+        if SECONDS_WEEK <= v:
+            digits = str(round(v / SECONDS_WEEK))
+            unit = 'W'
+        elif SECONDS_DAY <= v:
+            digits = str(round(v / SECONDS_DAY))
+            unit = 'D'
+        elif SECONDS_HOUR <= v:
+            digits = str(round(v / SECONDS_HOUR))
+            unit = 'H'
+        elif SECONDS_MINUTE <= v:
+            digits = str(round(v / SECONDS_MINUTE))
+            unit = 'M'
 
         return digits + unit
 

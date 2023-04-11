@@ -101,13 +101,13 @@ it waits for the next connect.
     group.add_argument(
         '--rts',
         type=int,
-        help='set properties RTS line state (possible values: 0, 1)',
+        help='set properties RTS line initial_state (possible values: 0, 1)',
         default=None)
 
     group.add_argument(
         '--dtr',
         type=int,
-        help='set properties DTR line state (possible values: 0, 1)',
+        help='set properties DTR line initial_state (possible values: 0, 1)',
         default=None)
 
     group = parser.add_argument_group('network settings')

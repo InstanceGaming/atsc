@@ -12,41 +12,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import os
-import sys
 import platform
 from enum import Enum
-from loguru import logger
-from typing import Type, Tuple, Union, Callable
+from pathlib import Path
+from typing import Type, Tuple, Union, Callable, Optional
 from datetime import datetime
-from functools import partialmethod
-
-
-def register_logging_levels():
-    logger.level('SORT', no=1, color='<d>')
-    logger.__class__.sort = partialmethod(logger.__class__.log, 'SORT')
-    logger.level('BUS', no=2, color='<d>')
-    logger.__class__.bus = partialmethod(logger.__class__.log, 'BUS')
-    logger.level('NET', no=3, color='<d>')
-    logger.__class__.net = partialmethod(logger.__class__.log, 'NET')
-    logger.level('VERB', no=7, color='<c>')
-    logger.__class__.verb = partialmethod(logger.__class__.log, 'VERB')
-
-
-def default_logger(level,
-                   color=True,
-                   dev=True,
-                   timestamp=True):
-    fmt = '[{thread: 8}] <level>{level: >8}</level>: {message}'
-
-    if timestamp:
-        fmt = '[{time:ddd MMM DD hh:mm:ss.SS A}]' + fmt
-
-    if dev:
-        fmt += ' <d>[<i>{file}:{line}</i>]</d>'
-
-    logger.remove()
-    logger.add(sys.stdout, colorize=color, level=level, format=fmt)
-    return logger.opt(ansi=color)
 
 
 def format_ms_elapsed(before, now):
@@ -131,14 +101,6 @@ def compact_dt(dt: datetime, tz=None) -> str:
     return f'{date_text}{year_text}{time_text}'
 
 
-def interface_address(filter_if_name: str):
-    from netifaces import AF_INET, ifaddresses
-
-    interface = ifaddresses(filter_if_name)
-    protocol = interface[AF_INET]
-    return protocol[0]['addr']
-
-
 def format_dhms(seconds) -> Tuple[int, int, int, int]:
     seconds_to_minute = 60
     seconds_to_hour = 60 * seconds_to_minute
@@ -158,7 +120,7 @@ def format_dhms(seconds) -> Tuple[int, int, int, int]:
     return days, hours, minutes, seconds
 
 
-def ellipsize_enum(e: Enum):
+def abbreviate_enum(e: Enum):
     if e is not None:
         return e.name[0:3]
     return ''
@@ -245,9 +207,29 @@ def cmp_key_args(cmp_func: Callable, *args, **kwargs):
     return Comparator
 
 
-def get_config_schema_path() -> str:
-    entry_script_dir = os.path.abspath(os.path.dirname(__file__))
-    config_schema_path = os.path.join(entry_script_dir,
-                                      'schemas',
-                                      'configuration.json')
-    return config_schema_path
+def merge(*dicts: dict) -> dict:
+    rv = {}
+    for d in [*dicts]:
+        rv.update(d)
+    return rv
+
+
+def iso_dt(dt: datetime) -> str:
+    return dt.isoformat(timespec='seconds')
+
+
+def process_path(raw: Optional[str]) -> Optional[Path]:
+    if raw:
+        norm = os.path.normpath(raw.strip())
+        expanded = os.path.expandvars(os.path.expanduser(norm))
+        return Path(expanded)
+    return None
+
+
+def get_schema(name: str) -> str:
+    # get JSON schema file by name
+    # this function is dependent on the location of this utils file
+    pth = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                       'schemas',
+                       f'{name}.json')
+    return pth
