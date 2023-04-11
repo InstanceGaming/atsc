@@ -1,0 +1,315 @@
+{
+    "$schema": "http://json-schema.org/schema#",
+    "type": "object",
+    "properties": {
+        "version": {
+            "type": "integer"
+        },
+        "controller": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "actuated": {
+                    "type": "boolean"
+                },
+                "startup": {
+                    "type": "object",
+                    "properties": {
+                        "mode": {
+                            "type": "string"
+                        },
+                        "delay": {
+                            "type": "integer"
+                        },
+                        "actuated": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "actuated",
+                        "delay",
+                        "mode"
+                    ]
+                },
+                "phases": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "type": {
+                                "type": "string"
+                            },
+                            "indications": {
+                                "type": "object",
+                                "properties": {
+                                    "red": {
+                                        "type": "integer"
+                                    },
+                                    "yellow": {
+                                        "type": "integer"
+                                    },
+                                    "green": {
+                                        "type": "integer"
+                                    },
+                                    "dont_walk": {
+                                        "type": "integer"
+                                    },
+                                    "walk": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "green",
+                                    "red",
+                                    "yellow"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "indications",
+                            "type"
+                        ]
+                    }
+                },
+                "approaches": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "phases": {
+                                "type": "array",
+                                "items": {
+                                    "type": "integer"
+                                }
+                            },
+                            "vehicle": {
+                                "type": "object",
+                                "properties": {
+                                    "service": {
+                                        "type": "boolean"
+                                    },
+                                    "recall": {
+                                        "type": "boolean"
+                                    },
+                                    "preemption": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "preemption",
+                                    "recall",
+                                    "service"
+                                ]
+                            },
+                            "pedestrian": {
+                                "type": "object",
+                                "properties": {
+                                    "service": {
+                                        "type": "boolean"
+                                    },
+                                    "recall": {
+                                        "type": "boolean"
+                                    },
+                                    "clearing": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "required": [
+                                    "clearing",
+                                    "recall",
+                                    "service"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "name",
+                            "pedestrian",
+                            "phases",
+                            "vehicle"
+                        ]
+                    }
+                },
+                "roadways": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "flasher": {
+                                "type": "integer"
+                            },
+                            "approaches": {
+                                "type": "array",
+                                "items": {
+                                    "type": "integer"
+                                }
+                            },
+                            "crosses": {
+                                "type": "array",
+                                "items": {
+                                    "type": "integer"
+                                }
+                            },
+                            "weight": {
+                                "type": "integer"
+                            }
+                        },
+                        "required": [
+                            "approaches",
+                            "crosses",
+                            "flasher",
+                            "id",
+                            "name",
+                            "weight"
+                        ]
+                    }
+                },
+                "outputs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "type": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "type"
+                        ]
+                    }
+                },
+                "inputs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "type": {
+                                "type": "string"
+                            },
+                            "fpm": {
+                                "type": "integer"
+                            },
+                            "mode": {
+                                "type": "string"
+                            },
+                            "triggering": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "type"
+                        ]
+                    }
+                },
+                "device": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "geo": {
+                            "type": "object",
+                            "properties": {
+                                "timezone": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "timezone"
+                            ]
+                        },
+                        "bus": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "port": {
+                                    "type": "string"
+                                },
+                                "baud": {
+                                    "type": "integer"
+                                }
+                            },
+                            "required": [
+                                "baud",
+                                "enabled",
+                                "port"
+                            ]
+                        },
+                        "ethernet": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "interface": {
+                                    "type": "string"
+                                },
+                                "address": {
+                                    "type": "string"
+                                },
+                                "port": {
+                                    "type": "integer"
+                                }
+                            },
+                            "required": [
+                                "address",
+                                "enabled",
+                                "interface",
+                                "port"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "bus",
+                        "ethernet",
+                        "geo",
+                        "name"
+                    ]
+                }
+            },
+            "required": [
+                "actuated",
+                "approaches",
+                "device",
+                "inputs",
+                "name",
+                "outputs",
+                "phases",
+                "roadways",
+                "startup"
+            ]
+        }
+    },
+    "required": [
+        "controller",
+        "version"
+    ]
+}

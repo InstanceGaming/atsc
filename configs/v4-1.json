@@ -1,0 +1,255 @@
+{
+  "version": 4,
+  "controller": {
+    "name": "ATSC Demo Intersection",
+    "actuated": true,
+    "startup": {
+      "mode": "cet",
+      "delay": 10,
+      "actuated": false
+    },
+    "phases": [
+      {
+        "id": 101,
+        "type": "protected",
+        "indications": {
+          "red": 1001,
+          "yellow": 1002,
+          "green": 1003
+        }
+      },
+      {
+        "id": 102,
+        "type": "thru",
+        "indications": {
+          "red": 1004,
+          "yellow": 1005,
+          "green": 1006,
+          "dont_walk": 1025,
+          "walk": 1026
+        }
+      },
+      {
+        "id": 103,
+        "type": "protected",
+        "indications": {
+          "red": 1007,
+          "yellow": 1008,
+          "green": 1009
+        }
+      },
+      {
+        "id": 104,
+        "type": "thru",
+        "indications": {
+          "red": 1010,
+          "yellow": 1011,
+          "green": 1012,
+          "dont_walk": 1027,
+          "walk": 1028
+        }
+      },
+      {
+        "id": 105,
+        "type": "protected",
+        "indications": {
+          "red": 1013,
+          "yellow": 1014,
+          "green": 1015
+        }
+      },
+      {
+        "id": 106,
+        "type": "thru",
+        "indications": {
+          "red": 1016,
+          "yellow": 1017,
+          "green": 1018,
+          "dont_walk": 1029,
+          "walk": 1030
+        }
+      },
+      {
+        "id": 107,
+        "type": "protected",
+        "indications": {
+          "red": 1019,
+          "yellow": 1020,
+          "green": 1021
+        }
+      },
+      {
+        "id": 108,
+        "type": "thru",
+        "indications": {
+          "red": 1022,
+          "yellow": 1023,
+          "green": 1024,
+          "dont_walk": 1031,
+          "walk": 1032
+        }
+      }
+    ],
+    "approaches": [
+      {
+        "id": 201,
+        "name": "Northbound",
+        "phases": [101, 102],
+        "vehicle": {
+          "service": true,
+          "recall": true,
+          "preemption": 9111
+        },
+        "pedestrian": {
+          "service": true,
+          "recall": true,
+          "clearing": true
+        }
+      },
+      {
+        "id": 202,
+        "name": "Southbound",
+        "phases": [103, 104],
+        "vehicle": {
+          "service": true,
+          "recall": true,
+          "preemption": 9112
+        },
+        "pedestrian": {
+          "service": true,
+          "recall": true,
+          "clearing": true
+        }
+      },
+      {
+        "id": 203,
+        "name": "Westbound",
+        "phases": [105, 106],
+        "vehicle": {
+          "service": true,
+          "recall": false,
+          "preemption": 9113
+        },
+        "pedestrian": {
+          "service": true,
+          "recall": false,
+          "clearing": true
+        }
+      },
+      {
+        "id": 204,
+        "name": "Eastbound",
+        "phases": [107, 108],
+        "vehicle": {
+          "service": true,
+          "recall": false,
+          "preemption": 9114
+        },
+        "pedestrian": {
+          "service": true,
+          "recall": false,
+          "clearing": true
+        }
+      }
+    ],
+    "roadways": [
+      {
+        "id": 300,
+        "name": "North-South",
+        "flasher": 2001,
+        "approaches": [201, 202],
+        "crosses": [301],
+        "weight": 200
+      },
+      {
+        "id": 301,
+        "name": "East-West",
+        "flasher": 2002,
+        "approaches": [203, 204],
+        "crosses": [300],
+        "weight": 100
+      }
+    ],
+    "outputs": [
+      { "id": 1001, "type": "field" },
+      { "id": 1002, "type": "field" },
+      { "id": 1003, "type": "field" },
+      { "id": 1004, "type": "field" },
+      { "id": 1005, "type": "field" },
+      { "id": 1006, "type": "field" },
+      { "id": 1007, "type": "field" },
+      { "id": 1008, "type": "field" },
+      { "id": 1009, "type": "field" },
+      { "id": 1010, "type": "field" },
+      { "id": 1011, "type": "field" },
+      { "id": 1012, "type": "field" },
+      { "id": 1013, "type": "field" },
+      { "id": 1014, "type": "field" },
+      { "id": 1015, "type": "field" },
+      { "id": 1016, "type": "field" },
+      { "id": 1017, "type": "field" },
+      { "id": 1018, "type": "field" },
+      { "id": 1019, "type": "field" },
+      { "id": 1020, "type": "field" },
+      { "id": 1021, "type": "field" },
+      { "id": 1022, "type": "field" },
+      { "id": 1023, "type": "field" },
+      { "id": 1024, "type": "field" },
+      { "id": 1025, "type": "field" },
+      { "id": 1026, "type": "field" },
+      { "id": 1027, "type": "field" },
+      { "id": 1028, "type": "field" },
+      { "id": 1029, "type": "field" },
+      { "id": 1030, "type": "field" },
+      { "id": 1031, "type": "field" },
+      { "id": 1032, "type": "field" }
+    ],
+    "inputs": [
+      { "id": 2001,
+        "type": "flasher_internal",
+        "fpm": 60
+      },
+      { "id": 2002,
+        "type": "flasher_internal",
+        "fpm": 60
+      },
+      { "id": 9111,
+        "type": "preemption",
+        "mode": "go",
+        "triggering": "rising"
+      },
+      { "id": 9112,
+        "type": "preemption",
+        "mode": "go",
+        "triggering": "rising"
+      },
+      { "id": 9113,
+        "type": "preemption",
+        "mode": "go",
+        "triggering": "rising"
+      },
+      { "id": 9114,
+        "type": "preemption",
+        "mode": "go",
+        "triggering": "rising"
+      }
+    ],
+    "device": {
+      "name": "Raspberry Pi 4",
+      "geo": {
+        "timezone": "America/Boise"
+      },
+      "bus": {
+        "enabled": true,
+        "port": "COM4",
+        "baud": 115200
+      },
+      "ethernet": {
+        "enabled": true,
+        "interface": "auto",
+        "address": "0.0.0.0",
+        "port": 7888
+      }
+    }
+  }
+}
