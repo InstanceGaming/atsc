@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import Enum, IntEnum
 from typing import Set, Dict, List, Union, Iterable, Optional
 from threading import Lock
@@ -262,9 +263,16 @@ class FieldOutput(Output):
         if self._state == FieldOutputState.FLASHING:
             if self._flasher.changed:
                 self.update(self._flasher.state)
-
+    
     def __repr__(self):
         return f'<FieldOutput #{self.id} {self._state.name}>'
+
+
+@dataclass(frozen=True)
+class PreemptionPriorityInputs:
+    high: Optional[PreemptionInput]
+    medium: Optional[PreemptionInput]
+    low: Optional[PreemptionInput]
 
 
 class Approach(Referencable, Nameable, Tickable):
@@ -278,7 +286,7 @@ class Approach(Referencable, Nameable, Tickable):
                  phases: 'PhaseCollection',
                  vehicle_service: bool,
                  vehicle_recall: bool,
-                 vehicle_preemption: PreemptionInput,
+                 preemption_inputs: PreemptionPriorityInputs,
                  ped_service: bool,
                  ped_recall: bool,
                  ped_clearing: bool,
@@ -288,7 +296,7 @@ class Approach(Referencable, Nameable, Tickable):
         self._phases = phases
         self._vehicle_service = vehicle_service
         self._vehicle_recall = vehicle_recall
-        self._vehicle_preemption = vehicle_preemption
+        self._preemp_inputs = preemption_inputs
         self._ped_service = ped_service
         self._ped_recall = ped_recall
         self._ped_clearing = ped_clearing
@@ -315,9 +323,15 @@ class Approach(Referencable, Nameable, Tickable):
 
             vehicle_service = data['vehicle']['service']
             vehicle_recall = data['vehicle']['recall']
-            vehicle_preemption_id = data['vehicle']['preemption']
-            vehicle_preemption = reference(vehicle_preemption_id,
-                                           PreemptionInput)
+            veh_preemp_node = data['vehicle']['preemption']
+            veh_preemp_high = veh_preemp_node['high']
+            veh_preemp_med = veh_preemp_node['medium']
+            veh_preemp_low = veh_preemp_node['low']
+            preemp_priorities = PreemptionPriorityInputs(
+                high=reference(veh_preemp_high, PreemptionInput),
+                medium=reference(veh_preemp_med, PreemptionInput),
+                low=reference(veh_preemp_low, PreemptionInput)
+            )
 
             ped_service = data['pedestrian']['service']
             ped_recall = data['pedestrian']['recall']
@@ -326,7 +340,7 @@ class Approach(Referencable, Nameable, Tickable):
                             phases,
                             vehicle_service,
                             vehicle_recall,
-                            vehicle_preemption,
+                            preemp_priorities,
                             ped_service,
                             ped_recall,
                             ped_clearing,
@@ -365,21 +379,21 @@ class Roadway(Referencable, Nameable, Tickable):
         return self._approaches
 
     @property
-    def cross_ids(self):
-        return self._cross_ids
+    def intersection_ids(self):
+        return self._intersection_ids
 
     def __init__(self,
                  id_: int,
                  flasher: InternalFlasherInput,
                  approaches: ApproachCollection,
-                 cross_ids: Set[int],
+                 intersection_ids: Set[int],
                  name: Optional[str] = None):
         Referencable.__init__(self, id_)
         Nameable.__init__(self, name=name)
         self._flasher = flasher
         self._approaches = approaches
         self._approaches.set_flasher(flasher)
-        self._cross_ids = cross_ids
+        self._intersection_ids = intersection_ids
 
     def tick(self):
         self._approaches.tick()
@@ -403,8 +417,8 @@ class Roadway(Referencable, Nameable, Tickable):
             approaches = ApproachCollection()
             for aid in approach_ids:
                 approaches.append(reference(aid, Approach))
-            cross_ids = data['crosses']
-            return Roadway(id_, flasher, approaches, cross_ids, name=name)
+            intersect_ids = data['intersects']
+            return Roadway(id_, flasher, approaches, intersect_ids, name=name)
         else:
             raise TypeError()
 
@@ -458,6 +472,16 @@ class Phase(Referencable, Tickable):
     def fya(self):
         return self._fya
 
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, value):
+        if self._state != value:
+            self._state = value
+            self._update_field()
+
     def __init__(self,
                  id_: int,
                  type: PhaseType,
@@ -475,6 +499,7 @@ class Phase(Referencable, Tickable):
         self._dont_walk = reference(dont_walk, FieldOutput)
         self._walk = reference(walk, FieldOutput)
         self._fya = reference(fya, FieldOutput)
+        self._state = PhaseState.STOP
 
         if fya is not None:
             if fya == red:
@@ -488,6 +513,49 @@ class Phase(Referencable, Tickable):
             if dont_walk is not None or walk is not None:
                 raise ValueError('cannot use ped field outputs for non-thru phase')
 
+    def _update_field(self):
+        if self._state <= 4:
+            self._red.on()
+            self._yellow.off()
+            self._green.off()
+            if self._dont_walk:
+                self._dont_walk.on()
+            if self._walk:
+                self._walk.off()
+            if self._fya:
+                self._fya.off()
+        elif self._state == PhaseState.CAUTION:
+            self._red.off()
+            self._yellow.on()
+            self._green.off()
+            if self._dont_walk:
+                self._dont_walk.on()
+            if self._walk:
+                self._walk.off()
+            if self._fya:
+                self._fya.off()
+        elif self._state >= 8:
+            self._red.off()
+            self._yellow.off()
+            
+            if self._fya:
+                self._green.off()
+                self._fya.flashing()
+            else:
+                self._green.on()
+            
+            if self._dont_walk:
+                if self._state == PhaseState.PCLR:
+                    self._dont_walk.flashing()
+                elif self._state == PhaseState.WALK:
+                    self._dont_walk.off()
+                else:
+                    self._dont_walk.on()
+            
+            if self._walk:
+                if self._state == PhaseState.WALK:
+                    self._walk.on()
+            
     def get_outputs(self) -> List[FieldOutput]:
         outputs = [self._red, self._yellow, self._green]
         if self._type == PhaseType.THRU:

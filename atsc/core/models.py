@@ -22,7 +22,7 @@ class ControlMode(IntEnum):
 class ControlState(IntFlag):
     TRANSFERRED        = 0x0001  # 00
     IDLE               = 0x0002  # 01
-    ACTUATED           = 0x0004  # 02
+    FREE           = 0x0004  # 02
     SATURATED          = 0x0008  # 03
     TIME_FREEZE        = 0x0010  # 04
     PREEMPTED          = 0x0020  # 05
@@ -74,6 +74,7 @@ class PhaseState(IntEnum):
     GO = 10
     PCLR = 12
     WALK = 14
+    FYA = 16
     MAX_GO = 32
 
 

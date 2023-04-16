@@ -19,7 +19,7 @@ R_T = TypeVar('R_T', bound=Referencable)
 def reference(r: Optional[Union[int, Referencable]],
               cls: Type[R_T]) -> Optional[R_T]:
     if r is None:
-        return r
+        return None
     if isinstance(r, Referencable):
         return r
     elif isinstance(r, int):

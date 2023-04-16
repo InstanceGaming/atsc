@@ -4,3 +4,4 @@ env/
 *.zip
 picp.bat
 profiling/
+logs/

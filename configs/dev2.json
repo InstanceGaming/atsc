@@ -1,0 +1,232 @@
+{
+  "version": 5,
+  "controller": {
+    "name": "ATSC Demo Intersection",
+    "free": true,
+	"all_red": 1.0,
+    "startup": {
+      "mode": "cet",
+      "all_red": 4.0,
+      "force_cycle": false
+    },
+	"timing": [
+		{
+			"id": 501,
+			"name": "left_turn1",
+			"intervals": {
+				"min_stop": 2.0,
+				"stop": null,
+				"caution": 4.0,
+				"min_go": 2.0,
+				"go": 4.0,
+				"max_go": 20.0,
+				"gap": 3.0
+			}
+		},
+		{
+			"id": 502,
+			"name": "thru2",
+			"intervals": {
+				"min_stop": 2.0,
+				"stop": null,
+				"caution": 6.0,
+				"min_go": 4.0,
+				"go": 10.0,
+				"max_go": 40.0,
+				"gap": 3.0,
+				"min_dont_walk": 2.0,
+				"ped_clearing": 22.0
+			}
+		}
+	],
+	"plans": [
+		{
+			"id": 601,
+			"name": "normal_hours",
+			"phases": [
+				{
+					"id": 201,
+					"enabled": true,
+					"timing": 501
+				},
+				{
+					"id": 202,
+					"enabled": true,
+					"timing": 502
+				}
+			]
+		}
+	],
+    "signals": [
+      {
+        "id": 101,
+		"name": "1",
+		"type": "vehicle",
+        "mode": [],
+        "outputs": {
+		  "ls_flash": 1001,
+          "stop": 1001,
+          "caution": 1002,
+          "go": 1003
+        }
+      },
+	  {
+        "id": 102,
+		"name": "2",
+		"type": "vehicle",
+        "mode": [],
+        "outputs": {
+		  "ls_flash": 1004,
+          "stop": 1004,
+          "caution": 1005,
+          "go": 1006
+        }
+      }
+	  {
+        "id": 103,
+		"name": "2P",
+		"type": "pedestrian",
+        "mode": ["flasher_rising"],
+        "outputs": {
+          "dont_walk": 1025,
+          "walk": 1026
+        }
+      }
+    ],
+    "phases": [
+		{
+			"id": 201,
+			"name": "1",
+			"enabled": true,
+			"type": "protected",
+			"signals": [101]
+		}
+		{
+			"id": 202,
+			"name": "2",
+			"enabled": true,
+			"type": "protected",
+			"signals": [102, 103]
+		}
+	]
+	"approaches": [
+      {
+        "id": 301,
+        "name": "Northbound",
+        "phases": [201, 202],
+        "vehicle": {
+          "service": true,
+          "recall": true,
+          "preemption": [
+			{
+				"id": 8001,
+				"priority": 10,
+				"input": 9111,
+				"mode": "expedite"
+			}
+		  ]
+        },
+        "pedestrian": {
+          "service": true,
+          "recall": true,
+		  "preemption": []
+        }
+      }
+    ],
+    "roadways": [
+      {
+        "id": 400,
+        "name": "North-South",
+        "flasher": 2001,
+        "approaches": [301, 302],
+        "intersects": [401],
+        "priority": 100
+      },
+      {
+        "id": 401,
+        "name": "East-West",
+        "flasher": 2002,
+        "approaches": [303, 304],
+        "intersects": [400],
+        "priority": 200
+      }
+    ],
+    "outputs": [
+      { "id": 1001, "type": "field" },
+      { "id": 1002, "type": "field" },
+      { "id": 1003, "type": "field" },
+      { "id": 1004, "type": "field" },
+      { "id": 1005, "type": "field" },
+      { "id": 1006, "type": "field" },
+      { "id": 1007, "type": "field" },
+      { "id": 1008, "type": "field" },
+      { "id": 1009, "type": "field" },
+      { "id": 1010, "type": "field" },
+      { "id": 1011, "type": "field" },
+      { "id": 1012, "type": "field" },
+      { "id": 1013, "type": "field" },
+      { "id": 1014, "type": "field" },
+      { "id": 1015, "type": "field" },
+      { "id": 1016, "type": "field" },
+      { "id": 1017, "type": "field" },
+      { "id": 1018, "type": "field" },
+      { "id": 1019, "type": "field" },
+      { "id": 1020, "type": "field" },
+      { "id": 1021, "type": "field" },
+      { "id": 1022, "type": "field" },
+      { "id": 1023, "type": "field" },
+      { "id": 1024, "type": "field" },
+      { "id": 1025, "type": "field" },
+      { "id": 1026, "type": "field" },
+      { "id": 1027, "type": "field" },
+      { "id": 1028, "type": "field" },
+      { "id": 1029, "type": "field" },
+      { "id": 1030, "type": "field" },
+      { "id": 1031, "type": "field" },
+      { "id": 1032, "type": "field" }
+    ],
+    "inputs": [
+      { "id": 2001,
+        "type": "flasher_internal",
+        "fpm": 60
+      },
+      { "id": 2002,
+        "type": "flasher_internal",
+        "fpm": 60
+      },
+      { "id": 9111,
+        "type": "preemption",
+        "triggering": "rising"
+      },
+      { "id": 9112,
+        "type": "preemption",
+        "triggering": "rising"
+      },
+      { "id": 9113,
+        "type": "preemption",
+        "triggering": "rising"
+      },
+      { "id": 9114,
+        "type": "preemption",
+        "triggering": "rising"
+      }
+    ],
+    "device": {
+      "name": "Raspberry Pi 4",
+      "geo": {
+        "timezone": "America/Boise"
+      },
+      "bus": {
+        "enabled": true,
+        "port": "COM4",
+        "baud": 115200
+      },
+      "ethernet": {
+        "enabled": true,
+        "interface": "auto",
+        "address": "0.0.0.0",
+        "port": 7888
+      }
+    }
+  }
+}

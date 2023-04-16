@@ -197,8 +197,9 @@ def run():
         logger.critical('failed to read config schema, installation is likely corrupted ({})',
                         str(e))
         exit(ExitCode.SCHEMA_ERROR)
-
-    logger.debug('working directory is "{}"', os.getcwd())
+    
+    working_dir = os.getcwd()
+    logger.debug('working directory is "{}"', working_dir)
 
     try:
         processed_paths = []
@@ -248,7 +249,7 @@ def run():
     if tps < 1:
         logger.error('invalid tps')
         exit(14)
-
+    
     rpc_connection = cla.connection_string
     if not validate_connection_str(rpc_connection):
         logger.error('invalid connection string')
@@ -264,11 +265,10 @@ def run():
     controller.setup_rpc(rpc_connection)
 
     try:
-        with logger.catch(exclude=KeyboardInterrupt):
-            controller.run()
+        controller.run()
     except KeyboardInterrupt:
         controller.stop(0)
-
+    
     cleanup_pid(pid, pid_disable)
 
 

@@ -22,14 +22,15 @@ from atsc.core.fundemental import Nameable
 from atsc.core.models import ControlMode
 from atsc.core.parallel import ThreadedTickable
 from atsc.daemon.context import RunContext
+from atsc.daemon.interfaces import IController, ISequencer
 from atsc.daemon.models import (DeviceInfo,
-                                Roadway,
                                 PhaseCollection,
                                 ApproachCollection,
                                 RoadwayCollection,
                                 OutputCollection, InputCollection)
 from atsc.daemon.rpcserver import (register_controller_service,
                                    ControllerServicer)
+from atsc.daemon.sequencer import EntranceSequence, NormalSequence
 from atsc.utils import text_to_enum
 
 
@@ -38,15 +39,92 @@ BASE_TICK = 0.1
 LOG_MSG_DT_FORMAT = '%I:%M %p %b %d %Y'
 
 
-class Controller(ThreadedTickable, Nameable):
+class Controller(IController):
+    
+    @property
+    def free(self):
+        return self._free
+    
+    @property
+    def idle(self):
+        return False
+
+    @property
+    def saturated(self):
+        return False
+
+    @property
+    def transferred(self):
+        return self._transfer
+    
+    @transferred.setter
+    def transferred(self, value):
+        self._transfer_count += 1
+        self._transfer = value
+    
+    @property
+    def avg_demand(self):
+        return self._avg_demand
+
+    @property
+    def peek_demand(self):
+        return self._peek_demand
+
+    @property
+    def runtime(self):
+        return self._runtime
+
+    @property
+    def control_time(self):
+        return self._control_time
+
+    @property
+    def transfer_count(self):
+        return self._transfer_count
+
+    @property
+    def inputs(self) -> InputCollection:
+        return self._inputs
+
+    @property
+    def outputs(self) -> OutputCollection:
+        return self._outputs
+
+    @property
+    def phases(self) -> PhaseCollection:
+        return self._phases
+
+    @property
+    def approaches(self) -> ApproachCollection:
+        return self._approaches
+
+    @property
+    def roadways(self) -> RoadwayCollection:
+        return self._roads
+    
+    @property
+    def sequencer(self):
+        return self._sequencer
+    
+    @property
+    def previous_mode(self):
+        return self._previous_mode
+
+    @property
+    def current_mode(self):
+        return self._sequencer.mode
+
+    @property
+    def next_mode(self):
+        return self._next_mode
 
     def __init__(self,
                  context: RunContext,
                  device_info: DeviceInfo,
                  startup_mode: ControlMode,
                  startup_delay: int,
-                 startup_actuated: bool,
-                 actuated: bool,
+                 start_free: bool,
+                 free: bool,
                  phases: PhaseCollection,
                  approaches: ApproachCollection,
                  roadways: RoadwayCollection,
@@ -69,24 +147,36 @@ class Controller(ThreadedTickable, Nameable):
         self._roads = roadways
 
         # startup
-        self._mode = startup_mode
         self._start_delay = startup_delay
-        self._start_actuated = startup_actuated
+        self._start_free = start_free
 
         # control flags
-        self._actuated = actuated
+        self._free = free
         self._transfer = False
         self._freeze = False
 
         # initial_state
         self._active_phases: PhaseCollection = PhaseCollection(limit=2)
         self._active_approaches: ApproachCollection = ApproachCollection(limit=2)
-        self._active_roadway: Optional[Roadway] = None
+        self._active_roads: RoadwayCollection = RoadwayCollection()
+
+        # sequencing
+        self._previous_mode: Optional[ControlMode] = None
+        self._sequencer: ISequencer = self.get_mode_sequencer(startup_mode)
+        self._next_mode: Optional[ControlMode] = None
 
         # counters
         self._cycle_count: int = 0
         self._second_count: int = 0  # 1Hz counter (0-8)
+        self._runtime: int = 0
+        self._control_time: int = 0
+        self._transfer_count: int = 0
 
+        # stats
+        self._avg_demand: float = 0
+        self._peek_demand: float = 0
+        
+        # rpc server
         thread_pool = futures.ThreadPoolExecutor(max_workers=4)
         self._rpc_service = ControllerServicer(self)
         self._rpc_server: grpc.Server = grpc.server(thread_pool)
@@ -96,12 +186,22 @@ class Controller(ThreadedTickable, Nameable):
 
     def setup_rpc(self, rpc_connection: str):
         self._rpc_server.add_insecure_port(rpc_connection)
+        logger.info('setup RPC insecure connection on "{}"', rpc_connection)
+
+    def get_mode_sequencer(self, mode: ControlMode) -> ISequencer:
+        if mode == ControlMode.CET:
+            return EntranceSequence(self)
+        elif mode == ControlMode.NORMAL:
+            return NormalSequence(self)
+        raise NotImplementedError()
 
     def change_mode(self, new_mode: ControlMode) -> int:
         pass
 
     def second(self):
-        pass
+        self._runtime += 1
+        if self._transfer:
+            self._control_time += 1
 
     def update_counters(self):
         if self._second_count == 8:
@@ -115,6 +215,7 @@ class Controller(ThreadedTickable, Nameable):
 
         if not self._freeze:
             self._inputs.tick()
+            self._sequencer.tick()
             self._roads.tick()
             self._outputs.tick()
             self.update_counters()
@@ -124,14 +225,14 @@ class Controller(ThreadedTickable, Nameable):
         self._start_timestamp = datetime.now(self._timezone)
         logger.info('started at {}',
                     self._start_timestamp.strftime(LOG_MSG_DT_FORMAT))
-        self.change_mode(self._mode)
+        self._sequencer.enter(None)
 
     def after_run(self, code: int):
         self._rpc_server.stop(1)
         logger.info(f'shutdown with exit code {code}')
         delta = datetime.now(self._timezone) - self._start_timestamp
         ed, eh, em, es = utils.format_dhms(delta.total_seconds())
-        logger.info('runtime of {} days, {} hours, {} minutes and {} seconds',
+        logger.info('runtime of {} days, {} hours, {} minutes and {:.1f} seconds',
                     ed, eh, em, es)
 
     @staticmethod
@@ -140,11 +241,11 @@ class Controller(ThreadedTickable, Nameable):
             raise ValueError('context kwarg required')
 
         if isinstance(data, dict):
-            actuated = data['actuated']
+            free = data['free']
             startup_node = data['startup']
             startup_mode = text_to_enum(ControlMode, startup_node['mode'])
             startup_delay = startup_node['delay']
-            startup_actuated = startup_node['actuated']
+            startup_free = startup_node['free']
 
             inputs_node = data['inputs']
             inputs: InputCollection = InputCollection.deserialize(inputs_node,
@@ -170,8 +271,8 @@ class Controller(ThreadedTickable, Nameable):
                               device_info,
                               startup_mode,
                               startup_delay,
-                              startup_actuated,
-                              actuated,
+                              startup_free,
+                              free,
                               phases,
                               approaches,
                               roadways,

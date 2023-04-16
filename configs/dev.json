@@ -2,11 +2,11 @@
   "version": 4,
   "controller": {
     "name": "ATSC Demo Intersection",
-    "actuated": true,
+    "free": true,
     "startup": {
       "mode": "cet",
       "delay": 10,
-      "actuated": false
+      "free": false
     },
     "phases": [
       {
@@ -98,7 +98,11 @@
         "vehicle": {
           "service": true,
           "recall": true,
-          "preemption": 9111
+          "preemption": {
+            "high": 9111,
+            "medium": null,
+            "low": null
+          }
         },
         "pedestrian": {
           "service": true,
@@ -112,8 +116,12 @@
         "phases": [103, 104],
         "vehicle": {
           "service": true,
-          "recall": true,
-          "preemption": 9112
+          "recall": false,
+          "preemption": {
+            "high": 9112,
+            "medium": null,
+            "low": null
+          }
         },
         "pedestrian": {
           "service": true,
@@ -128,7 +136,11 @@
         "vehicle": {
           "service": true,
           "recall": false,
-          "preemption": 9113
+          "preemption": {
+            "high": 9113,
+            "medium": null,
+            "low": null
+          }
         },
         "pedestrian": {
           "service": true,
@@ -143,7 +155,11 @@
         "vehicle": {
           "service": true,
           "recall": false,
-          "preemption": 9114
+          "preemption": {
+            "high": 9114,
+            "medium": null,
+            "low": null
+          }
         },
         "pedestrian": {
           "service": true,
@@ -158,7 +174,7 @@
         "name": "North-South",
         "flasher": 2001,
         "approaches": [201, 202],
-        "crosses": [301],
+        "intersects": [301],
         "weight": 200
       },
       {
@@ -166,7 +182,7 @@
         "name": "East-West",
         "flasher": 2002,
         "approaches": [203, 204],
-        "crosses": [300],
+        "intersects": [300],
         "weight": 100
       }
     ],
@@ -216,21 +232,25 @@
       { "id": 9111,
         "type": "preemption",
         "mode": "go",
+        "priority": "high",
         "triggering": "rising"
       },
       { "id": 9112,
         "type": "preemption",
         "mode": "go",
+        "priority": "high",
         "triggering": "rising"
       },
       { "id": 9113,
         "type": "preemption",
         "mode": "go",
+        "priority": "high",
         "triggering": "rising"
       },
       { "id": 9114,
         "type": "preemption",
         "mode": "go",
+        "priority": "high",
         "triggering": "rising"
       }
     ],

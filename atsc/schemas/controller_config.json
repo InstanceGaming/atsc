@@ -11,7 +11,7 @@
                 "name": {
                     "type": "string"
                 },
-                "actuated": {
+                "free": {
                     "type": "boolean"
                 },
                 "startup": {
@@ -23,13 +23,13 @@
                         "delay": {
                             "type": "integer"
                         },
-                        "actuated": {
+                        "free": {
                             "type": "boolean"
                         }
                     },
                     "required": [
-                        "actuated",
                         "delay",
+                        "free",
                         "mode"
                     ]
                 },
@@ -104,7 +104,23 @@
                                         "type": "boolean"
                                     },
                                     "preemption": {
-                                        "type": "integer"
+                                        "type": "object",
+                                        "properties": {
+                                            "high": {
+                                                "type": "integer"
+                                            },
+                                            "medium": {
+                                                "type": "null"
+                                            },
+                                            "low": {
+                                                "type": "null"
+                                            }
+                                        },
+                                        "required": [
+                                            "high",
+                                            "low",
+                                            "medium"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -162,7 +178,7 @@
                                     "type": "integer"
                                 }
                             },
-                            "crosses": {
+                            "intersects": {
                                 "type": "array",
                                 "items": {
                                     "type": "integer"
@@ -174,9 +190,9 @@
                         },
                         "required": [
                             "approaches",
-                            "crosses",
                             "flasher",
                             "id",
+                            "intersects",
                             "name",
                             "weight"
                         ]
@@ -215,6 +231,9 @@
                                 "type": "integer"
                             },
                             "mode": {
+                                "type": "string"
+                            },
+                            "priority": {
                                 "type": "string"
                             },
                             "triggering": {
@@ -296,9 +315,9 @@
                 }
             },
             "required": [
-                "actuated",
                 "approaches",
                 "device",
+                "free",
                 "inputs",
                 "name",
                 "outputs",

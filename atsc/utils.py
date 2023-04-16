@@ -180,7 +180,7 @@ def text_to_enum(et: Type[Enum],
 
 
 def cmp_key_args(cmp_func: Callable, *args, **kwargs):
-    """Convert a cmp= function into a key= function and pass args"""
+    """Convert a cmp= function into a index= function and pass args"""
 
     class Comparator:
         __hash__ = None

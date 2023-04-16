@@ -1,20 +1,20 @@
 from grpc import Server
 
 from atsc.core.models import ControlState, ControlMode
+from atsc.daemon.interfaces import IController
 from atsc.rpc import controller_pb2 as pb_models
 from atsc.rpc import controller_pb2_grpc as rpc_models
 
 
 class ControllerServicer(rpc_models.ControllerServicer):
 
-    def __init__(self, controller):
+    def __init__(self, controller: IController):
         self._controller = controller
 
     def GetStatus(self, request, context):
         mode = ControlMode.NORMAL
-        state = (ControlState.ACTUATED |
-                 ControlState.GLOBAL_PED_SERVICE |
-                 ControlState.GLOBAL_PED_CLEAR)
+        state = (ControlState.GLOBAL_PED_SERVICE | ControlState.GLOBAL_PED_CLEAR)
+        state |= (self._controller.free & ControlState.FREE)
         state |= (self._controller.idle & ControlState.IDLE)
         state |= (self._controller.saturated & ControlState.SATURATED)
         state |= (self._controller.transferred &

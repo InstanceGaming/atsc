@@ -440,7 +440,7 @@ def parse_timespan_text(raw_calendar_value,
 def sort_overlap_duration(ts: Timespan,
                           current: datetime) -> int:
     """
-    Get sorting key of remaining duration relative to the current time only
+    Get sorting index of remaining duration relative to the current time only
     if overlapping.
     """
     if not ts.overlap(current):
