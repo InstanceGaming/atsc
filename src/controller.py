@@ -920,7 +920,8 @@ class Controller:
                 if self._active_barrier is not None:
                     if self.allPhasesInactive():
                         self.handleRingAndBarrier(available_phases, phase_pool, len(available_calls))
-                
+
+                active = self.getActivePhases()
                 for phase in self._phases:
                     conflicting_demand = False
                     
@@ -928,6 +929,13 @@ class Controller:
                         if call.target != phase and self.checkPhaseConflict(phase, call.target):
                             conflicting_demand = True
                             break
+                    
+                    if len(active) == 2:
+                        try:
+                            active.remove(phase)
+                            phase.phase_partner = active[0]
+                        except ValueError:
+                            pass
                     
                     if phase.tick(conflicting_demand, self.flasher):
                         if phase.state == PhaseState.STOP:

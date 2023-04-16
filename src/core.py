@@ -210,6 +210,7 @@ class Phase(IdentifiableBase):
         self._resting: bool = False
         self._extend_inhibit = False
         self.ped_clear_enable: bool = ped_clear_enable
+        self.phase_partner: Optional[Phase] = None
         
         self._validate_timing()
     
@@ -258,6 +259,7 @@ class Phase(IdentifiableBase):
         if next_state == PhaseState.STOP:
             self._ped_cycle = False
             self._extend_inhibit = False
+            self.phase_partner = None
         elif next_state == PhaseState.GO:
             if self._ped_cycle:
                 go_time = self._timing[PhaseState.GO]
@@ -303,6 +305,9 @@ class Phase(IdentifiableBase):
                     # todo: make this condition configurable per phase
                     self.update()
                     return True
+            partner_resting = self.phase_partner is not None and self.phase_partner.resting
+            if partner_resting:
+                return False
         
         if self.extend_active:
             if self._time_lower >= self._timing[PhaseState.EXTEND]:
