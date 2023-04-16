@@ -864,11 +864,13 @@ class Controller:
         
     def canPhaseRunAsPartner(self, phase: Phase, active: List[Phase]) -> bool:
         for act in active:
-            if act.state not in PHASE_PARTNER_START_STATES:
-                return False
             if phase == act:
                 return False
             if self.checkPhaseConflict(phase, act):
+                return False
+            if act.state not in PHASE_PARTNER_START_STATES:
+                return False
+            if phase in self._cycle_window:
                 return False
         return True
     
@@ -921,7 +923,6 @@ class Controller:
                     if self.allPhasesInactive():
                         self.handleRingAndBarrier(available_phases, phase_pool, len(available_calls))
 
-                active = self.getActivePhases()
                 for phase in self._phases:
                     conflicting_demand = False
                     
@@ -929,13 +930,6 @@ class Controller:
                         if call.target != phase and self.checkPhaseConflict(phase, call.target):
                             conflicting_demand = True
                             break
-                    
-                    if len(active) == 2:
-                        try:
-                            active.remove(phase)
-                            phase.phase_partner = active[0]
-                        except ValueError:
-                            pass
                     
                     if phase.tick(conflicting_demand, self.flasher):
                         if phase.state == PhaseState.STOP:
