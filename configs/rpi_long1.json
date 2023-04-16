@@ -1,15 +1,15 @@
 {
   "version": 3,
   "random-actuation": {
-    "delay": 60,
+    "delay": 90,
     "min": 1,
     "max": 20,
     "enabled": true
   },
   "init": {
     "mode": "cet",
-    "cet-delay": 4,
-    "recall-all": false
+    "cet-delay": 6,
+    "recall-all": true
   },
   "device": {
     "name": "ATSC Development Intersection (Raspberry Pi)",
@@ -101,7 +101,7 @@
       }
     }
   ],
-  "idle-phases": [6, 2, 1, 5],
+  "idle-phases": [6, 1, 2, 5],
   "rings": [
     [
       1,
@@ -138,7 +138,7 @@
     }
   },
   "default-timing": {
-    "min-stop": 30.0,
+    "min-stop": 2.0,
     "rclr": 1.0,
     "caution": 5.0,
     "extend": 4.0,
