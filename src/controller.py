@@ -19,7 +19,6 @@ import network
 import serialbus
 from core import *
 from frames import FrameType, DeviceAddress, OutputStateFrame
-from timing import SecondTimer
 from typing import Set, Iterable, FrozenSet
 from bitarray import bitarray
 from functools import lru_cache, cmp_to_key
@@ -33,7 +32,7 @@ def parse_datetime_text(text: str, tz):
     return rv.replace(tzinfo=tz)
 
 
-class RandomCallsManager:
+class RandomActuation:
     LOG = logging.getLogger('atsc.demo')
     
     @property
@@ -53,28 +52,26 @@ class RandomCallsManager:
         self._enabled = configuration_node['enabled']
         self._min = configuration_node['min']  # seconds
         self._max = configuration_node['max']  # seconds
-        self._timer = SecondTimer(configuration_node['delay'])
-        self._pool = phase_id_pool
-        sorted(self._pool)
+        self._counter = configuration_node['delay']  # seconds
+        self._pool = sorted(phase_id_pool)
         
         seed = configuration_node.get('seed')
         if seed is not None and seed > 0:
             # global pseudo-random generator seed
             random.seed(seed)
     
-    def getPhaseIndex(self) -> Optional[int]:
-        choice = None
+    def poll(self) -> Optional[int]:
+        if self._counter > 0:
+            self._counter -= 1
+        elif self._counter == 0 and self._enabled:
+            delay = random.randrange(self._min, self._max)
+            self._counter = delay
+            return self.getPhaseIndex()
         
-        if self._enabled:
-            if self._timer.poll():
-                choice = random.choice(self._pool)
-                delay = random.randrange(self._min, self._max)
-                self.LOG.debug(f'Random calls: picking {choice}, next in '
-                               f'{delay}')
-                self._timer.trigger = delay
-                self._timer.reset()
-        
-        return choice
+        return None
+    
+    def getPhaseIndex(self) -> int:
+        return random.choice(self._pool)
 
 
 class TimeFreezeReason(IntEnum):
@@ -230,8 +227,8 @@ class Controller:
             self._monitor.setControlInfo(self.name, self._phases, self.getPhaseLoadSwitchIndexMapping())
         
         # for software demo and testing purposes
-        self._random_calls: RandomCallsManager = RandomCallsManager(config['random-actuation'],
-                                                                    [ph.id for ph in self._phases])
+        self._random_actuation: RandomActuation = RandomActuation(config['random-actuation'],
+                                                                  [ph.id for ph in self._phases])
     
     def getDefaultTiming(self, configuration_node: Dict[str, float]
                          ) -> Dict[PhaseState, float]:
@@ -674,6 +671,8 @@ class Controller:
         if not target.active:
             for call in self._calls:
                 if call.target == target:
+                    if system:
+                        return False
                     call.duplicates += 1
                     self._call_counter += 1
                     self.LOG.debug(f'Adding to existing call {call.getTag()} '
@@ -690,18 +689,21 @@ class Controller:
                 return True
         return False
     
-    def detection(self, phase: Phase, ped_service=False, input_slot=None):
-        input_text = ''
+    def detection(self, phase: Phase, ped_service=False, input_slot=None, system=False):
+        postfix = ''
         
         if input_slot is not None:
-            input_text = f' (input #{input_slot})'
+            postfix = f' (input #{input_slot})'
+        
+        if system:
+            postfix += ' (system)'
         
         if phase.state in PHASE_GO_STATES:
-            self.LOG.debug(f'Detection on {phase.getTag()}{input_text}')
+            self.LOG.debug(f'Detection on {phase.getTag()}{postfix}')
             if phase.extend_active:
                 phase.reduce()
         else:
-            self.placeCall(phase, ped_service=ped_service, input_slot=input_slot)
+            self.placeCall(phase, ped_service=ped_service, input_slot=input_slot, system=system)
     
     def setOperationState(self, new_state: OperationMode):
         """Set controller state for a given `OperationMode`"""
@@ -789,15 +791,18 @@ class Controller:
                 self.changeBarrier(next_barrier)
     
     def serveCall(self, call: Call):
+        self.servePhase(call.target, ped_service=call.ped_service)
+        self._calls.remove(call)
+        
+    def servePhase(self, phase: Phase, ped_service: bool = False):
         if self._active_barrier is None:
-            self.changeBarrier(self.getBarrierByPhase(call.target))
-            self.LOG.debug(f'Active barrier set serving call {call.getTag()}')
+            self.changeBarrier(self.getBarrierByPhase(phase))
+            self.LOG.debug(f'Active barrier set serving phase {phase.getTag()}')
         else:
             self._active_barrier.cycle_count += 1
-        
-        self.LOG.debug(f'Serving call {call.getTag()} {call.target.getTag()}')
-        self._calls.remove(call)
-        call.target.activate(ped_inhibit=not call.ped_service)
+    
+        self.LOG.debug(f'Serving phase {phase.getTag()}')
+        phase.activate(ped_inhibit=not ped_service)
     
     def busHealthCheck(self):
         """Ensure bus thread is still running, if enabled"""
@@ -870,9 +875,15 @@ class Controller:
                 return False
             if act.state not in PHASE_PARTNER_START_STATES:
                 return False
-            if phase in self._cycle_window:
-                return False
+            if len(self._cycle_window):
+                if phase == self._cycle_window[0]:
+                    return False
         return True
+    
+    def getStaleStopPhase(self, phases: Iterable[Phase]) -> Phase:
+        mapping = [(p, p.max_time) for p in phases if p.state == PhaseState.STOP]
+        ranked = sorted(mapping, key=lambda m: m[1], reverse=True)
+        return ranked[0][0]
     
     def tick(self):
         """Polled once every 100ms"""
@@ -906,10 +917,11 @@ class Controller:
                         if len(active):
                             for ip in self._idle_phases:
                                 if self.canPhaseRunAsPartner(ip, active):
-                                    self.placeCall(ip, system=True)
+                                    self.detection(ip, ped_service=True, system=True)
                                     break
-                        else:
-                            self.placeCall(self._idle_phases[0], system=True)
+                        
+                        stale = self.getStaleStopPhase(self._phases)
+                        self.detection(stale, ped_service=True, system=True)
                         break
                     
                     active = self.getActivePhases()
@@ -985,11 +997,9 @@ class Controller:
         """Polled once every 1000ms"""
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
-                if self._random_calls.enabled:
-                    random_phase_index = self._random_calls.getPhaseIndex()
-                    
-                    if random_phase_index:
-                        self.detection(self.getPhaseById(random_phase_index), ped_service=True)
+                choice = self._random_actuation.poll()
+                if choice is not None:
+                    self.detection(self.getPhaseById(choice), ped_service=True, system=True)
         
         if self.monitor_enabled:
             self._monitor.clean()

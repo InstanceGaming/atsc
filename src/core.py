@@ -175,6 +175,10 @@ class Phase(IdentifiableBase):
     def ped_ls(self) -> Optional[LoadSwitch]:
         return self._pls
     
+    @property
+    def max_time(self):
+        return self._max_time
+    
     def _validate_timing(self):
         if self.active:
             raise RuntimeError('Cannot changing timing map while active')
