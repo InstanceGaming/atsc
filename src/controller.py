@@ -184,6 +184,9 @@ class Controller:
         self._rings: List[Ring] = self.getRings(config['rings'])
         self._barriers: List[Barrier] = self.getBarriers(config['barriers'])
         
+        self._last_any_conflict = False
+        self._partner_lockout = False
+        
         # cycle instance of barriers
         self._barrier_pool: cycle = cycle(self._barriers)
         
@@ -210,6 +213,7 @@ class Controller:
         # actuation
         self._call_counter: int = 0
         self._calls: Set[Call] = set()
+        self._mvp_call: Optional[Call] = None
         self._max_call_age = config['calls']['max-age']
         self._call_weights = config['calls']['weights']
         self._last_call_count: int = 0
@@ -800,6 +804,8 @@ class Controller:
             self.LOG.debug(f'Active barrier set serving phase {phase.getTag()}')
         else:
             self._active_barrier.cycle_count += 1
+            
+        self._partner_lockout = False
     
         self.LOG.debug(f'Serving phase {phase.getTag()}')
         phase.activate(ped_inhibit=not ped_service)
@@ -914,14 +920,15 @@ class Controller:
                             self.serveCall(ranked_calls[0])
                             break
                     else:
-                        if len(active):
-                            for ip in self._idle_phases:
-                                if self.canPhaseRunAsPartner(ip, active):
-                                    self.detection(ip, ped_service=True, system=True)
-                                    break
-                        
-                        stale = self.getStaleStopPhase(self._phases)
-                        self.detection(stale, ped_service=True, system=True)
+                        if not self._partner_lockout:
+                            if len(active):
+                                for ip in self._idle_phases:
+                                    if self.canPhaseRunAsPartner(ip, active):
+                                        self.detection(ip, ped_service=True, system=True)
+                                        break
+                            
+                            stale = self.getStaleStopPhase(self._idle_phases)
+                            self.detection(stale, ped_service=True, system=True)
                         break
                     
                     active = self.getActivePhases()
@@ -934,18 +941,25 @@ class Controller:
                 if self._active_barrier is not None:
                     if self.allPhasesInactive():
                         self.handleRingAndBarrier(available_phases, phase_pool, len(available_calls))
-
+                
+                any_conflict = False
                 for phase in self._phases:
-                    conflicting_demand = False
+                    phase_conflict = False
                     
                     for call in self._calls:
                         if call.target != phase and self.checkPhaseConflict(phase, call.target):
-                            conflicting_demand = True
+                            phase_conflict = True
+                            any_conflict = True
                             break
                     
-                    if phase.tick(conflicting_demand, self.flasher):
+                    if phase.tick(phase_conflict, self.flasher):
                         if phase.state == PhaseState.STOP:
                             self._cycle_window.insert(0, phase)
+                            
+                if not self._last_any_conflict and any_conflict:
+                    self._partner_lockout = True
+                
+                self._last_any_conflict = any_conflict
                 
                 for call in self._calls:
                     call.tick()
