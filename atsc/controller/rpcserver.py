@@ -1,7 +1,7 @@
 from grpc import Server
 
-from atsc.core.models import ControlState, ControlMode
-from atsc.daemon.interfaces import IController
+from atsc.common.models import ControlState, ControlMode
+from atsc.controller.interfaces import IController
 from atsc.rpc import controller_pb2 as pb_models
 from atsc.rpc import controller_pb2_grpc as rpc_models
 

@@ -1,5 +1,5 @@
 from typing import Type, Union, Optional, TypeVar
-from atsc.core.fundemental import Identifiable
+from atsc.common.fundemental import Identifiable
 
 
 class Referencable(Identifiable):

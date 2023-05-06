@@ -2,7 +2,7 @@ from abc import abstractmethod
 from time import sleep
 from typing import Any
 from threading import Event, Thread
-from atsc.core.fundemental import Tickable
+from atsc.common.fundemental import Tickable
 
 
 class ThreadedTickable(Thread, Tickable):

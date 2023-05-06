@@ -1,6 +1,6 @@
 from enum import IntEnum, IntFlag, Enum
 from typing import List
-from atsc.core.fundemental import Identifiable, IdentifiedCollection
+from atsc.common.fundemental import Identifiable, IdentifiedCollection
 from atsc.utils import format_fields
 
 

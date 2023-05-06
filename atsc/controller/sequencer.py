@@ -1,8 +1,8 @@
 from typing import Any, Optional
 
-from atsc.core.models import ControlMode
-from atsc.daemon.interfaces import ISequencer, IController
-from atsc.daemon.models import Roadway, Approach
+from atsc.common.models import ControlMode
+from atsc.controller.interfaces import ISequencer, IController
+from atsc.controller.models import Roadway, Approach
 
 
 class EntranceSequence(ISequencer):

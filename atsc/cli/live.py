@@ -5,8 +5,8 @@ from asciimatics.scene import Scene
 from asciimatics.screen import Screen
 from atsc.cli.models import RemoteController
 from atsc.cli.tui.effects import ApplicationFrame
-from atsc.core.models import ControlState
-from atsc.core.parallel import ThreadedTickable
+from atsc.common.models import ControlState
+from atsc.common.parallel import ThreadedTickable
 
 
 class Application(ThreadedTickable):

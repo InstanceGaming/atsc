@@ -81,7 +81,7 @@
           "caution": 1005,
           "go": 1006
         }
-      }
+      },
 	  {
         "id": 103,
 		"name": "2P",
@@ -100,7 +100,7 @@
 			"enabled": true,
 			"type": "protected",
 			"signals": [101]
-		}
+		},
 		{
 			"id": 202,
 			"name": "2",
@@ -108,7 +108,7 @@
 			"type": "protected",
 			"signals": [102, 103]
 		}
-	]
+	],
 	"approaches": [
       {
         "id": 301,

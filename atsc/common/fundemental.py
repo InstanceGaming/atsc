@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Iterable, Optional
 
-from atsc.core.serializing import Deserializable
+from atsc.common.serializing import Deserializable
 
 
 class Nameable(Deserializable):

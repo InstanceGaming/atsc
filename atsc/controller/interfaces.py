@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable
 
-from atsc.core.fundemental import Nameable, Tickable
-from atsc.core.models import ControlMode
-from atsc.core.parallel import ThreadedTickable
-from atsc.daemon.models import (RoadwayCollection,
-                                ApproachCollection,
-                                PhaseCollection,
-                                InputCollection,
-                                OutputCollection)
+from atsc.common.fundemental import Nameable, Tickable
+from atsc.common.models import ControlMode
+from atsc.common.parallel import ThreadedTickable
+from atsc.controller.models import (RoadwayCollection,
+                                    ApproachCollection,
+                                    PhaseCollection,
+                                    InputCollection,
+                                    OutputCollection)
 
 
 class IController(ThreadedTickable, Nameable, ABC):

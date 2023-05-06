@@ -22,11 +22,11 @@ from threading import main_thread
 import loguru
 
 from atsc.constants import START_BANNER, ExitCode
-from atsc.core import validation
-from atsc.daemon.config import (CONFIG_SCHEMA_VERSION,
-                                validate_dynamic_controller)
-from atsc.daemon.context import RunContext
-from atsc.daemon.controller import Controller
+from atsc.common import validation
+from atsc.controller.config import (CONFIG_SCHEMA_VERSION,
+                                    validate_dynamic_controller)
+from atsc.controller.context import RunContext
+from atsc.controller.core import Controller
 from atsc.logging import parse_log_level_argument, configure_logger
 from atsc.rpc import default_connection_string, validate_connection_str
 from atsc.utils import process_path, get_schema

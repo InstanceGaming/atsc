@@ -36,12 +36,12 @@ def run():
                         help='Set log level.')
     sp = parser.add_subparsers(dest='subparser_name')
     sp_live = sp.add_parser('live',
-                            description='Connect to daemon and show the'
-                                        'live initial_state of the daemon.')
+                            description='Connect to controller and show the'
+                                        'live initial_state of the controller.')
     sp_live.add_argument('-r', '--rpc',
                          default=default_connection_string(),
                          dest='connection_string',
-                         help='Connection string for daemon RPC. Defaults to '
+                         help='Connection string for controller RPC. Defaults to '
                               'loopback.')
     parser_result = parser.parse_args()
     log_level = parser_result.log_level
