@@ -52,7 +52,7 @@ def run():
     t1 = timing.MillisecondTimer(1000)
     while loop_enabled:
         if t1.poll():
-            t1.reset()
+            t1.cycle()
             mock_data = random.randbytes(3)
             LOG.info(PBA(mock_data))
             BUS.sendInputsState(bytearray(mock_data))

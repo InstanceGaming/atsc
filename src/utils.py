@@ -11,31 +11,29 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-import sys
-import logging
+import os
+import re
 import platform
 from enum import Enum
-from typing import Any, Type, Tuple, Union
+from pathlib import Path
+from typing import Any, Type, Tuple, Union, Optional
 from bitarray import bitarray
 from datetime import datetime
 
 
-def configureLogger(log):
-    handler = logging.StreamHandler(sys.stdout)
-    
-    # noinspection PyUnreachableCode
-    if __debug__:
-        log.setLevel(logging.DEBUG)
-        handler.setFormatter(logging.Formatter('{levelname:>8}: {message} [{name}@{lineno}]',
-                                               datefmt='%x %H:%M:%S',
-                                               style='{'))
-    else:
-        log.setLevel(logging.INFO)
-        handler.setFormatter(logging.Formatter('{levelname:>8}: {message}', style='{'))
-    
-    log.handlers = []
-    log.addHandler(handler)
+def processPath(raw: Optional[str]) -> Optional[Path]:
+    if raw:
+        norm = os.path.normpath(raw.strip())
+        expanded = os.path.expandvars(os.path.expanduser(norm))
+        return Path(expanded)
+    return None
+
+
+def getUniformName(raw_name: str) -> str:
+    name = raw_name.lower().strip()
+    name = re.sub(r'^(\d)+', '', name)
+    name = re.sub(r'([^a-z\d_])+', '_', name)
+    return name
 
 
 def bitarrayFromBytearray(ib: bytearray) -> bitarray:
@@ -184,7 +182,7 @@ def condText(msg, paren=False, prefix=' ', postfix='', cond=False):
 def textToEnum(et: Type[Enum], v, to_length=None, dash_underscore=True):
     """
     Attempt to return the matching enum value based off of
-    the text name of a value.
+    the text tag of a value.
 
     :param et: enum type
     :param v: string representation of an enum value

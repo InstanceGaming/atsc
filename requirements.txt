@@ -1,4 +1,3 @@
-pyserial
 crcmod
 protobuf
 jsonschema
@@ -7,3 +6,5 @@ netifaces
 more-itertools
 natsort
 bitarray
+pyserial-asyncio
+loguru

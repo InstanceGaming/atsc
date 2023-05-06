@@ -11,8 +11,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 from enum import IntEnum
-from typing import Dict, List, Optional
+from itertools import cycle
+from typing import Dict, List, Optional, Iterable, Set
 from dataclasses import dataclass
 
 
@@ -287,14 +289,14 @@ class Phase(IdentifiableBase):
         else:
             raise RuntimeError('Cannot reduce, not extending')
     
-    def activate(self, ped_inhibit: bool = True):
+    def activate(self, ped_service: bool = False):
         if self.active:
             raise RuntimeError('Cannot activate active phase')
         
         if self.state == PhaseState.MIN_STOP:
             raise RuntimeError('Cannot activate phase during MIN_STOP interval')
         
-        self._ped_inhibit = ped_inhibit
+        self._ped_inhibit = not ped_service
         self.update()
     
     def tick(self, conflicting_demand: bool, flasher: bool) -> bool:
@@ -400,6 +402,97 @@ class FrozenPhaseSetup:
     ped_ls: int
     flash_mode: FlashMode
     fya_setting: int
+    
+    
+class PhasePattern(IntEnum):
+    ANY = 0
+    COLUMN = 1
+    DIAGONAL = 2
+    SINGLE = 3
+    
+
+class Ring(IdentifiableBase):
+
+    @property
+    def phases(self):
+        return self._phases
+    
+    def __init__(self, id_: int, phases: Iterable[Phase]):
+        super().__init__(id_)
+        self._phases = sorted(phases)
+        assert len(self._phases)
+        self._cycler = cycle(self._phases)
+        self._skips: Set[Phase] = set()
+        self._active: Optional[Phase] = None
+        
+    def getPhaseIndex(self, phase: Phase) -> Optional[int]:
+        try:
+            return self._phases.index(phase)
+        except ValueError:
+            return None
+    
+    def skip(self, phase: Phase) -> bool:
+        try:
+            self._skips.add(phase)
+            return True
+        except ValueError:
+            return False
+    
+    def clear(self):
+        self._active = None
+    
+    def cycle(self):
+        self._active = next(self._cycler)
+        self._skips = []
+    
+    def next(self, position: Optional[int] = None):
+        i = 0
+        selection = None
+        
+        while True:
+            if position is not None and i > position:
+                break
+            
+            selection = self._phases[i]
+            
+            if selection not in self._skips:
+                break
+            
+            if i > len(self._phases) - 1:
+                self.cycle()
+                i = 0
+            else:
+                i += 1
+        
+        return selection
+    
+    def tick(self, demand: Iterable[Phase], flasher: bool):
+        for phase in self._phases:
+            
+            phase.tick()
+
+
+class ATSCBarrier(asyncio.Barrier):
+    
+    @property
+    def positions(self):
+        return self._positions
+    
+    @property
+    def active(self):
+        return self._active
+    
+    def __init__(self, positions: Iterable[int], ring_count: int):
+        super().__init__(ring_count)
+        self._positions: List[int] = sorted(positions)
+        self._loop = cycle(self._positions)
+        self._active: int = -1  # active position value, NOT INDEX!
+    
+    def index(self, pos: int) -> int:
+        return self._positions.index(pos)
+    
+    def next(self):
+        self._active = next(self._loop)
 
 
 class Call(IdentifiableBase):

@@ -117,7 +117,7 @@ def run():
             if not bus.running:
                 break
             if t1.poll():
-                t1.reset()
+                t1.cycle()
                 
                 result = bus.get()
                 if result is not None:
