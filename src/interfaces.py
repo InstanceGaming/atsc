@@ -21,7 +21,7 @@ class IController(ABC):
     
     @property
     @abstractmethod
-    def barrier(self):
+    def barrier_manager(self):
         pass
     
     @property
@@ -39,10 +39,6 @@ class IController(ABC):
     def red_clearance(self) -> float:
         pass
     
-    @abstractmethod
-    def getInstantPhasePool(self) -> Iterable:
-        pass
-
     @abstractmethod
     def hasConflictingDemand(self, phase) -> bool:
         pass

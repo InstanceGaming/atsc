@@ -118,6 +118,7 @@ class LoadSwitch(IdentifiableBase):
 
 class PhaseState(IntEnum):
     STOP = 0
+    RCLR = 4
     CAUTION = 6
     EXTEND = 8
     GO = 10
@@ -128,7 +129,8 @@ class PhaseState(IntEnum):
 
 PHASE_REST_STATES = (PhaseState.STOP, PhaseState.GO, PhaseState.WALK)
 
-PHASE_TIMED_STATES = (PhaseState.CAUTION,
+PHASE_TIMED_STATES = (PhaseState.RCLR,
+                      PhaseState.CAUTION,
                       PhaseState.EXTEND,
                       PhaseState.GO,
                       PhaseState.PCLR,
@@ -246,8 +248,10 @@ class Phase(IdentifiableBase):
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
-        elif self._state == PhaseState.CAUTION:
+        elif self.state == PhaseState.RCLR:
             return PhaseState.STOP
+        elif self._state == PhaseState.CAUTION:
+            return PhaseState.RCLR
         elif self._state == PhaseState.EXTEND:
             return PhaseState.CAUTION
         elif self._state == PhaseState.GO:
@@ -360,8 +364,8 @@ class Phase(IdentifiableBase):
         pa = False
         pb = False
         pc = False
-    
-        if self._state == PhaseState.STOP:
+        
+        if self._state < 6:
             self._vls.a = True
             self._vls.b = False
             self._vls.c = False
@@ -428,6 +432,7 @@ class Ring(IdentifiableBase):
         self._controller = controller
         self._phases = sorted(phases)
         self._cycler = cycle(self._phases)
+        self._skips_lock = asyncio.Lock()
         self._skips: Set[Phase] = set()
     
     def getPhaseIndex(self, phase: Phase) -> Optional[int]:
@@ -436,25 +441,31 @@ class Ring(IdentifiableBase):
         except ValueError:
             return None
     
-    def skip(self, phase: Phase) -> bool:
-        try:
-            self._skips.add(phase)
-            return True
-        except ValueError:
-            return False
+    async def skip(self, phase: Phase) -> bool:
+        async with self._skips_lock:
+            try:
+                self._skips.add(phase)
+                return True
+            except ValueError:
+                return False
 
     async def next(self) -> Phase:
-        phase_pool = self._controller.getInstantPhasePool()
         selection = next(self._cycler)
+        active_barrier = self._controller.barrier_manager.active
+        phase_pool = self._controller.barrier_manager.getPool(active_barrier)
+        
+        async with self._skips_lock:
+            while selection in self._skips:
+                selection = next(self._cycler)
         
         if selection not in phase_pool:
-            await self._controller.barrier.wait()
-            await asyncio.sleep(1000)
-        
-        while selection in self._skips:
-            selection = next(self._cycler)
+            await self._controller.barrier_manager.wait(self)
         
         return selection
+    
+    async def cycle(self):
+        async with self._skips_lock:
+            self._skips.clear()
 
     async def run(self):
         while True:
@@ -481,7 +492,7 @@ def get_barrier_range(positions, position):
         return range(left, position + 1)
 
 
-class Barrier:
+class BarrierManager:
     
     @property
     def positions(self):
@@ -495,32 +506,55 @@ class Barrier:
     def active_range(self):
         return get_barrier_range(self._positions, self._active)
     
+    @property
+    def waiting(self):
+        return self._waiting
+    
     def __init__(self,
                  controller: IController,
                  positions: Iterable[int],
-                 ring_count: int):
+                 rings: Set[Ring]):
         self._controller = controller
-        self._ring_count = ring_count
-        self._waiting_count: int = 0
+        self._condition = asyncio.Condition()
+        self._rings = rings
+        self._waiting: List[Ring] = []
         self._positions: List[int] = sorted(positions)
         self._cycler = cycle(self._positions)
         self._active: int = next(self._cycler)  # active position value, NOT INDEX!
     
-    def range_of(self, pos: int) -> range:
+    def rangeOf(self, pos: int) -> range:
         return get_barrier_range(self._positions, pos)
+    
+    def getPool(self, pos: int) -> List[Phase]:
+        """Get the phases left and including a `BarrierManager` position, not including the last position."""
+        assert pos >= 0
+        barrier_range = self.rangeOf(pos)
+        phases = []
+        for ring in self._rings:
+            for i, phase in enumerate(ring.phases):
+                if i in barrier_range:
+                    phases.append(phase)
+        assert len(phases)
+        return phases
     
     def index(self, pos: int) -> int:
         return self._positions.index(pos)
     
-    def next(self):
-        self._active = next(self._cycler)
+    async def next(self):
+        async with self._condition:
+            self._condition.notify_all()
+            self._active = next(self._cycler)
         
-    async def wait(self):
-        self._waiting_count += 1
-        if self._waiting_count >= self._ring_count:
-            self.next()
-            self._waiting_count = 0
-        else:
+    async def wait(self, ring: Ring):
+        async with self._condition:
+            self._waiting.append(ring)
+            await self._condition.wait()
+            self._waiting.remove(ring)
+        
+    async def run(self):
+        while True:
+            if set(self._waiting) == self._rings:
+                await self.next()
             await asyncio.sleep(self._controller.time_increment)
     
 

@@ -34,10 +34,6 @@
   },
   "phases": [
     {
-      "timing": {
-        "extend": 3.0,
-        "go": 4.0
-      },
       "flash-mode": "yellow",
       "load-switches": {
         "vehicle": 1
@@ -51,10 +47,6 @@
       }
     },
     {
-      "timing": {
-        "extend": 3.0,
-        "go": 4.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 3
@@ -68,10 +60,6 @@
       }
     },
     {
-      "timing": {
-        "extend": 3.0,
-        "go": 4.0
-      },
       "flash-mode": "yellow",
       "load-switches": {
         "vehicle": 7
@@ -85,10 +73,6 @@
       }
     },
     {
-      "timing": {
-        "extend": 3.0,
-        "go": 4.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 9
@@ -139,13 +123,13 @@
     }
   },
   "default-timing": {
-    "red-clearance": 1.0,
-    "caution": 4.0,
-    "extend": 3.0,
-    "go": 12.0,
-    "pclr": 9.0,
-    "walk": 3.0,
-    "max-go": 20.0
+    "rclr": 1.0,
+    "caution": 1.0,
+    "extend": 1.0,
+    "go": 3.0,
+    "pclr": 2.0,
+    "walk": 1.0,
+    "max-go": 4.0
   },
   "inputs": [
     {

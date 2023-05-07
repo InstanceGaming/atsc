@@ -147,8 +147,8 @@ class Controller(Listener, IController):
         return len(self._inputs.keys())
     
     @property
-    def barrier(self):
-        return self._barrier
+    def barrier_manager(self) -> BarrierManager:
+        return self._bm
     
     @property
     def phases(self):
@@ -193,8 +193,10 @@ class Controller(Listener, IController):
         self._phases: List[Phase] = self.getPhases(config['phases'], default_timing)
         self._idle_phases: List[Phase] = self.getIdlePhases(config['idle-phases'])
         
-        self._rings: FrozenSet[Ring] = self.getRings(config['rings'])
-        self._barrier: Barrier = Barrier(self, (1, 3), len(self._rings))
+        self._rings: Set[Ring] = self.getRings(config['rings'])
+        
+        # barrier manager
+        self._bm: BarrierManager = BarrierManager(self, (1, 3), self._rings)
         
         # total cycle counter
         self._cycle_count = 1
@@ -278,12 +280,12 @@ class Controller(Listener, IController):
             phases.append(self.getPhaseById(item))
         return phases
     
-    def getRings(self, configuration_node: List[List[int]]) -> FrozenSet[Ring]:
+    def getRings(self, configuration_node: List[List[int]]) -> Set[Ring]:
         rings = set()
         for i, pids in enumerate(configuration_node, start=1):
             phases = [self.getPhaseById(pid) for pid in pids]
             rings.add(Ring(i, self, phases))
-        return frozenset(rings)
+        return rings
     
     def getBarriers(self, configuration_node: List[int]) -> List[int]:
         unique_indices = frozenset(configuration_node)
@@ -390,19 +392,6 @@ class Controller(Listener, IController):
         logger.info('Networking disabled')
         return None
     
-    @lru_cache(maxsize=4)
-    def getBarrierPhases(self, pos: int) -> List[Phase]:
-        """Get the phases left of a `Barrier`"""
-        assert pos >= 0
-        barrier_range = self._barrier.range_of(pos)
-        phases = []
-        for ring in self._rings:
-            for i, phase in enumerate(ring.phases):
-                if i in barrier_range:
-                    phases.append(phase)
-        assert len(phases)
-        return phases
-    
     def countCallsForPhase(self, phase: Phase) -> int:
         result = 0
         for call in self._calls:
@@ -429,7 +418,7 @@ class Controller(Listener, IController):
     @lru_cache(maxsize=16)
     def checkPhaseConflict(self, a: Phase, b: Phase) -> bool:
         """
-        Check if two phases conflict based on Ring, Barrier and defined friend
+        Check if two phases conflict based on Ring, BarrierManager and defined friend
         channels.
 
         :param a: Phase to compare against
@@ -443,7 +432,7 @@ class Controller(Listener, IController):
         if b in self.getRingByPhase(a).phases:
             return True
         
-        if b not in self.getBarrierPhases(self.getBarrierByPhase(a)):
+        if b not in self._bm.getPool(self.getBarrierByPhase(a)):
             return True
         
         # future: consider FYA-enabled phases conflicts for a non-FYA phase
@@ -506,13 +495,13 @@ class Controller(Listener, IController):
         return [c for c in calls if c.target in phases]
     
     def filterCallsByBarrier(self, calls: Iterable[Call], barrier: int) -> List[Call]:
-        return [c for c in calls if c.target.id in self.getBarrierPhases(barrier)]
+        return [c for c in calls if c.target.id in self._bm.getPool(barrier)]
     
     @lru_cache(maxsize=16)
     def getBarrierByPhase(self, phase: Phase) -> int:
         phase_ring_index = self.getPhaseRingIndex(phase)
-        for pos in self._barrier.positions:
-            barrier_range = self._barrier.range_of(pos)
+        for pos in self._bm.positions:
+            barrier_range = self._bm.rangeOf(pos)
             if phase_ring_index in barrier_range:
                 return pos
         raise RuntimeError('failed to get barrier for phase')
@@ -532,8 +521,8 @@ class Controller(Listener, IController):
         return None
     
     def nextBarrier(self):
-        """Change to the next `Barrier` in the pos cycle instance"""
-        self._barrier.next()
+        """Change to the next `BarrierManager` in the pos cycle instance"""
+        self._bm.next()
     
     @lru_cache(maxsize=8)
     def getPhaseById(self, i: int) -> Phase:
@@ -589,9 +578,9 @@ class Controller(Listener, IController):
             lb = self.getBarrierByPhase(left.target)
             rb = self.getBarrierByPhase(right.target)
             if lb != rb:
-                if lb == self._barrier.active:
+                if lb == self._bm.active:
                     weight -= active_barrier_weight
-                elif rb == self._barrier.active:
+                elif rb == self._bm.active:
                     weight += active_barrier_weight
         
         return weight
@@ -708,7 +697,7 @@ class Controller(Listener, IController):
         for call in self._calls:
             phase = call.target
             if barrier is not None:
-                if phase.id not in self.getBarrierPhases(barrier):
+                if phase.id not in self._bm.getPool(barrier):
                     continue
             
             phases.add(phase)
@@ -788,10 +777,6 @@ class Controller(Listener, IController):
         mapping = [(p, p.interval_total) for p in phases if p.state == PhaseState.STOP]
         ranked = sorted(mapping, key=lambda m: m[1], reverse=True)
         return ranked[0][0]
-    
-    def getInstantPhasePool(self) -> Iterable[Phase]:
-        barrier_phases = self.getBarrierPhases(self._barrier.active)
-        return barrier_phases
 
     async def tickTask(self):
         while True:
@@ -873,3 +858,4 @@ class Controller(Listener, IController):
             tg.create_task(self.secondTask(), name='second')
             for ring in self._rings:
                 tg.create_task(ring.run(), name=f'ring{ring.id}')
+            tg.create_task(self._bm.run(), name='barrier_manager')
