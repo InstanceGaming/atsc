@@ -10,7 +10,7 @@
   "init": {
     "mode": "normal",
     "cet-delay": 6,
-    "recall-all": false
+    "recall-all": true
   },
   "device": {
     "name": "ATSC Development Intersection",
@@ -139,8 +139,7 @@
     }
   },
   "default-timing": {
-    "min-stop": 4.0,
-    "rclr": 1.0,
+    "red-clearance": 1.0,
     "caution": 4.0,
     "extend": 3.0,
     "go": 12.0,

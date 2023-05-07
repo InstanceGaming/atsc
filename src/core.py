@@ -12,10 +12,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+from abc import ABC, abstractmethod
 from enum import IntEnum
 from itertools import cycle
 from typing import Dict, List, Optional, Iterable, Set
 from dataclasses import dataclass
+
+from src.events import Listener
+from src.interfaces import IController
 
 
 class IdentifiableBase:
@@ -65,6 +69,26 @@ class FrozenIdentifiableBase:
         return f'<{type(self).__name__} #{self.id}>'
 
 
+class Pollable(Listener, ABC):
+    
+    def __init__(self):
+        self.addListener('controller.tick', self.onTick)
+        self.addListener('controller.half_second', self.onHalfSecond)
+        self.addListener('controller.second', self.onSecond)
+    
+    @abstractmethod
+    def onTick(self):
+        pass
+    
+    @abstractmethod
+    def onHalfSecond(self):
+        pass
+    
+    @abstractmethod
+    def onSecond(self):
+        pass
+    
+
 class FlashMode(IntEnum):
     RED = 1
     YELLOW = 2
@@ -94,8 +118,6 @@ class LoadSwitch(IdentifiableBase):
 
 class PhaseState(IntEnum):
     STOP = 0
-    MIN_STOP = 2
-    RCLR = 4
     CAUTION = 6
     EXTEND = 8
     GO = 10
@@ -106,9 +128,7 @@ class PhaseState(IntEnum):
 
 PHASE_REST_STATES = (PhaseState.STOP, PhaseState.GO, PhaseState.WALK)
 
-PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
-                      PhaseState.RCLR,
-                      PhaseState.CAUTION,
+PHASE_TIMED_STATES = (PhaseState.CAUTION,
                       PhaseState.EXTEND,
                       PhaseState.GO,
                       PhaseState.PCLR,
@@ -163,11 +183,11 @@ class Phase(IdentifiableBase):
     
     @property
     def time_upper(self):
-        return self._time_upper
+        return self._duration
     
     @property
     def time_lower(self):
-        return self._time_lower
+        return self._counter
     
     @property
     def veh_ls(self) -> LoadSwitch:
@@ -178,8 +198,8 @@ class Phase(IdentifiableBase):
         return self._pls
     
     @property
-    def max_time(self):
-        return self._max_time
+    def interval_total(self):
+        return self._interval_total
     
     def _validate_timing(self):
         if self.active:
@@ -194,23 +214,24 @@ class Phase(IdentifiableBase):
     
     def __init__(self,
                  id_: int,
-                 time_increment: float,
+                 controller: IController,
                  timing: Dict[PhaseState, float],
                  veh_ls: LoadSwitch,
                  ped_ls: Optional[LoadSwitch],
                  flash_mode: FlashMode = FlashMode.RED,
-                 ped_clear_enable: bool = True
-                 ):
+                 ped_clear_enable: bool = True):
         super().__init__(id_)
-        self._increment = time_increment
+        self._controller = controller
         self._timing = timing
         self._vls = veh_ls
         self._pls = ped_ls
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
-        self._time_lower: float = 0.0
-        self._time_upper: float = 0.0
-        self._max_time: float = 0.0
+        
+        self._duration: float = 0.0
+        self._counter: float = 0.0
+        self._interval_total: float = 0.0
+        
         self._ped_inhibit: bool = True
         self._ped_cycle: bool = False
         self._resting: bool = False
@@ -225,12 +246,8 @@ class Phase(IdentifiableBase):
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
-        elif self._state == PhaseState.MIN_STOP:
-            return PhaseState.STOP
-        elif self._state == PhaseState.RCLR:
-            return PhaseState.MIN_STOP
         elif self._state == PhaseState.CAUTION:
-            return PhaseState.RCLR
+            return PhaseState.STOP
         elif self._state == PhaseState.EXTEND:
             return PhaseState.CAUTION
         elif self._state == PhaseState.GO:
@@ -255,11 +272,11 @@ class Phase(IdentifiableBase):
             next_state = self.getNextState(self.ped_service)
         tv = self._timing.get(next_state, 0.0)
         
-        if tv > self._increment:
-            tv -= self._increment
+        if tv > self._controller.time_increment:
+            tv -= self._controller.time_increment
         
-        self._time_upper = tv
-        self._time_lower = tv
+        self._duration = tv
+        self._counter = tv
         
         if next_state == PhaseState.STOP:
             self._ped_cycle = False
@@ -268,16 +285,16 @@ class Phase(IdentifiableBase):
             if self._ped_cycle:
                 go_time = self._timing[PhaseState.GO]
                 walk_time = self._timing[PhaseState.WALK]
-                self._time_lower = go_time - walk_time
+                self._counter = go_time - walk_time
                 if self.ped_clear_enable:
-                    self._time_lower -= self._timing[PhaseState.PCLR]
-                if self._time_lower < 0:
-                    self._time_lower = 0.0
+                    self._counter -= self._timing[PhaseState.PCLR]
+                if self._counter < 0:
+                    self._counter = 0.0
         else:
             if next_state == PhaseState.WALK:
                 self._ped_cycle = True
         self._state = next_state
-        self._max_time = 0.0
+        self._interval_total = 0.0
     
     def changeTiming(self, revised: Dict[PhaseState, float]):
         self._timing = revised
@@ -285,75 +302,66 @@ class Phase(IdentifiableBase):
     
     def reduce(self):
         if self.extend_active:
-            self._time_lower = 0.0
+            self._counter = 0.0
         else:
             raise RuntimeError('Cannot reduce, not extending')
-    
-    def activate(self, ped_service: bool = False):
-        if self.active:
-            raise RuntimeError('Cannot activate active phase')
-        
-        if self.state == PhaseState.MIN_STOP:
-            raise RuntimeError('Cannot activate phase during MIN_STOP interval')
-        
-        self._ped_inhibit = not ped_service
+
+    async def wait(self):
         self.update()
-    
-    def tick(self, conflicting_demand: bool, flasher: bool) -> bool:
-        changed = False
-        self._resting = False
+        while self.state != PhaseState.STOP:
+            await asyncio.sleep(self._controller.time_increment)
+
+    def tick(self):
+        self.updateLoadSwitches()
         
+        self._resting = False
         if self._state in PHASE_GO_STATES:
-            if self._max_time > self._timing[PhaseState.MAX_GO]:
-                if conflicting_demand:
+            if self._interval_total > self._timing[PhaseState.MAX_GO]:
+                if self._controller.hasConflictingDemand(self):
                     # todo: make this condition configurable per phase
                     self.update()
-                    return True
-        
+    
         if self.extend_active:
-            if self._time_lower >= self._timing[PhaseState.EXTEND]:
-                if conflicting_demand:
+            if self._counter >= self._timing[PhaseState.EXTEND]:
+                if self._controller.hasConflictingDemand(self):
                     self.update()
-                    changed = True
                 else:
                     self._resting = True
             else:
-                self._time_lower += self._increment
+                self._counter += self._controller.time_increment
         else:
             if self._state != PhaseState.STOP:
-                if self._time_lower > 0:
-                    self._time_lower -= self._increment
-                    if self._time_lower < 0:
-                        self._time_lower = 0
+                if self._counter > 0:
+                    self._counter -= self._controller.time_increment
+                    if self._counter < 0:
+                        self._counter = 0
                 else:
                     if self._state == PhaseState.WALK:
-                        if conflicting_demand:
-                            if flasher:
+                        if self._controller.hasConflictingDemand(self):
+                            if self._controller.flasher:
                                 self.update()
-                                changed = True
                         else:
                             self._resting = True
                             self._extend_inhibit = True
                     else:
                         if self._state == PhaseState.GO or self._state == PhaseState.EXTEND:
-                            if conflicting_demand:
+                            if self._controller.hasConflictingDemand(self):
                                 self.update()
-                                changed = True
                             else:
                                 self._resting = True
                         else:
                             self.update()
-                            changed = True
             else:
                 self._resting = True
-        
-        self._max_time += self._increment
-        
+    
+        self._interval_total += self._controller.time_increment
+
+    def updateLoadSwitches(self):
         pa = False
         pb = False
         pc = False
-        
-        if self._state == PhaseState.STOP or self.state == PhaseState.MIN_STOP or self._state == PhaseState.RCLR:
+    
+        if self._state == PhaseState.STOP:
             self._vls.a = True
             self._vls.b = False
             self._vls.c = False
@@ -375,7 +383,7 @@ class Phase(IdentifiableBase):
             self._vls.a = False
             self._vls.b = False
             self._vls.c = True
-            pa = flasher
+            pa = self._controller.flasher
             pc = False
         elif self._state == PhaseState.WALK:
             self._vls.a = False
@@ -383,13 +391,11 @@ class Phase(IdentifiableBase):
             self._vls.c = True
             pa = False
             pc = True
-        
+    
         if self._pls is not None:
             self._pls.a = pa
             self._pls.b = pb
             self._pls.c = pc
-        
-        return changed
     
     def __repr__(self):
         return f'<{self.getTag()} {self.state.name} {self.time_upper: 05.1f}' \
@@ -417,14 +423,13 @@ class Ring(IdentifiableBase):
     def phases(self):
         return self._phases
     
-    def __init__(self, id_: int, phases: Iterable[Phase]):
+    def __init__(self, id_: int, controller: IController, phases: Iterable[Phase]):
         super().__init__(id_)
+        self._controller = controller
         self._phases = sorted(phases)
-        assert len(self._phases)
         self._cycler = cycle(self._phases)
         self._skips: Set[Phase] = set()
-        self._active: Optional[Phase] = None
-        
+    
     def getPhaseIndex(self, phase: Phase) -> Optional[int]:
         try:
             return self._phases.index(phase)
@@ -437,42 +442,46 @@ class Ring(IdentifiableBase):
             return True
         except ValueError:
             return False
-    
-    def clear(self):
-        self._active = None
-    
-    def cycle(self):
-        self._active = next(self._cycler)
-        self._skips = []
-    
-    def next(self, position: Optional[int] = None):
-        i = 0
-        selection = None
+
+    async def next(self) -> Phase:
+        phase_pool = self._controller.getInstantPhasePool()
+        selection = next(self._cycler)
         
-        while True:
-            if position is not None and i > position:
-                break
-            
-            selection = self._phases[i]
-            
-            if selection not in self._skips:
-                break
-            
-            if i > len(self._phases) - 1:
-                self.cycle()
-                i = 0
-            else:
-                i += 1
+        if selection not in phase_pool:
+            await self._controller.barrier.wait()
+            await asyncio.sleep(1000)
+        
+        while selection in self._skips:
+            selection = next(self._cycler)
         
         return selection
-    
-    def tick(self, demand: Iterable[Phase], flasher: bool):
-        for phase in self._phases:
-            
-            phase.tick()
+
+    async def run(self):
+        while True:
+            active_phase = await self.next()
+            await active_phase.wait()
 
 
-class ATSCBarrier(asyncio.Barrier):
+def get_deltas(items):
+    deltas = []
+    for i, item in enumerate(items):
+        if i:
+            prev = items[i - 1]
+            deltas.append(item - prev)
+    return deltas
+
+
+def get_barrier_range(positions, position):
+    right_index = positions.index(position)
+    if right_index == 0:
+        return range(0, position + 1)
+    else:
+        deltas = get_deltas(positions)
+        left = position - deltas[right_index - 1] + 1
+        return range(left, position + 1)
+
+
+class Barrier:
     
     @property
     def positions(self):
@@ -482,18 +491,38 @@ class ATSCBarrier(asyncio.Barrier):
     def active(self):
         return self._active
     
-    def __init__(self, positions: Iterable[int], ring_count: int):
-        super().__init__(ring_count)
+    @property
+    def active_range(self):
+        return get_barrier_range(self._positions, self._active)
+    
+    def __init__(self,
+                 controller: IController,
+                 positions: Iterable[int],
+                 ring_count: int):
+        self._controller = controller
+        self._ring_count = ring_count
+        self._waiting_count: int = 0
         self._positions: List[int] = sorted(positions)
-        self._loop = cycle(self._positions)
-        self._active: int = -1  # active position value, NOT INDEX!
+        self._cycler = cycle(self._positions)
+        self._active: int = next(self._cycler)  # active position value, NOT INDEX!
+    
+    def range_of(self, pos: int) -> range:
+        return get_barrier_range(self._positions, pos)
     
     def index(self, pos: int) -> int:
         return self._positions.index(pos)
     
     def next(self):
-        self._active = next(self._loop)
-
+        self._active = next(self._cycler)
+        
+    async def wait(self):
+        self._waiting_count += 1
+        if self._waiting_count >= self._ring_count:
+            self.next()
+            self._waiting_count = 0
+        else:
+            await asyncio.sleep(self._controller.time_increment)
+    
 
 class Call(IdentifiableBase):
     

@@ -210,7 +210,10 @@ def run():
     logger.info(dt.now(tzo).strftime('Started at %I:%M %p %b %d %Y'))
     
     controller = Controller(config, tzo)
-    asyncio.run(controller.runAsync())
+    try:
+        asyncio.run(controller.run())
+    except KeyboardInterrupt:
+        pass
     
     ed, eh, em, es = utils.dhmsText(run_timer.getDelta())
     logger.info(f'Runtime of {ed} days, {eh} hours, {em} minutes and {es} seconds')

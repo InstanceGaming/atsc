@@ -15,16 +15,15 @@ import utils
 import random
 import network
 import serialbus
-import asyncio
 from loguru import logger
 from core import *
 from frames import FrameType, DeviceAddress, OutputStateFrame
-from typing import Set, Iterable, FrozenSet
+from typing import Set, Iterable, FrozenSet, Tuple
 from bitarray import bitarray
 from functools import lru_cache, cmp_to_key
 from dateutil.parser import parse as _dt_parser
-
-from src.fundemental import ATSCObject
+from src.events import Listener
+from src.interfaces import IController
 
 
 def parse_datetime_text(text: str, tz):
@@ -32,7 +31,7 @@ def parse_datetime_text(text: str, tz):
     return rv.replace(tzinfo=tz)
 
 
-class RandomActuation:
+class RandomActuation(Listener):
     
     @property
     def enabled(self):
@@ -46,8 +45,7 @@ class RandomActuation:
     def max(self):
         return self._max
     
-    def __init__(self, configuration_node: dict, phase_id_pool: List[int]
-                 ):
+    def __init__(self, configuration_node: dict, phase_id_pool: List[int]):
         self._enabled = configuration_node['enabled']
         self._min = configuration_node['min']  # seconds
         self._max = configuration_node['max']  # seconds
@@ -85,10 +83,19 @@ class PhaseStatus(IntEnum):
     SECONDARY = 3
 
 
-class Controller(ATSCObject):
-    PHASE_COUNT = 8
-    LS_COUNT = 12
-    INCREMENT = 0.1
+class Controller(Listener, IController):
+
+    @property
+    def max_phases(self):
+        return 8
+    
+    @property
+    def max_load_switches(self):
+        return 12
+    
+    @property
+    def time_increment(self):
+        return 0.1
     
     @property
     def name(self):
@@ -139,9 +146,19 @@ class Controller(ATSCObject):
         """Number of input objects"""
         return len(self._inputs.keys())
     
+    @property
+    def barrier(self):
+        return self._barrier
+    
+    @property
+    def phases(self):
+        return self._phases
+    
+    @property
+    def red_clearance(self):
+        return self._red_clearance
+    
     def __init__(self, config: dict, tz):
-        super().__init__('controller')
-        
         self._name = config['device']['name']
         
         # should place calls on all phases when started?
@@ -170,12 +187,14 @@ class Controller(ATSCObject):
                                                  LoadSwitch(5), LoadSwitch(6), LoadSwitch(7), LoadSwitch(8),
                                                  LoadSwitch(9), LoadSwitch(10), LoadSwitch(11), LoadSwitch(12)]
         
-        default_timing = self.getDefaultTiming(config['default-timing'])
+        default_timing, red_clearance = self.getDefaultTiming(config['default-timing'])
+        self._red_clearance: float = red_clearance
+        
         self._phases: List[Phase] = self.getPhases(config['phases'], default_timing)
         self._idle_phases: List[Phase] = self.getIdlePhases(config['idle-phases'])
         
         self._rings: FrozenSet[Ring] = self.getRings(config['rings'])
-        self._barrier: ATSCBarrier = ATSCBarrier((1, 3), len(self._rings))
+        self._barrier: Barrier = Barrier(self, (1, 3), len(self._rings))
         
         # total cycle counter
         self._cycle_count = 1
@@ -215,13 +234,16 @@ class Controller(ATSCObject):
         self._random_actuation: RandomActuation = RandomActuation(config['random-actuation'],
                                                                   [ph.id for ph in self._phases])
     
-    def getDefaultTiming(self, configuration_node: Dict[str, float]
-                         ) -> Dict[PhaseState, float]:
+    def getDefaultTiming(self, configuration_node: Dict[str, float]) -> Tuple[Dict[PhaseState, float], float]:
+        red_clearance = 0.0
         timing = {}
         for name, value in configuration_node.items():
+            if name == 'red-clearance':
+                red_clearance = value
+                continue
             ps = utils.textToEnum(PhaseState, name)
             timing.update({ps: value})
-        return timing
+        return timing, red_clearance
     
     def getPhases(self, configuration_node: List[Dict], default_timing: Dict[PhaseState, float]
                   ) -> List[Phase]:
@@ -245,7 +267,7 @@ class Controller(ATSCObject):
             ped = None
             if ped_index is not None:
                 ped = self.getLoadSwitchById(ped_index)
-            phase = Phase(i, self.INCREMENT, phase_timing, veh, ped, flash_mode)
+            phase = Phase(i, self, phase_timing, veh, ped, flash_mode)
             phases.append(phase)
         
         return sorted(phases)
@@ -260,7 +282,7 @@ class Controller(ATSCObject):
         rings = set()
         for i, pids in enumerate(configuration_node, start=1):
             phases = [self.getPhaseById(pid) for pid in pids]
-            rings.add(Ring(i, phases))
+            rings.add(Ring(i, self, phases))
         return frozenset(rings)
     
     def getBarriers(self, configuration_node: List[int]) -> List[int]:
@@ -274,7 +296,7 @@ class Controller(ATSCObject):
         ped = None
         if pi is not None:
             ped = self._load_switches[pi - 1]
-        return Phase(i, self.INCREMENT, timing, veh, ped)
+        return Phase(i, self, timing, veh, ped)
     
     @lru_cache(maxsize=8)
     def getPhaseLoadSwitchIndexMapping(self) -> Dict[Phase, List[int]]:
@@ -368,28 +390,41 @@ class Controller(ATSCObject):
         logger.info('Networking disabled')
         return None
     
-    def getBarrierOffset(self, pos: int, offset: int) -> Optional[int]:
-        index = self._barrier.index(pos)
-        try:
-            return self._barrier.positions[index + offset]
-        except IndexError:
-            return None
-
-    @lru_cache(maxsize=4)
-    def getBarrierRange(self, pos: int) -> range:
-        previous_pos = self.getBarrierOffset(pos, -1)
-        return range(previous_pos, pos)
-    
     @lru_cache(maxsize=4)
     def getBarrierPhases(self, pos: int) -> List[Phase]:
         """Get the phases left of a `Barrier`"""
-        barrier_range = self.getBarrierRange(pos)
+        assert pos >= 0
+        barrier_range = self._barrier.range_of(pos)
         phases = []
         for ring in self._rings:
             for i, phase in enumerate(ring.phases):
                 if i in barrier_range:
                     phases.append(phase)
+        assert len(phases)
         return phases
+    
+    def countCallsForPhase(self, phase: Phase) -> int:
+        result = 0
+        for call in self._calls:
+            if call.target == phase:
+                result += 1
+        return result
+    
+    @lru_cache(maxsize=16)
+    def getConflictingPhases(self, phase: Phase) -> FrozenSet[Phase]:
+        conflicts = set()
+        for other_phase in self._phases:
+            if other_phase == phase:
+                continue
+            if self.checkPhaseConflict(phase, other_phase):
+                conflicts.add(other_phase)
+        return frozenset(conflicts)
+    
+    def hasConflictingDemand(self, phase: Phase) -> bool:
+        for conflicting_phase in self.getConflictingPhases(phase):
+            if self.countCallsForPhase(conflicting_phase):
+                return True
+        return False
     
     @lru_cache(maxsize=16)
     def checkPhaseConflict(self, a: Phase, b: Phase) -> bool:
@@ -405,10 +440,10 @@ class Controller(ATSCObject):
             raise RuntimeError('Conflict check on the same phase object')
         
         # verify Phase b is not in the same ring
-        if b.id in self.getRingByPhase(a).phases:
+        if b in self.getRingByPhase(a).phases:
             return True
         
-        if b.id not in self.getBarrierPhases(self.getBarrierByPhase(a)):
+        if b not in self.getBarrierPhases(self.getBarrierByPhase(a)):
             return True
         
         # future: consider FYA-enabled phases conflicts for a non-FYA phase
@@ -435,9 +470,6 @@ class Controller(ATSCObject):
             if any([self.checkPhaseConflict(phase, act) for act in active]):
                 continue
             
-            if phase.state == PhaseState.MIN_STOP:
-                continue
-            
             results.add(phase)
         
         return frozenset(results)
@@ -445,7 +477,7 @@ class Controller(ATSCObject):
     @lru_cache(maxsize=16)
     def getRingByPhase(self, phase: Phase) -> Ring:
         for ring in self._rings:
-            if phase.id in ring.phases:
+            if phase in ring.phases:
                 return ring
         
         raise RuntimeError('Failed to get ring')
@@ -480,7 +512,7 @@ class Controller(ATSCObject):
     def getBarrierByPhase(self, phase: Phase) -> int:
         phase_ring_index = self.getPhaseRingIndex(phase)
         for pos in self._barrier.positions:
-            barrier_range = self.getBarrierRange(pos)
+            barrier_range = self._barrier.range_of(pos)
             if phase_ring_index in barrier_range:
                 return pos
         raise RuntimeError('failed to get barrier for phase')
@@ -621,7 +653,7 @@ class Controller(ATSCObject):
                                    f'{input_text}')
                     return True
             else:
-                call = Call(self._call_counter + 1, self.INCREMENT, target, ped_service=ped_service)
+                call = Call(self._call_counter + 1, self.time_increment, target, ped_service=ped_service)
                 
                 self._calls.add(call)
                 self._call_counter += 1
@@ -689,21 +721,6 @@ class Controller(ATSCObject):
                 return False
         return True
     
-    def serveCall(self, call: Call):
-        self.servePhase(call.target, ped_service=call.ped_service)
-        self._calls.remove(call)
-    
-    def servePhase(self, phase: Phase, ped_service: bool = False):
-        logger.debug(f'Serving phase {phase.getTag()}')
-        phase.activate(ped_service=ped_service)
-    
-    async def busHealthCheck(self):
-        """Ensure bus thread is still running, if enabled"""
-        if self.bus_enabled:
-            if not self._bus.ready:
-                logger.error('Bus not running')
-                await self.shutdown()
-    
     def handleInputs(self, bf: bitarray):
         """Check on the contents of bus data container for changes"""
         
@@ -768,47 +785,16 @@ class Controller(ATSCObject):
         return True
     
     def getStaleStopPhase(self, phases: Iterable[Phase]) -> Phase:
-        mapping = [(p, p.max_time) for p in phases if p.state == PhaseState.STOP]
+        mapping = [(p, p.interval_total) for p in phases if p.state == PhaseState.STOP]
         ranked = sorted(mapping, key=lambda m: m[1], reverse=True)
         return ranked[0][0]
     
-    async def halfSecondTask(self):
-        while True:
-            self._flasher = not self._flasher
-            await asyncio.sleep(500)
-    
-    async def secondTask(self):
-        while True:
-            if not self.time_freeze:
-                if self._op_mode == OperationMode.NORMAL:
-                    choice = self._random_actuation.poll()
-                    if choice is not None:
-                        self.detection(self.getPhaseById(choice), ped_service=True, system=True)
-            
-            # if self.monitor_enabled:
-            #     self._monitor.clean()
-            await asyncio.sleep(1000)
+    def getInstantPhasePool(self) -> Iterable[Phase]:
+        barrier_phases = self.getBarrierPhases(self._barrier.active)
+        return barrier_phases
 
     async def tickTask(self):
         while True:
-            if self.bus_enabled:
-                self.handleBusFrame()
-        
-            if not self.time_freeze:
-                if self._op_mode == OperationMode.NORMAL:
-                    active = self.getActivePhases()
-                    
-                    for call in self._calls:
-                        call.tick()
-                elif self._op_mode == OperationMode.CET:
-                    for ph in self._phases:
-                        ph.tick(False, self._flasher)
-                
-                    if self._cet_counter > self.INCREMENT:
-                        self._cet_counter -= self.INCREMENT
-                    else:
-                        self.setOperationState(OperationMode.NORMAL)
-            
             # if self.bus_enabled:
             #     self.updateBusOutputs(self._load_switches)
         
@@ -822,13 +808,25 @@ class Controller(ATSCObject):
             #
             #     self._monitor.broadcastControlUpdate(self._phases, pmd, self._load_switches)
         
+            for phase in self._phases:
+                phase.tick()
+        
             field_text = ''
             for ls in self._load_switches:
                 ft = utils.formatFields(ls.a, ls.b, ls.c)
                 field_text += f'{ls.id:02d}{ft} '
             logger.field(field_text)
             
-            await asyncio.sleep(self.INCREMENT)
+            await asyncio.sleep(self.time_increment)
+
+    async def halfSecondTask(self):
+        while True:
+            self._flasher = not self._flasher
+            await asyncio.sleep(500)
+
+    async def secondTask(self):
+        while True:
+            await asyncio.sleep(1000)
 
     async def transfer(self):
         """Set the controllers flash transfer relays flag"""
@@ -843,12 +841,12 @@ class Controller(ATSCObject):
     async def shutdown(self):
         """Run termination tasks to stop control loop"""
         logger.info('beginning shutdown sequence...')
-        
+        self.emit('controller.shutdown')
+        await asyncio.sleep(2000)
         asyncio.get_event_loop().close()
-        
         logger.info('shutdown complete')
     
-    async def runAsync(self):
+    async def run(self):
         logger.info(f'controller is named "{self._name}"')
     
         # noinspection PyUnreachableCode
@@ -866,10 +864,12 @@ class Controller(ATSCObject):
         #
         #     logger.info(f'bus ready')
         #
-        # self.setOperationState(self._op_mode)
-        # await self.transfer()
+        self.setOperationState(self._op_mode)
+        await self.transfer()
         
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.tickTask(), name='tick')
             tg.create_task(self.halfSecondTask(), name='half_second')
             tg.create_task(self.secondTask(), name='second')
+            for ring in self._rings:
+                tg.create_task(ring.run(), name=f'ring{ring.id}')
