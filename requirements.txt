@@ -8,3 +8,4 @@ natsort
 bitarray
 pyserial-asyncio
 loguru
+pydantic

@@ -16,12 +16,13 @@ import re
 import platform
 from enum import Enum
 from pathlib import Path
-from typing import Any, Type, Tuple, Union, Optional
+from time import perf_counter_ns
+from typing import Any, Type, Tuple, Union, Optional, Iterable, List
 from bitarray import bitarray
 from datetime import datetime
 
 
-def processPath(raw: Optional[str]) -> Optional[Path]:
+def fix_path(raw: Optional[str]) -> Optional[Path]:
     if raw:
         norm = os.path.normpath(raw.strip())
         expanded = os.path.expandvars(os.path.expanduser(norm))
@@ -29,39 +30,55 @@ def processPath(raw: Optional[str]) -> Optional[Path]:
     return None
 
 
-def getUniformName(raw_name: str) -> str:
+def fix_paths(paths: Iterable[Optional[str]]) -> List[Optional[Path]]:
+    rv = []
+    for path in paths:
+        rv.append(fix_path(path))
+    return rv
+
+
+def uniform_key_name(raw_name: str) -> str:
     name = raw_name.lower().strip()
     name = re.sub(r'^(\d)+', '', name)
     name = re.sub(r'([^a-z\d_])+', '_', name)
     return name
 
 
-def bitarrayFromBytearray(ib: bytearray) -> bitarray:
+def bits_from_bytearray(ib: bytearray) -> bitarray:
     bit = bitarray()
     bit.frombytes(bytes(ib))
     return bit
 
 
-def prettyElapsedMilliseconds(before, now):
-    return prettyMilliseconds(now - before)
+def format_ms(ms):
+    if ms < 1000:
+        if isinstance(ms, float):
+            return f'{ms:01.2f}ms'
+        return f'{ms}ms'
+    elif 1000 <= ms < 60000:
+        secs = ms / 1000
+        return f'{secs:01.2f}s'
+    elif 3600000 > ms >= 60000:
+        mins = ms / 60000
+        return f'{mins:01.2f}m'
+    elif 86400000 > ms >= 3600000:
+        hrs = ms / 3600000
+        return f'{hrs:01.2f}h'
+    elif ms >= 86400000:
+        dys = ms / 86400000
+        return f'{dys:01.2f}d'
 
 
-def prettyMilliseconds(milliseconds):
-    if milliseconds is not None:
-        if milliseconds <= 1000:
-            if isinstance(milliseconds, float):
-                return f'{milliseconds:04.2f}ms'
-            return f'{milliseconds:04d}ms'
-        elif 1000 < milliseconds <= 60000:
-            seconds = milliseconds / 1000
-            return f'{seconds:02.2f}s'
-        elif milliseconds > 60000:
-            minutes = milliseconds / 60000
-            return f'{minutes:02.2f}min'
-    return None
+def format_us(us):
+    if us < 1000:
+        if isinstance(us, float):
+            return f'{us:01.2f}us'
+        return f'{us}us'
+    else:
+        return format_ms(us / 1000)
 
 
-def prettyTimedelta(td, prefix=None, format_spec=None):
+def pretty_timedelta(td, prefix=None, format_spec=None):
     prefix = prefix if not None else ''
     format_spec = format_spec if format_spec is not None else '02.2f'
     
@@ -78,13 +95,13 @@ def prettyTimedelta(td, prefix=None, format_spec=None):
     return None
 
 
-def prettyBinaryLiteral(ba: Union[bytearray, bytes]) -> str:
+def pretty_bin_literal(ba: Union[bytearray, bytes]) -> str:
     if isinstance(ba, bytes):
         ba = bytearray(ba)
     return ' '.join([format(b, '08b') for b in ba])
 
 
-def prettyByteSize(size: int, suffix='B'):
+def pretty_byte_size(size: int, suffix='B'):
     for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
         if abs(size) < 1024.0:
             return "%3d%s%s" % (size, unit, suffix)
@@ -92,7 +109,7 @@ def prettyByteSize(size: int, suffix='B'):
     return "%.1f%s%s" % (size, 'Yi', suffix)
 
 
-def compactDatetime(dt: datetime, tz=None) -> str:
+def compact_datetime(dt: datetime, tz=None) -> str:
     if platform.system() == 'Windows':
         no_pad_char = '#'
     else:
@@ -124,15 +141,26 @@ def compactDatetime(dt: datetime, tz=None) -> str:
     return f'{date_text}{year_text}{time_text}'
 
 
-def getIPAddress(filter_if_name: str):
-    from netifaces import AF_INET, ifaddresses
-    
-    interface = ifaddresses(filter_if_name)
-    protocol = interface[AF_INET]
-    return protocol[0]['addr']
+def deltas(items):
+    d = []
+    for i, item in enumerate(items):
+        if i:
+            prev = items[i - 1]
+            d.append(item - prev)
+    return d
 
 
-def dhmsText(seconds) -> Tuple[int, int, int, int]:
+def stride_range(strides, index):
+    stride = strides[index]
+    if index == 0:
+        return range(0, stride + 1)
+    else:
+        d = deltas(strides)
+        left = stride - d[index - 1] + 1
+        return range(left, stride + 1)
+
+
+def dhms(seconds) -> Tuple[int, int, int, int]:
     seconds_to_minute = 60
     seconds_to_hour = 60 * seconds_to_minute
     seconds_to_day = 24 * seconds_to_hour
@@ -151,27 +179,27 @@ def dhmsText(seconds) -> Tuple[int, int, int, int]:
     return days, hours, minutes, seconds
 
 
-def shortEnumName(e: Enum):
+def short_enum_name(e: Enum):
     if e is not None:
         return e.name[0:3]
     return ''
 
 
-def defaultEnumMap(et: Type[Enum], value: Any) -> dict:
+def default_enum(et: Type[Enum], value: Any) -> dict:
     rv = {}
     for i in [e.value for e in et]:
         rv.update({i: value})
     return rv
 
 
-def fieldRepr(a, b, c):
+def field_representation(a, b, c):
     first = 'A' if a else '-'
     second = 'B' if b else '-'
     third = 'C' if c else '-'
     return f'{first}{second}{third}'
 
 
-def condText(msg, paren=False, prefix=' ', postfix='', cond=False):
+def conditional_text(msg, paren=False, prefix=' ', postfix='', cond=False):
     if msg is not None or cond:
         if paren:
             return f'{prefix}({msg}){postfix}'
@@ -179,16 +207,43 @@ def condText(msg, paren=False, prefix=' ', postfix='', cond=False):
     return ''
 
 
-def textToEnum(et: Type[Enum], v, to_length=None, dash_underscore=True):
+def micros() -> int:
+    return perf_counter_ns() // 1000
+
+
+def millis() -> int:
+    return perf_counter_ns() // 1000000
+
+
+def seconds() -> int:
+    return millis() // 1000
+
+
+def minutes() -> int:
+    return seconds() // 60
+
+
+def hours() -> int:
+    return minutes() // 60
+
+
+def days() -> int:
+    return hours() // 24
+
+
+_TIMING_FUNCS = [micros, millis, seconds, minutes, hours, days]
+
+
+def text_to_enum(et: Type[Enum], v, to_length=None, dash_underscore=True):
     """
-    Attempt to return the matching enum value based off of
-    the text tag of a value.
+    Attempt to return the matching enum next_state based off of
+    the text tag of a next_state.
 
     :param et: enum type
-    :param v: string representation of an enum value
+    :param v: string representation of an enum next_state
     :param to_length: only match to this many chars
     :param dash_underscore: make dash equal to underscore character
-    :return: enum value of type e or None if was None
+    :return: enum next_state of type e or None if was None
     :raises ValueError: if text could not be mapped to type
     """
     if v is None:
@@ -210,7 +265,7 @@ def textToEnum(et: Type[Enum], v, to_length=None, dash_underscore=True):
     raise ValueError(f'Could not match "{v}" to {str(et)}')
 
 
-def formatFields(a, b, c, colored=False):
+def format_fields(a, b, c, colored=False):
     r = '<r>R</r>' if colored else 'R'
     y = '<y>Y</y>' if colored else 'Y'
     g = '<g>G</g>' if colored else 'G'

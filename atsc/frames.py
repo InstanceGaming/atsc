@@ -14,7 +14,7 @@
 
 import abc
 import enum
-from core import LoadSwitch
+from models import LoadSwitch
 from hdlc import HDLCContext
 from typing import List, Union, Optional
 from bitarray import bitarray

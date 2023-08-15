@@ -14,8 +14,8 @@
 
 import enum
 import crcmod
-from utils import prettyByteSize
-from utils import prettyBinaryLiteral as PBL
+from utils import pretty_byte_size
+from utils import pretty_bin_literal as PBL
 from typing import Tuple, Optional
 
 
@@ -57,7 +57,7 @@ class Frame:
     
     def __repr__(self):
         return f'<Frame {PBL(self._data)} CRC{self._crc:05d} ' \
-               f'{prettyByteSize(len(self._data))}>'
+               f'{pretty_byte_size(len(self._data))}>'
 
 
 class HDLCContext:

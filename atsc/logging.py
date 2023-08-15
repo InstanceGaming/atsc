@@ -1,15 +1,26 @@
+import os
 import re
+import sys
+from datetime import timedelta
 from functools import partialmethod
-from typing import Optional
-
+from pathlib import Path
+from typing import Optional, TypedDict, Union
 import loguru
+from atsc.constants import ExitCode
 
 
 QUENCH_LOG_EXCEPTIONS = True
 LOG_LEVEL_PATTERN = re.compile(r'([a-z_]+|\d+)', flags=re.IGNORECASE)
 
 
-def parse_log_level_argument(arg: Optional[str]) -> dict:
+class SinkLevels(TypedDict):
+    default: Union[int, str]
+    stdout: Union[int, str]
+    stderr: Union[int, str]
+    file: Union[int, str]
+
+
+def parse_log_level_shorthand(arg: Optional[str]) -> SinkLevels:
     levels = {
         'default': 0,
         'stdout': None,
@@ -73,27 +84,28 @@ def register_custom_levels(l):
     l.__class__.verb = partialmethod(l.__class__.log, 'VERB')
 
 
-def configure_logger(sink,
-                     level=0,
-                     max_level=None,
-                     color=False,
-                     timestamp=False,
-                     logger=None,
-                     backtrace=False,
-                     rotation=None,
-                     retention=None,
-                     compression=None,
-                     mode='a'):
+def setup_sink(sink,
+               level=0,
+               max_level=None,
+               color=False,
+               timestamp=False,
+               logger=None,
+               backtrace=False,
+               rotation=None,
+               retention=None,
+               compression=None,
+               mode='a'):
     l = logger or loguru.logger
     if logger is None:
         l.remove()
         register_custom_levels(l)
 
-    fmt = '<level>{level: >8}</level>: {message}'
+    fmt = '<level>{level: >8}</level>: {message} '
     if timestamp:
         fmt = '[{time:YYYY-MM-DD hh:mm:ss A}] ' + fmt
     if __debug__:
-        fmt += ' <d>[<i>{file}:{line}</i>]</d>'
+        fmt += '<d>[<i>{file}:{line}</i>]</d> '
+    fmt += '<d>{extra}</d>'
     kwargs = {
         'colorize': color,
         'level': level,
@@ -115,3 +127,44 @@ def configure_logger(sink,
 
     l.add(sink, **kwargs)
     return l
+
+
+def setup_logger(log_levels: Union[SinkLevels, str],
+                 log_file: Optional[os.PathLike] = None,
+                 rotation: timedelta = timedelta(days=1),
+                 retention: timedelta = timedelta(days=7)):
+    if isinstance(log_levels, str):
+        log_levels = parse_log_level_shorthand(log_levels)
+    
+    stdout_level = log_levels['stdout']
+    stderr_level = log_levels['stderr']
+    
+    try:
+        logger = setup_sink(sys.stdout,
+                            level=stdout_level,
+                            color=True)
+        logger = setup_sink(sys.stderr, level=stderr_level, color=True,
+                            logger=logger)
+        if log_file is not None:
+            file_level = log_levels['file']
+            log_file = Path(log_file)
+            try:
+                os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            except OSError as e:
+                logger.error('failed to make directory structure for log file ({})', str(e))
+                exit(ExitCode.LOG_FILE_STRUCTURE_FAIL)
+            logger = setup_sink(log_file,
+                                level=file_level,
+                                timestamp=True,
+                                logger=logger,
+                                backtrace=True,
+                                rotation=rotation,
+                                retention=retention,
+                                compression='gz')
+    except (ValueError, TypeError) as e:
+        print(f'ERROR: failed to create logging facility ({str(e)})', file=sys.stderr)
+        exit(ExitCode.LOG_FACILITY_FAIL)
+    
+    logger.info('log levels {}', ', '.join([f'{k}={v}' for k, v in log_levels.items()]))
+    
+    return logger

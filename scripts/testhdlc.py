@@ -24,7 +24,7 @@ def test_msg(text, expected_error=None):
     if error:
         if expected_error is not None:
             if error != expected_error:
-                print(f'[FAILED] "{text}" Unexpected error {error.name}')
+                print(f'[FAILED] "{text}" Unexpected error {error.task_name}')
                 exit(10)
     else:
         if frame.data == message:

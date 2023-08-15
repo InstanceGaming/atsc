@@ -87,7 +87,7 @@ def run():
     bus = Bus(port, baud, 1000)
     bus.start()
     
-    while not bus.running:
+    while not bus.active:
         LOG.info(f'Waiting on bus...')
     
     ooi = 0
@@ -114,7 +114,7 @@ def run():
     t1 = timing.MillisecondTimer(100)
     try:
         while True:
-            if not bus.running:
+            if not bus.active:
                 break
             if t1.poll():
                 t1.cycle()

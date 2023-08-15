@@ -45,7 +45,7 @@ if __name__ == '__main__':
                             
                             if error is not None:
                                 print(f'[{time.time():>.3f}][{frames:0>6}]: '
-                                      f'ERROR\t{error.name}')
+                                      f'ERROR\t{error.task_name}')
                             
                             if frame is not None and frame.data is not None:
                                 print(f'[{time.time():>.3f}][{frames:0>6}]: '

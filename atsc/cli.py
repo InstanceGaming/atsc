@@ -84,7 +84,7 @@ def validate_configs(args):
         rce(ReturnCode.NO_WORK)
     
     if source_daemon:
-        cprint('evaluating configuration from paths last known by the running '
+        cprint('evaluating configuration from paths last known by the active '
                'daemon:')
         raise NotImplementedError()
     
@@ -143,7 +143,7 @@ def validate_configs(args):
             cprint(f'schema invalid: {message}')
             rce(ReturnCode.DEVELOPER_ISSUE)
         else:
-            cprint(f'unhandled error type {e.generic_error.name}')
+            cprint(f'unhandled error type {e.generic_error.task_name}')
             cprint('details:')
             if len(e.details) > 0:
                 for k, v in e.details.items():
@@ -177,7 +177,7 @@ if __name__ == '__main__':
                              dest='daemon',
                              action='store_true',
                              help='validate config from paths last known by the'
-                                  ' running daemon')
+                                  ' active daemon')
     sp_validate.add_argument('-a',
                              '--abort',
                              dest='error_abort',
