@@ -19,4 +19,5 @@ Specification of ID references:
     FLASHER_A = 1001
 2001-3000       call sources
 3001-3001       calls
-8001-9999       parameters
+8001-10000      parameters
+10001-12000     events

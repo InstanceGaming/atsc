@@ -51,6 +51,8 @@ def get_cli_args():
 def run():
     cla = get_cli_args()
     
+    # -L trace,stderr=error,file=warn
+    
     try:
         log_levels = parse_log_level_shorthand(cla.log_levels)
     except (KeyError, ValueError) as e:

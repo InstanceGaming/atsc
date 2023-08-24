@@ -67,6 +67,12 @@ class Daemon(AsyncProgram, Referencable):
         
         self.add_runnable(Clock(StandardObjects.TIME_TICK,
                                 parameters.TimeRate(time_rate)))
+        self.add_runnable(Clock(StandardObjects.INPUTS_TICK,
+                                parameters.InputsRate(20.0)))
+        self.add_runnable(Clock(StandardObjects.BUS_TICK,
+                                parameters.BusRate(20.0)))
+        self.add_runnable(Clock(StandardObjects.NETWORK_TICK,
+                                parameters.NetworkRate(20.0)))
         self.add_runnable(Clock(StandardObjects.FLASH_TICK,
                                 parameters.FlashRate(flashes_per_minute)))
         self.flasher = Flasher(StandardObjects.FLASHER1)

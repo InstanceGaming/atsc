@@ -80,21 +80,21 @@ signals = [
     Signal(512, plan, ref(312, LoadSwitch)),
 ]
 phases = [
-    Phase(601, [ref(501, Signal)]),
-    Phase(602, [ref(502, Signal), ref(509, Signal)]),
-    Phase(603, [ref(503, Signal)]),
-    Phase(604, [ref(504, Signal), ref(510, Signal)]),
-    Phase(605, [ref(505, Signal)]),
-    Phase(606, [ref(506, Signal), ref(511, Signal)]),
-    Phase(607, [ref(507, Signal)]),
-    Phase(608, [ref(508, Signal), ref(512, Signal)])
+    Phase(601, (ref(501, Signal),)),
+    Phase(602, (ref(502, Signal), ref(509, Signal))),
+    Phase(603, (ref(503, Signal),)),
+    Phase(604, (ref(504, Signal), ref(510, Signal))),
+    Phase(605, (ref(505, Signal),)),
+    Phase(606, (ref(506, Signal), ref(511, Signal))),
+    Phase(607, (ref(507, Signal),)),
+    Phase(608, (ref(508, Signal), ref(512, Signal)))
 ]
 rings = [
-    Ring(701, [601, 602, 603, 604]),
-    Ring(702, [605, 606, 607, 608])
+    Ring(701, (601, 602, 603, 604)),
+    Ring(702, (605, 606, 607, 608))
 ]
 barriers = [
-    Barrier(801, [601, 602, 605, 606]),
-    Barrier(802, [603, 604, 607, 608])
+    Barrier(801, (601, 602, 605, 606)),
+    Barrier(802, (603, 604, 607, 608))
 ]
 Daemon(logger, rings, barriers).start()

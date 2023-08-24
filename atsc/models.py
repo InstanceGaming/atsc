@@ -16,19 +16,16 @@ from collections import namedtuple
 from itertools import cycle
 from typing import Dict, List, Optional, Iterable, Tuple
 from dataclasses import dataclass
-
 from loguru import logger
-
 from atsc.constants import *
-from atsc.eventbus import BusEvent
+from atsc import eventbus
 from atsc.parameters import DelayProvider
 from atsc.primitives import Referencable, Runnable, ref
 from atsc.utils import format_us, micros
 
 
 class Clock(Referencable, Runnable, DelayProvider):
-    onTick = BusEvent('clock.tick')
-    
+
     @property
     def delay(self):
         return self._dp.delay
@@ -44,11 +41,10 @@ class Clock(Referencable, Runnable, DelayProvider):
     async def run(self):
         while True:
             marker = micros()
-            self.onTick.invoke(self)
-            logger.trace('{} took {} to process {} subscribers',
+            eventbus.invoke(StandardObjects.E_CLOCK, self)
+            logger.trace('{} took {}',
                          self.getTag(),
-                         format_us(micros() - marker),
-                         self.onTick.subscribed)
+                         format_us(micros() - marker))
             marker = micros()
             await asyncio.sleep(self.delay)
             logger.trace('{} slept for {}',
@@ -59,40 +55,39 @@ class Clock(Referencable, Runnable, DelayProvider):
 class Ticking(Referencable):
     
     def __init__(self, id_: int):
-        Referencable.__init__(self, id_)
-        BusEvent.match('clock.tick').subscribe(self.onClockTick)
+        super().__init__(id_)
+        eventbus.listeners[StandardObjects.E_CLOCK].add(self.on_clock)
     
-    def onClockTick(self, clock: Clock):
+    def on_clock(self, clock: Clock):
         match clock.id:
             case StandardObjects.TIME_TICK:
-                self.onTimeTick(clock)
+                self.on_time_tick(clock)
             case StandardObjects.INPUTS_TICK:
-                self.onInputsTick(clock)
+                self.on_inputs_tick(clock)
             case StandardObjects.BUS_TICK:
-                self.onBusTick(clock)
+                self.on_bus_tick(clock)
             case StandardObjects.NETWORK_TICK:
-                self.onNetworkTick(clock)
+                self.on_network_tick(clock)
             case StandardObjects.FLASH_TICK:
-                self.onFlashTick(clock)
+                self.on_flash_tick(clock)
     
-    def onTimeTick(self, clock: Clock):
+    def on_time_tick(self, clock: Clock):
         pass
     
-    def onInputsTick(self, clock: Clock):
+    def on_inputs_tick(self, clock: Clock):
         pass
     
-    def onBusTick(self, clock: Clock):
+    def on_bus_tick(self, clock: Clock):
         pass
     
-    def onNetworkTick(self, clock: Clock):
+    def on_network_tick(self, clock: Clock):
         pass
     
-    def onFlashTick(self, clock: Clock):
+    def on_flash_tick(self, clock: Clock):
         pass
 
 
 class Flasher(Ticking):
-    onToggle = BusEvent('flasher.toggle')
     
     @property
     def a(self):
@@ -110,14 +105,13 @@ class Flasher(Ticking):
         self._a = not invert
         self._b = invert
     
-    def onFlashTick(self, clock: Clock):
+    def on_flash_tick(self, clock: Clock):
         self._a = not self._a
         self._b = not self._b
-        self.onToggle.invoke(self)
+        eventbus.invoke(StandardObjects.E_FLASHER, self)
 
 
-class FieldOutput(Referencable):
-    onChange = BusEvent('field_output.on_change')
+class FieldOutput(Ticking):
     
     @property
     def state(self):
@@ -138,7 +132,7 @@ class FieldOutput(Referencable):
             self._state = next_state
             if self._q != self._lq:
                 self._lq = qb
-                self.onChange.invoke(self)
+                eventbus.invoke(StandardObjects.E_FIELD_OUTPUT_CHANGED, self)
     
     @property
     def q(self):
@@ -148,13 +142,12 @@ class FieldOutput(Referencable):
                  id_: int,
                  flash_polarity: FlashPolarity):
         super().__init__(id_)
-        BusEvent.match('flasher.toggle').subscribe(self.onFlasherToggle)
         self._flash_polarity = flash_polarity
         self._state = FieldState.OFF
         self._q = False
         self._lq = True
     
-    def onFlasherToggle(self, flasher: Flasher):
+    def on_flash_tick(self, flasher: Flasher):
         if self.state & FieldState.FLASHING:
             self._lq = self._q
             if self._flash_polarity == FlashPolarity.A:
@@ -376,7 +369,7 @@ class Signal(Ticking):
             if self._ready.is_set():
                 self._ready.clear()
     
-    def onTimeTick(self, clock: Clock):
+    def on_time_tick(self, clock: Clock):
         if self._remaining > clock.delay:
             self._remaining -= clock.delay
     
@@ -407,13 +400,13 @@ class Phase(Referencable):
     
     def __init__(self,
                  id_: int,
-                 signals: List[Signal],
+                 signals: Iterable[Signal],
                  enabled: bool = True,
                  skip: bool = False):
         super().__init__(id_)
         
         self._active = False
-        self._signals = signals
+        self._signals = sorted(signals)
         self.enabled = enabled
         self.skip = skip
     
@@ -473,10 +466,10 @@ class Barrier(Referencable):
 class BarrierManager(Runnable):
     
     def __init__(self,
-                 barriers: List[Barrier],
-                 rings: List[Ring]):
-        self._barriers = barriers
-        self._rings = rings
+                 barriers: Iterable[Barrier],
+                 rings: Iterable[Ring]):
+        self._barriers = sorted(barriers)
+        self._rings = sorted(rings)
     
     async def run(self):
         while True:

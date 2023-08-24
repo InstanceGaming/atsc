@@ -41,12 +41,19 @@ class StandardObjects(IntEnum):
     BARRIER4 = 804
     
     # parameters
-    P_TIME_RATE = 8001
-    P_INPUTS_RATE = 8002
-    P_BUS_RATE = 8003
-    P_NETWORK_RATE = 8004
-    P_FPM = 9001
-    P_CONTROLLER_NAME = 10001
+    P_CONTROLLER_NAME = 8001
+    
+    P_TIME_RATE = 8100
+    P_INPUTS_RATE = 8101
+    P_BUS_RATE = 8102
+    P_NETWORK_RATE = 8103
+    P_FPM = 8104
+    
+    E_CLOCK = 10001
+    E_FLASHER = 10002
+    E_PARAMETER_CHANGED = 10003
+    
+    E_FIELD_OUTPUT_CHANGED = 10100
 
 
 class ExitCode(IntEnum):

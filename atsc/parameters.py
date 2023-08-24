@@ -1,12 +1,12 @@
 from typing import Optional, Any
+
+from atsc import eventbus
 from atsc.constants import *
-from atsc.eventbus import BusEvent
 from atsc.interfaces import DelayProvider
 from atsc.primitives import Referencable
 
 
 class Parameter(Referencable):
-    onChange = BusEvent('parameter.change')
     
     @property
     def value(self):
@@ -18,15 +18,18 @@ class Parameter(Referencable):
         super().__init__(id_)
         self._value = initial_value
         self._previous_value = None
+        self._last_editor: Optional[Referencable] = None
     
-    def change(self, value: Any, editor: Referencable):
+    async def change(self, value: Any, editor: Referencable):
+        self._last_editor = editor
+        
         msg = self.validate(value)
         if msg is not None:
             raise ValueError(msg)
         
         self._previous_value = self._value
         self._value = value
-        self.onChange.invoke(self, editor, value, self._previous_value)
+        eventbus.invoke(StandardObjects.E_PARAMETER_CHANGED, self)
     
     def validate(self, value) -> Optional[str]:
         return None
