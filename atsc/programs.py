@@ -2,13 +2,14 @@ import signal
 import asyncio
 from abc import ABC, abstractmethod
 from asyncio import AbstractEventLoop
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any, TextIO, Union, Set, List
 from atsc.models import Flasher, Clock, BarrierManager, Ring, Barrier
-from atsc import parameters
+from atsc import parameters, eventbus
 from atsc.primitives import StopwatchEvent, Runnable, Referencable
 from atsc.constants import *
-from atsc.utils import format_ms, seconds, dhms
+from atsc.utils import format_ms, seconds, dhms, compact_datetime
 
 
 class AsyncProgram(Runnable, ABC):
@@ -44,6 +45,7 @@ class AsyncProgram(Runnable, ABC):
         self.loop.stop()
 
 
+
 class Daemon(AsyncProgram, Referencable):
     
     def __init__(self,
@@ -57,6 +59,9 @@ class Daemon(AsyncProgram, Referencable):
                  loop: AbstractEventLoop = asyncio.get_event_loop()):
         Referencable.__init__(self, StandardObjects.CONTROLLER)
         AsyncProgram.__init__(self, logger, loop=loop)
+        eventbus.listeners[StandardObjects.FLASH_TICK].add(
+            self.print_field_states
+        )
         self._runnables: Set[Runnable] = set()
 
         self.pid_file: Optional[Union[os.PathLike, TextIO]] = pid_path
@@ -81,7 +86,10 @@ class Daemon(AsyncProgram, Referencable):
             barriers,
             rings
         ))
-        
+    
+    def print_field_states(self, flasher: Flasher):
+        self.logger.field('{}')
+    
     def add_runnable(self, r):
         self._runnables.add(r)
     
@@ -128,7 +136,11 @@ class Daemon(AsyncProgram, Referencable):
     async def run(self):
         await self.lock_pid()
         try:
+            start_dt = datetime.now()
             runtime_marker = seconds()
+            
+            self.logger.info('control started at {}', compact_datetime(start_dt))
+            
             async with asyncio.TaskGroup() as tg:
                 tasks = [tg.create_task(r.run()) for r in self._runnables]
 
@@ -142,6 +154,7 @@ class Daemon(AsyncProgram, Referencable):
                 self.shutdown_clean.set()
                 runtime = seconds() - runtime_marker
                 self.logger.info('runtime {} days {} hours {:02d}:{:02d}', *dhms(runtime))
+                self.logger.info('control was started at {}', compact_datetime(start_dt))
         finally:
             await self.unlock_pid()
     

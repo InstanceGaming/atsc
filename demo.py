@@ -5,11 +5,11 @@ from atsc.constants import *
 from atsc.primitives import ref
 
 
-logger = setup_logger('default=TRACE,stderr=ERROR')
+logger = setup_logger('default=TIMING,stderr=ERROR')
 
 
 def generate_load_switches():
-    load_switches = []
+    switches = []
     flags = [
         LSFlag.STANDARD,
         LSFlag.STANDARD,
@@ -39,31 +39,29 @@ def generate_load_switches():
                                              flash_polarity=polarity)
         ls_index += 1
         field_index += 3
-        load_switches.append(load_switch)
+        switches.append(load_switch)
     
-    return load_switches
+    return switches
 
 
 load_switches = generate_load_switches()
 plan = TimingPlan(
     {
         SignalState.STOP   : 1,
-        SignalState.CAUTION: 3,
-        SignalState.GO     : 2,
-        SignalState.FYA    : 4
-    },
-    {
-        SignalState.STOP   : 1,
+        SignalState.RED_CLEARANCE: 1,
         SignalState.CAUTION: 4,
         SignalState.GO     : 2,
         SignalState.FYA    : 4
     },
     {
+        SignalState.GO     : 3
+    },
+    {
         SignalState.STOP   : 300,
         SignalState.CAUTION: 6,
-        SignalState.GO     : 180,
-        SignalState.FYA    : 300
-    },
+        SignalState.GO     : 10,
+        SignalState.FYA    : 60
+    }
 )
 signals = [
     Signal(501, plan, ref(301, LoadSwitch)),

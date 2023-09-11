@@ -72,16 +72,15 @@ def parse_log_level_shorthand(arg: Optional[str]) -> SinkLevels:
 
 
 def register_custom_levels(l):
-    l.level('SORT', no=1, color='<d>')
-    l.__class__.sort = partialmethod(l.__class__.log, 'SORT')
-    l.level('BUS', no=2, color='<d>')
-    l.__class__.bus = partialmethod(l.__class__.log, 'BUS')
-    l.level('NET', no=3, color='<d>')
-    l.__class__.net = partialmethod(l.__class__.log, 'NET')
-    l.level('FIELD', no=4, color='<d>')
-    l.__class__.field = partialmethod(l.__class__.log, 'FIELD')
+    klass = l.__class__
+    l.level('CLOCKS', no=1, color='<d>')
+    klass.clocks = partialmethod(klass.log, 'CLOCKS')
+    l.level('TIMING', no=3, color='<d>')
+    klass.timing = partialmethod(klass.log, 'TIMING')
+    l.level('FIELD', no=6, color='<d>')
+    klass.field = partialmethod(klass.log, 'FIELD')
     l.level('VERB', no=7, color='<c>')
-    l.__class__.verb = partialmethod(l.__class__.log, 'VERB')
+    klass.verb = partialmethod(klass.log, 'VERB')
 
 
 def setup_sink(sink,

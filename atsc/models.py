@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+import sys
 from collections import namedtuple
 from itertools import cycle
 from typing import Dict, List, Optional, Iterable, Tuple
@@ -25,7 +26,7 @@ from atsc.utils import format_us, micros
 
 
 class Clock(Referencable, Runnable, DelayProvider):
-
+    
     @property
     def delay(self):
         return self._dp.delay
@@ -42,14 +43,14 @@ class Clock(Referencable, Runnable, DelayProvider):
         while True:
             marker = micros()
             eventbus.invoke(StandardObjects.E_CLOCK, self)
-            logger.trace('{} took {}',
-                         self.getTag(),
-                         format_us(micros() - marker))
+            logger.clocks('{} took {}',
+                          self.getTag(),
+                          format_us(micros() - marker))
             marker = micros()
             await asyncio.sleep(self.delay)
-            logger.trace('{} slept for {}',
-                         self.getTag(),
-                         format_us(micros() - marker))
+            logger.clocks('{} slept for {}',
+                          self.getTag(),
+                          format_us(micros() - marker))
 
 
 class Ticking(Referencable):
@@ -142,12 +143,13 @@ class FieldOutput(Ticking):
                  id_: int,
                  flash_polarity: FlashPolarity):
         super().__init__(id_)
+        eventbus.listeners[StandardObjects.E_FLASHER].add(self.on_flasher)
         self._flash_polarity = flash_polarity
         self._state = FieldState.OFF
         self._q = False
         self._lq = True
     
-    def on_flash_tick(self, flasher: Flasher):
+    def on_flasher(self, flasher: Flasher):
         if self.state & FieldState.FLASHING:
             self._lq = self._q
             if self._flash_polarity == FlashPolarity.A:
@@ -295,11 +297,15 @@ class Signal(Ticking):
     
     @property
     def minimum(self):
-        return self.timing.minimum[self.state]
+        return self.timing.minimum.get(self.state)
+    
+    @property
+    def nominal(self):
+        return self.timing.nominal.get(self.state)
     
     @property
     def maximum(self):
-        return self.timing.maximum[self.state]
+        return self.timing.maximum.get(self.state)
     
     @property
     def remaining(self):
@@ -327,6 +333,7 @@ class Signal(Ticking):
         self._remaining: float = 0.0
         self._elapsed: float = 0.0
         self._ready = asyncio.Event()
+        self._ready.set()
         self.timing = timing
         self.demand = False
     
@@ -336,8 +343,10 @@ class Signal(Ticking):
                 return SignalState.STOP
             case SignalState.STOP:
                 return SignalState.GO
-            case SignalState.CAUTION:
+            case SignalState.RED_CLEARANCE:
                 return SignalState.STOP
+            case SignalState.CAUTION:
+                return SignalState.RED_CLEARANCE
             case SignalState.GO | SignalState.FYA:
                 return SignalState.CAUTION
             case SignalState.LS_FLASH:
@@ -358,9 +367,14 @@ class Signal(Ticking):
         self._state = self.getNextState()
         self._primary.update(self._state)
         
-        self._setpoint: float = self.timing.nominal[self.state]
+        self._setpoint: float = self.nominal or self.minimum
         self._remaining: float = self._setpoint
         self._elapsed: float = 0
+        
+        logger.debug('{} changed to {} for {:.02f}s',
+                     self.getTag(),
+                     self.state.name,
+                     self._setpoint)
         
         if self.state == SignalState.STOP:
             self.demand = False
@@ -370,18 +384,40 @@ class Signal(Ticking):
                 self._ready.clear()
     
     def on_time_tick(self, clock: Clock):
-        if self._remaining > clock.delay:
+        was_idle = self.idle
+        
+        if self._remaining >= clock.delay:
             self._remaining -= clock.delay
-    
+        
         self._elapsed += clock.delay
-    
-        over_maximum = self.elapsed > self.maximum
-        if self.remaining < clock.delay or over_maximum:
-            if self.state == SignalState.CAUTION or self.demand or over_maximum:
-                self.change()
+        
+        timed_out = self.remaining <= clock.delay
+        over_maximum = self.elapsed >= (self.maximum or sys.maxsize)
+        rigid_interval = self.state in RIGID_INTERVALS
+        
+        if timed_out and (rigid_interval or over_maximum or self.demand):
+            if over_maximum:
+                reason = 'maximum'
+            elif rigid_interval:
+                reason = 'rigid'
+            else:
+                reason = 'demand'
+            
+            logger.timing('{} 0.00 ({})', self.getTag(), reason)
+            self.change()
+        
+        if not self.ready:
+            if not self.idle:
+                logger.timing('{} {:03.02f}', self.getTag(), self.remaining)
+            elif self.idle and not was_idle:
+                logger.timing('{} 0.00 (idle)', self.getTag())
+                eventbus.invoke(StandardObjects.E_SIGNAL_IDLE_START, self)
     
     async def wait(self):
+        logger.debug('{} activated', self.getTag())
+        self.change()
         await self._ready.wait()
+        logger.debug('{} deactivated', self.getTag())
 
 
 class Phase(Referencable):
@@ -413,8 +449,10 @@ class Phase(Referencable):
     async def wait(self):
         if self.ready:
             self._active = True
+            logger.debug('{} activated', self.getTag())
             await asyncio.gather(*[s.wait() for s in self._signals])
             self._active = False
+            logger.debug('{} deactivated', self.getTag())
 
 
 class Ring(Referencable):
@@ -476,6 +514,9 @@ class BarrierManager(Runnable):
             group = []
             for ring in self._rings:
                 selected = ring.select()
+                logger.debug('{} has selected {}',
+                             ring.getTag(),
+                             selected.getTag())
                 group.append(selected)
             await asyncio.gather(*[phase.wait() for phase in group])
             await asyncio.sleep(1)

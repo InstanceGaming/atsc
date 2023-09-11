@@ -54,6 +54,9 @@ class StandardObjects(IntEnum):
     E_PARAMETER_CHANGED = 10003
     
     E_FIELD_OUTPUT_CHANGED = 10100
+    E_LOAD_SWITCH_CHANGED = 10101
+    E_SIGNAL_CHANGED = 10102
+    E_SIGNAL_IDLE_START = 10103
 
 
 class ExitCode(IntEnum):
@@ -100,10 +103,17 @@ class FieldState(IntFlag):
 class SignalState(IntEnum):
     OFF = 0
     STOP = 1
-    CAUTION = 2
-    GO = 4
-    FYA = 8
-    LS_FLASH = 16
+    RED_CLEARANCE = 2
+    CAUTION = 4
+    GO = 8
+    FYA = 16
+    LS_FLASH = 32
+
+
+RIGID_INTERVALS = (
+    SignalState.RED_CLEARANCE,
+    SignalState.CAUTION
+)
 
 
 class LSFlag(IntEnum):
