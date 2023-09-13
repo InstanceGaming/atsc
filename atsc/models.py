@@ -15,7 +15,7 @@ import asyncio
 import sys
 from collections import namedtuple
 from itertools import cycle
-from typing import Dict, List, Optional, Iterable, Tuple, Union
+from typing import Dict, List, Optional, Iterable, Tuple, Union, Set
 from dataclasses import dataclass
 from loguru import logger
 from atsc.constants import *
@@ -343,10 +343,8 @@ class Signal(Ticking):
                 return SignalState.STOP
             case SignalState.STOP:
                 return SignalState.GO
-            case SignalState.RED_CLEARANCE:
-                return SignalState.STOP
             case SignalState.CAUTION:
-                return SignalState.RED_CLEARANCE
+                return SignalState.STOP
             case SignalState.GO | SignalState.FYA:
                 return SignalState.CAUTION
             case SignalState.LS_FLASH:
@@ -493,47 +491,89 @@ class PhaseContainer:
 
 class Ring(Referencable, PhaseContainer):
     
+    @property
+    def state(self):
+        return self._state
+    
     def __init__(self,
                  id_: int,
-                 phases: Optional[Iterable[Union[int, Phase]]] = None):
+                 phases: Optional[Iterable[Union[int, Phase]]] = None,
+                 red_clearance: float = 0,
+                 enabled: bool = True):
         Referencable.__init__(self, id_)
         PhaseContainer.__init__(self, phases)
-        self._cycler = cycle(self.phases)
+        self._state = RingState.INACTIVE
+        self._red_clearance = red_clearance
+        self.enabled = enabled
     
-    def select(self) -> Phase:
-        while True:
-            phase = next(self._cycler)
-            
-            if phase.ready:
-                break
-
-        logger.debug('{} has selected {}', self.getTag(), self.getTag())
+    async def serve(self, segment: List[Phase] = None):
+        segment = segment or self.phases
+        assert len(set(segment).difference(self.phases)) == 0
         
-        return phase
-    
+        if self.enabled:
+            logger.debug('{} activated', self.getTag())
+            
+            self._state = RingState.SELECTING
+            
+            while len(segment):
+                candidate = segment.pop(0)
+                
+                if candidate.ready:
+                    selected = candidate
+
+                    self._state = RingState.ACTIVE
+                    await selected.wait()
+
+                    if self._red_clearance > 0:
+                        logger.debug('{} {:03.02f} red clearance',
+                                     self.getTag(),
+                                     self._red_clearance)
+
+                        self._state = RingState.RED_CLEARANCE
+                        
+                        # todo: make this timed by time clock instead
+                        await asyncio.sleep(self._red_clearance)
+            
+            logger.debug('{} deactivated', self.getTag())
+        
+        self._state = RingState.INACTIVE
+
 
 class Barrier(Referencable, PhaseContainer):
     
     def __init__(self, id_: int, phases: Optional[Iterable[Union[int, Phase]]] = None):
         Referencable.__init__(self, id_)
         PhaseContainer.__init__(self, phases)
+        
+    def intersection(self, ring: Ring) -> Set[Phase]:
+        return set(self.phases).intersection(ring.phases)
 
 
 class RingSynchronizer(Runnable):
     
-    def __init__(self, rings: Iterable[Ring]):
+    @property
+    def active(self):
+        return self._active
+    
+    def __init__(self,
+                 rings: Iterable[Ring],
+                 barriers: Iterable[Barrier]):
         self._rings = sorted(rings)
+        self._barriers = sorted(barriers)
+        self._cycler = cycle(self._barriers)
+        self._active: Optional[Barrier] = None
     
     async def run(self):
         while True:
-            phase_routines = []
+            self._active = next(self._cycler)
+            logger.debug('{} is active barrier', self._active.getTag())
             
+            routines = []
             for ring in self._rings:
-                selected = ring.select()
-                phase_routines.append(selected.wait())
+                segment = sorted(self._active.intersection(ring))
+                routines.append(ring.serve(segment))
             
-            await asyncio.gather(*phase_routines)
-            # await asyncio.wait()
+            await asyncio.gather(*routines)
 
 
 class Call(Referencable):

@@ -82,7 +82,7 @@ class Daemon(AsyncProgram, Referencable):
                                 parameters.FlashRate(flashes_per_minute)))
         self.flasher = Flasher(StandardObjects.FLASHER1)
         
-        self.add_runnable(RingSynchronizer(rings))
+        self.add_runnable(RingSynchronizer(rings, barriers))
     
     def print_field_states(self, flasher: Flasher):
         self.logger.field('{}')

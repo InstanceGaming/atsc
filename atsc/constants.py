@@ -103,17 +103,15 @@ class FieldState(IntFlag):
 class SignalState(IntEnum):
     OFF = 0
     STOP = 1
-    RED_CLEARANCE = 2
-    CAUTION = 4
-    GO = 8
-    FYA = 16
-    LS_FLASH = 32
+    CAUTION = 2
+    GO = 4
+    FYA = 8
+    LS_FLASH = 16
 
 
-RIGID_INTERVALS = (
-    SignalState.RED_CLEARANCE,
+RIGID_INTERVALS = [
     SignalState.CAUTION
-)
+]
 
 
 class LSFlag(IntEnum):
@@ -125,6 +123,14 @@ class LSFlag(IntEnum):
     FYA_OUT_C = 0b00010000
     FYA_OUT_B = 0b00100000
     YEL_FLASH = 0b01000000
+
+
+class RingState(IntFlag):
+    INACTIVE = 0x0
+    SELECTING = 0x1
+    ACTIVE = 0x2
+    RED_CLEARANCE = 0x4
+    BARRIER = 0x8
 
 
 class CallSource(IntFlag):

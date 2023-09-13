@@ -5,7 +5,7 @@ from atsc.constants import *
 from atsc.primitives import ref
 
 
-logger = setup_logger('default=TIMING,stderr=ERROR')
+logger = setup_logger('default=DEBUG,stderr=ERROR')
 
 
 def generate_load_switches():
@@ -48,7 +48,6 @@ load_switches = generate_load_switches()
 plan = TimingPlan(
     {
         SignalState.STOP   : 1,
-        SignalState.RED_CLEARANCE: 1,
         SignalState.CAUTION: 4,
         SignalState.GO     : 2,
         SignalState.FYA    : 4
@@ -87,9 +86,10 @@ phases = [
     Phase(607, (ref(507, Signal),)),
     Phase(608, (ref(508, Signal), ref(512, Signal)))
 ]
+red_clearance = 1.0
 rings = [
-    Ring(701, (601, 602, 603, 604)),
-    Ring(702, (605, 606, 607, 608))
+    Ring(701, (601, 602, 603, 604), red_clearance),
+    Ring(702, (605, 606, 607, 608), red_clearance)
 ]
 barriers = [
     Barrier(801, (601, 602, 605, 606)),
