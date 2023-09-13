@@ -15,7 +15,7 @@ import asyncio
 import sys
 from collections import namedtuple
 from itertools import cycle
-from typing import Dict, List, Optional, Iterable, Tuple
+from typing import Dict, List, Optional, Iterable, Tuple, Union
 from dataclasses import dataclass
 from loguru import logger
 from atsc.constants import *
@@ -455,18 +455,30 @@ class Phase(Referencable):
             logger.debug('{} deactivated', self.getTag())
 
 
-class Ring(Referencable):
+class PhaseContainer:
     
     @property
     def phases(self):
         return self._phases
     
+    @phases.setter
+    def phases(self, phases):
+        instances = []
+        for v in phases:
+            if isinstance(v, int):
+                instances.append(ref(v, Phase))
+            elif isinstance(v, Phase):
+                instances.append(v)
+            else:
+                raise TypeError()
+        self._phases = sorted(instances)
+
     def __init__(self,
-                 id_: int,
-                 phases: Iterable[int]):
-        super().__init__(id_)
-        self._phases = sorted([ref(pid, Phase) for pid in phases])
-        self._cycler = cycle(self._phases)
+                 phases: Optional[Iterable[Union[int, Phase]]] = None):
+        self._phases = []
+    
+        if phases:
+            self.phases = phases
     
     def available(self, within: Iterable[Phase] = None) -> List[Phase]:
         results = []
@@ -475,8 +487,18 @@ class Ring(Referencable):
             if phase.ready:
                 if within is None or phase in within:
                     results.append(phase)
-        
+    
         return results
+
+
+class Ring(Referencable, PhaseContainer):
+    
+    def __init__(self,
+                 id_: int,
+                 phases: Optional[Iterable[Union[int, Phase]]] = None):
+        Referencable.__init__(self, id_)
+        PhaseContainer.__init__(self, phases)
+        self._cycler = cycle(self.phases)
     
     def select(self) -> Phase:
         while True:
@@ -484,42 +506,34 @@ class Ring(Referencable):
             
             if phase.ready:
                 break
+
+        logger.debug('{} has selected {}', self.getTag(), self.getTag())
         
         return phase
-
-
-class Barrier(Referencable):
     
-    @property
-    def phases(self):
-        return self._phases
+
+class Barrier(Referencable, PhaseContainer):
     
-    def __init__(self,
-                 id_: int,
-                 phases: Iterable[int]):
-        super().__init__(id_)
-        self._phases = sorted([ref(pid, Phase) for pid in phases])
+    def __init__(self, id_: int, phases: Optional[Iterable[Union[int, Phase]]] = None):
+        Referencable.__init__(self, id_)
+        PhaseContainer.__init__(self, phases)
 
 
-class BarrierManager(Runnable):
+class RingSynchronizer(Runnable):
     
-    def __init__(self,
-                 barriers: Iterable[Barrier],
-                 rings: Iterable[Ring]):
-        self._barriers = sorted(barriers)
+    def __init__(self, rings: Iterable[Ring]):
         self._rings = sorted(rings)
     
     async def run(self):
         while True:
-            group = []
+            phase_routines = []
+            
             for ring in self._rings:
                 selected = ring.select()
-                logger.debug('{} has selected {}',
-                             ring.getTag(),
-                             selected.getTag())
-                group.append(selected)
-            await asyncio.gather(*[phase.wait() for phase in group])
-            await asyncio.sleep(1)
+                phase_routines.append(selected.wait())
+            
+            await asyncio.gather(*phase_routines)
+            # await asyncio.wait()
 
 
 class Call(Referencable):

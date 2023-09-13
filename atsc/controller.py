@@ -143,7 +143,7 @@ class Controller(IController):
         return self._transfer
     
     @property
-    def barrier_manager(self) -> BarrierManager:
+    def barrier_manager(self) -> RingSynchronizer:
         return self._bm
     
     @property
@@ -256,7 +256,7 @@ class Controller(IController):
         }
         
         # barrier manager
-        self._bm: BarrierManager = BarrierManager(self, (1, 3), self._rings)
+        self._bm: RingSynchronizer = RingSynchronizer(self, (1, 3), self._rings)
         
         # for software demo and testing purposes
         self._random_actuation: RandomActuation = RandomActuation(tps=1,
@@ -282,7 +282,7 @@ class Controller(IController):
     @lru_cache(maxsize=16)
     def checkPhaseConflict(self, a: Phase, b: Phase) -> bool:
         """
-        Check if two phases conflict based on Ring, BarrierManager and defined friend
+        Check if two phases conflict based on Ring, RingSynchronizer and defined friend
         channels.
 
         :param a: Phase to compare against
@@ -357,7 +357,7 @@ class Controller(IController):
         raise RuntimeError('failed to get barrier for phase')
     
     def nextBarrier(self):
-        """Change to the next `BarrierManager` in the pos cycle instance"""
+        """Change to the next `RingSynchronizer` in the pos cycle instance"""
         self._bm.next()
     
     def getActivePhases(self) -> List[Phase]:

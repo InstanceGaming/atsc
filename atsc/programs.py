@@ -5,7 +5,7 @@ from asyncio import AbstractEventLoop
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any, TextIO, Union, Set, List
-from atsc.models import Flasher, Clock, BarrierManager, Ring, Barrier
+from atsc.models import Flasher, Clock, RingSynchronizer, Ring, Barrier
 from atsc import parameters, eventbus
 from atsc.primitives import StopwatchEvent, Runnable, Referencable
 from atsc.constants import *
@@ -82,10 +82,7 @@ class Daemon(AsyncProgram, Referencable):
                                 parameters.FlashRate(flashes_per_minute)))
         self.flasher = Flasher(StandardObjects.FLASHER1)
         
-        self.add_runnable(BarrierManager(
-            barriers,
-            rings
-        ))
+        self.add_runnable(RingSynchronizer(rings))
     
     def print_field_states(self, flasher: Flasher):
         self.logger.field('{}')

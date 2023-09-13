@@ -104,7 +104,7 @@ def setup_sink(sink,
         fmt = '[{time:YYYY-MM-DD hh:mm:ss A}] ' + fmt
     if __debug__:
         fmt += '<d>[<i>{file}:{line}</i>]</d> '
-    fmt += '<d>{extra}</d>'
+    # fmt += '<d>{extra}</d>'
     kwargs = {
         'colorize': color,
         'level': level,
