@@ -143,7 +143,7 @@ class Controller(IController):
         return self._transfer
     
     @property
-    def barrier_manager(self) -> RingSynchronizer:
+    def barrier_manager(self) -> RingCycler:
         return self._bm
     
     @property
@@ -173,18 +173,18 @@ class Controller(IController):
         self._mode: OperationMode = start_mode
         
         self._load_switches: List[LoadSwitch] = [
-            LoadSwitch.make_simple(1, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.STANDARD),
-            LoadSwitch.make_simple(2, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.STANDARD),
-            LoadSwitch.make_simple(3, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.STANDARD),
-            LoadSwitch.make_simple(4, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.STANDARD),
-            LoadSwitch.make_simple(5, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.PED | LSFlag.PED_CLEAR),
-            LoadSwitch.make_simple(6, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.PED | LSFlag.PED_CLEAR),
-            LoadSwitch.make_simple(7, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.STANDARD),
-            LoadSwitch.make_simple(8, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.STANDARD),
-            LoadSwitch.make_simple(9, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.STANDARD),
-            LoadSwitch.make_simple(10, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.STANDARD),
-            LoadSwitch.make_simple(11, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.PED | LSFlag.PED_CLEAR),
-            LoadSwitch.make_simple(12, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.PED | LSFlag.PED_CLEAR)
+            LoadSwitch.make_generic(1, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.STANDARD),
+            LoadSwitch.make_generic(2, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.STANDARD),
+            LoadSwitch.make_generic(3, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.STANDARD),
+            LoadSwitch.make_generic(4, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.STANDARD),
+            LoadSwitch.make_generic(5, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.PED | LSFlag.PED_CLEAR),
+            LoadSwitch.make_generic(6, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.PED | LSFlag.PED_CLEAR),
+            LoadSwitch.make_generic(7, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.STANDARD),
+            LoadSwitch.make_generic(8, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.STANDARD),
+            LoadSwitch.make_generic(9, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.STANDARD),
+            LoadSwitch.make_generic(10, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.STANDARD),
+            LoadSwitch.make_generic(11, FieldTriad(1, 2, 3), self._flasher_a, LSFlag.PED | LSFlag.PED_CLEAR),
+            LoadSwitch.make_generic(12, FieldTriad(1, 2, 3), self._flasher_b, LSFlag.PED | LSFlag.PED_CLEAR)
         ]
         default_time_set = TimingPlan(
             {
@@ -256,7 +256,7 @@ class Controller(IController):
         }
         
         # barrier manager
-        self._bm: RingSynchronizer = RingSynchronizer(self, (1, 3), self._rings)
+        self._bm: RingCycler = RingCycler(self, (1, 3), self._rings)
         
         # for software demo and testing purposes
         self._random_actuation: RandomActuation = RandomActuation(tps=1,
@@ -282,7 +282,7 @@ class Controller(IController):
     @lru_cache(maxsize=16)
     def checkPhaseConflict(self, a: Phase, b: Phase) -> bool:
         """
-        Check if two phases conflict based on Ring, RingSynchronizer and defined friend
+        Check if two phases conflict based on Ring, RingCycler and defined friend
         channels.
 
         :param a: Phase to compare against
@@ -357,7 +357,7 @@ class Controller(IController):
         raise RuntimeError('failed to get barrier for phase')
     
     def nextBarrier(self):
-        """Change to the next `RingSynchronizer` in the pos cycle instance"""
+        """Change to the next `RingCycler` in the pos cycle instance"""
         self._bm.next()
     
     def getActivePhases(self) -> List[Phase]:
@@ -373,7 +373,7 @@ class Controller(IController):
         :param target: the desired Phase to service
         """
         target.demand = True
-        logger.debug(f'New call for {target.getTag()}')
+        logger.debug(f'New call for {target.get_tag()}')
     
     def placeAllCall(self):
         """Place calls on all phases"""

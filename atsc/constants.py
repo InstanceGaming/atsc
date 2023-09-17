@@ -109,11 +109,6 @@ class SignalState(IntEnum):
     LS_FLASH = 16
 
 
-RIGID_INTERVALS = [
-    SignalState.CAUTION
-]
-
-
 class LSFlag(IntEnum):
     DISABLED = 0
     STANDARD = 0b00000001

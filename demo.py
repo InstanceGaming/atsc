@@ -5,7 +5,7 @@ from atsc.constants import *
 from atsc.primitives import ref
 
 
-logger = setup_logger('default=DEBUG,stderr=ERROR')
+logger = setup_logger('default=FIELD,stderr=ERROR')
 
 
 def generate_load_switches():
@@ -33,10 +33,10 @@ def generate_load_switches():
         polarity = FlashPolarity.A
         if i % 4 == 3 or i % 4 == 0:
             polarity = FlashPolarity.B
-        load_switch = LoadSwitch.make_simple(ls_index,
-                                             field_triad,
-                                             flags[i],
-                                             flash_polarity=polarity)
+        load_switch = LoadSwitch.make_generic(ls_index,
+                                              field_triad,
+                                              flags[i],
+                                              flash_polarity=polarity)
         ls_index += 1
         field_index += 3
         switches.append(load_switch)
@@ -45,36 +45,38 @@ def generate_load_switches():
 
 
 load_switches = generate_load_switches()
-plan = TimingPlan(
+plan_thru = TimingPlan(
     {
         SignalState.STOP   : 1,
-        SignalState.CAUTION: 4,
-        SignalState.GO     : 2,
-        SignalState.FYA    : 4
-    },
-    {
+        SignalState.CAUTION: 3,
         SignalState.GO     : 3
     },
     {
         SignalState.STOP   : 300,
         SignalState.CAUTION: 6,
-        SignalState.GO     : 10,
-        SignalState.FYA    : 60
+        SignalState.GO     : 15
+    }
+)
+plan_ped = TimingPlan(
+    {
+        SignalState.STOP   : 6,
+        SignalState.CAUTION: 10,
+        SignalState.GO     : 5
     }
 )
 signals = [
-    Signal(501, plan, ref(301, LoadSwitch)),
-    Signal(502, plan, ref(302, LoadSwitch)),
-    Signal(503, plan, ref(303, LoadSwitch)),
-    Signal(504, plan, ref(304, LoadSwitch)),
-    Signal(505, plan, ref(307, LoadSwitch)),
-    Signal(506, plan, ref(308, LoadSwitch)),
-    Signal(507, plan, ref(309, LoadSwitch)),
-    Signal(508, plan, ref(310, LoadSwitch)),
-    Signal(509, plan, ref(305, LoadSwitch)),
-    Signal(510, plan, ref(306, LoadSwitch)),
-    Signal(511, plan, ref(311, LoadSwitch)),
-    Signal(512, plan, ref(312, LoadSwitch)),
+    Signal(501, plan_thru, ref(301, LoadSwitch)),
+    Signal(502, plan_thru, ref(302, LoadSwitch)),
+    Signal(503, plan_thru, ref(303, LoadSwitch)),
+    Signal(504, plan_thru, ref(304, LoadSwitch)),
+    Signal(505, plan_thru, ref(307, LoadSwitch)),
+    Signal(506, plan_thru, ref(308, LoadSwitch)),
+    Signal(507, plan_thru, ref(309, LoadSwitch)),
+    Signal(508, plan_thru, ref(310, LoadSwitch)),
+    Signal(509, plan_ped, ref(305, LoadSwitch)),
+    Signal(510, plan_ped, ref(306, LoadSwitch)),
+    Signal(511, plan_ped, ref(311, LoadSwitch)),
+    Signal(512, plan_ped, ref(312, LoadSwitch)),
 ]
 phases = [
     Phase(601, (ref(501, Signal),)),

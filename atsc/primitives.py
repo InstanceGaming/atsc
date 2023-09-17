@@ -56,7 +56,7 @@ class Identifiable:
         else:
             raise TypeError()
     
-    def getTag(self):
+    def get_tag(self):
         return f'{type(self).__name__[:2].upper()}{self.id:02d}'
     
     def __repr__(self):

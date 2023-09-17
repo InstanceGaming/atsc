@@ -5,11 +5,11 @@ from asyncio import AbstractEventLoop
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any, TextIO, Union, Set, List
-from atsc.models import Flasher, Clock, RingSynchronizer, Ring, Barrier
-from atsc import parameters, eventbus
-from atsc.primitives import StopwatchEvent, Runnable, Referencable
+from atsc.models import Flasher, Clock, RingCycler, Ring, Barrier, Ticking
+from atsc import parameters
+from atsc.primitives import StopwatchEvent, Runnable
 from atsc.constants import *
-from atsc.utils import format_ms, seconds, dhms, compact_datetime
+from atsc.utils import format_ms, seconds, dhms, compact_datetime, field_representation
 
 
 class AsyncProgram(Runnable, ABC):
@@ -45,8 +45,7 @@ class AsyncProgram(Runnable, ABC):
         self.loop.stop()
 
 
-
-class Daemon(AsyncProgram, Referencable):
+class Daemon(AsyncProgram, Ticking):
     
     def __init__(self,
                  logger,
@@ -57,11 +56,9 @@ class Daemon(AsyncProgram, Referencable):
                  flashes_per_minute: float = 60.0,
                  shutdown_timeout: float = 10,
                  loop: AbstractEventLoop = asyncio.get_event_loop()):
-        Referencable.__init__(self, StandardObjects.CONTROLLER)
+        Ticking.__init__(self, StandardObjects.CONTROLLER)
         AsyncProgram.__init__(self, logger, loop=loop)
-        eventbus.listeners[StandardObjects.FLASH_TICK].add(
-            self.print_field_states
-        )
+        
         self._runnables: Set[Runnable] = set()
 
         self.pid_file: Optional[Union[os.PathLike, TextIO]] = pid_path
@@ -82,10 +79,25 @@ class Daemon(AsyncProgram, Referencable):
                                 parameters.FlashRate(flashes_per_minute)))
         self.flasher = Flasher(StandardObjects.FLASHER1)
         
-        self.add_runnable(RingSynchronizer(rings, barriers))
+        self._synchronizer = RingCycler(rings, barriers)
+        self.add_runnable(self._synchronizer)
     
-    def print_field_states(self, flasher: Flasher):
-        self.logger.field('{}')
+    def on_flash_tick(self, clock: Clock):
+        phases = []
+        
+        for phase in self._synchronizer.phases:
+            signals = []
+            
+            for sig in phase.signals:
+                signals.append(field_representation(
+                    sig.primary.a,
+                    sig.primary.b,
+                    sig.primary.c
+                ))
+            
+            phases.append(f'{phase.id:03} {" ".join(signals)}')
+        
+        self.logger.field(' '.join(phases))
     
     def add_runnable(self, r):
         self._runnables.add(r)

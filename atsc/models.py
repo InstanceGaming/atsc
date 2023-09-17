@@ -22,7 +22,7 @@ from atsc.constants import *
 from atsc import eventbus
 from atsc.parameters import DelayProvider
 from atsc.primitives import Referencable, Runnable, ref
-from atsc.utils import format_us, micros
+from atsc.utils import format_us, micros, field_representation
 
 
 class Clock(Referencable, Runnable, DelayProvider):
@@ -44,12 +44,12 @@ class Clock(Referencable, Runnable, DelayProvider):
             marker = micros()
             eventbus.invoke(StandardObjects.E_CLOCK, self)
             logger.clocks('{} took {}',
-                          self.getTag(),
+                          self.get_tag(),
                           format_us(micros() - marker))
             marker = micros()
             await asyncio.sleep(self.delay)
             logger.clocks('{} slept for {}',
-                          self.getTag(),
+                          self.get_tag(),
                           format_us(micros() - marker))
 
 
@@ -149,6 +149,9 @@ class FieldOutput(Ticking):
         self._q = False
         self._lq = True
     
+    def __bool__(self):
+        return self.q
+    
     def on_flasher(self, flasher: Flasher):
         if self.state & FieldState.FLASHING:
             self._lq = self._q
@@ -179,6 +182,10 @@ class LoadSwitch(Referencable):
     def mapping(self):
         return self._mapping
     
+    @property
+    def field_outputs(self):
+        return [self.a, self.b, self.c]
+    
     def __init__(self,
                  id_: int,
                  mapping: FieldMapping,
@@ -197,12 +204,16 @@ class LoadSwitch(Referencable):
             self.a.state = field_states.a
             self.b.state = field_states.b
             self.c.state = field_states.c
+            
+    def __repr__(self):
+        field_rep = field_representation(self.a, self.b, self.c)
+        return f'<LoadSwitch #{self.id} {field_rep}>'
     
     @staticmethod
-    def make_simple(ls_id: int,
-                    field_ids: Tuple[int, int, int],
-                    flags: LSFlag,
-                    flash_polarity: FlashPolarity = FlashPolarity.A):
+    def make_generic(ls_id: int,
+                     field_ids: Tuple[int, int, int],
+                     flags: LSFlag,
+                     flash_polarity: FlashPolarity = FlashPolarity.A):
         if flags == LSFlag.DISABLED:
             mapping = {
                 SignalState.OFF: (FieldState.ON, FieldState.OFF, FieldState.OFF)
@@ -270,8 +281,37 @@ TimeMap = Dict[SignalState, float]
 @dataclass(frozen=True)
 class TimingPlan:
     minimum: TimeMap
-    nominal: TimeMap
-    maximum: TimeMap
+    maximum: Optional[TimeMap] = None
+    
+    def merge(self, *args, **kwargs) -> 'TimingPlan':
+        other_min = {}
+        other_max = {}
+        
+        arg_count = len(args)
+        if arg_count == 1:
+            first_arg = args[0]
+            if isinstance(first_arg, TimingPlan):
+                other_min = first_arg.minimum
+                other_max = first_arg.maximum
+            elif isinstance(first_arg, dict):
+                other_min = first_arg
+            else:
+                raise TypeError()
+        elif arg_count == 2:
+            if isinstance(args[0], dict) and isinstance(args[1], dict):
+                other_min = args[0]
+                other_max = args[1]
+            else:
+                raise TypeError()
+        elif arg_count == 0:
+            if len(kwargs) == 0:
+                raise TypeError()
+            else:
+                other_min = kwargs.get('minimum', {})
+                other_max = kwargs.get('maximum', {})
+        
+        return TimingPlan(self.minimum | other_min,
+                          self.maximum | other_max)
 
 
 DEFAULT_SIGNAL_STATE = SignalState.OFF
@@ -300,12 +340,10 @@ class Signal(Ticking):
         return self.timing.minimum.get(self.state)
     
     @property
-    def nominal(self):
-        return self.timing.nominal.get(self.state)
-    
-    @property
     def maximum(self):
-        return self.timing.maximum.get(self.state)
+        if self.timing.maximum is not None:
+            return self.timing.maximum.get(self.state)
+        return None
     
     @property
     def remaining(self):
@@ -314,6 +352,23 @@ class Signal(Ticking):
     @property
     def elapsed(self):
         return self._elapsed
+    
+    @property
+    def primary(self):
+        return self._primary
+    
+    @property
+    def secondary(self):
+        return self._secondary
+    
+    @property
+    def load_switches(self):
+        switches = [self.primary]
+        
+        if self.secondary is not None:
+            switches.append(self.secondary)
+        
+        return switches
     
     def __init__(self,
                  id_: int,
@@ -337,7 +392,7 @@ class Signal(Ticking):
         self.timing = timing
         self.demand = False
     
-    def getNextState(self) -> SignalState:
+    def get_next_state(self) -> SignalState:
         match self._state:
             case SignalState.OFF:
                 return SignalState.STOP
@@ -362,15 +417,15 @@ class Signal(Ticking):
         if len(self._previous_states) > len(SignalState):
             self._previous_states.pop(-1)
         
-        self._state = self.getNextState()
+        self._state = self.get_next_state()
         self._primary.update(self._state)
         
-        self._setpoint: float = self.nominal or self.minimum
+        self._setpoint: float = self.minimum
         self._remaining: float = self._setpoint
         self._elapsed: float = 0
         
         logger.debug('{} changed to {} for {:.02f}s',
-                     self.getTag(),
+                     self.get_tag(),
                      self.state.name,
                      self._setpoint)
         
@@ -390,32 +445,38 @@ class Signal(Ticking):
         self._elapsed += clock.delay
         
         timed_out = self.remaining <= clock.delay
-        over_maximum = self.elapsed >= (self.maximum or sys.maxsize)
-        rigid_interval = self.state in RIGID_INTERVALS
+        if self.maximum is None:
+            exceeded_limit = self.elapsed >= self.minimum
+        elif self.maximum < clock.delay:
+            exceeded_limit = sys.maxsize
+        else:
+            exceeded_limit = self.elapsed >= self.maximum
         
-        if timed_out and (rigid_interval or over_maximum or self.demand):
-            if over_maximum:
+        rigid_interval = self.state == SignalState.CAUTION
+        
+        if timed_out and (rigid_interval or exceeded_limit or self.demand):
+            if exceeded_limit:
                 reason = 'maximum'
             elif rigid_interval:
                 reason = 'rigid'
             else:
                 reason = 'demand'
             
-            logger.timing('{} 0.00 ({})', self.getTag(), reason)
+            logger.timing('{} 0.00 ({})', self.get_tag(), reason)
             self.change()
         
         if not self.ready:
             if not self.idle:
-                logger.timing('{} {:03.02f}', self.getTag(), self.remaining)
+                logger.timing('{} {:03.02f}', self.get_tag(), self.remaining)
             elif self.idle and not was_idle:
-                logger.timing('{} 0.00 (idle)', self.getTag())
+                logger.timing('{} 0.00 (idle)', self.get_tag())
                 eventbus.invoke(StandardObjects.E_SIGNAL_IDLE_START, self)
     
     async def wait(self):
-        logger.debug('{} activated', self.getTag())
+        logger.debug('{} activated', self.get_tag())
         self.change()
         await self._ready.wait()
-        logger.debug('{} deactivated', self.getTag())
+        logger.debug('{} deactivated', self.get_tag())
 
 
 class Phase(Referencable):
@@ -447,10 +508,10 @@ class Phase(Referencable):
     async def wait(self):
         if self.ready:
             self._active = True
-            logger.debug('{} activated', self.getTag())
+            logger.debug('{} activated', self.get_tag())
             await asyncio.gather(*[s.wait() for s in self._signals])
             self._active = False
-            logger.debug('{} deactivated', self.getTag())
+            logger.debug('{} deactivated', self.get_tag())
 
 
 class PhaseContainer:
@@ -470,26 +531,16 @@ class PhaseContainer:
             else:
                 raise TypeError()
         self._phases = sorted(instances)
-
+    
     def __init__(self,
                  phases: Optional[Iterable[Union[int, Phase]]] = None):
         self._phases = []
-    
+        
         if phases:
             self.phases = phases
-    
-    def available(self, within: Iterable[Phase] = None) -> List[Phase]:
-        results = []
-        
-        for phase in self._phases:
-            if phase.ready:
-                if within is None or phase in within:
-                    results.append(phase)
-    
-        return results
 
 
-class Ring(Referencable, PhaseContainer):
+class Ring(Ticking, PhaseContainer):
     
     @property
     def state(self):
@@ -500,18 +551,29 @@ class Ring(Referencable, PhaseContainer):
                  phases: Optional[Iterable[Union[int, Phase]]] = None,
                  red_clearance: float = 0,
                  enabled: bool = True):
-        Referencable.__init__(self, id_)
+        Ticking.__init__(self, id_)
         PhaseContainer.__init__(self, phases)
         self._state = RingState.INACTIVE
-        self._red_clearance = red_clearance
+        self._setpoint = red_clearance
+        self._remaining = red_clearance
+        self._cleared = asyncio.Event()
         self.enabled = enabled
+    
+    def on_time_tick(self, clock: Clock):
+        if self._state == RingState.RED_CLEARANCE:
+            if self._remaining > clock.delay:
+                self._remaining -= clock.delay
+                logger.timing('{} {:03.02f}', self.get_tag(), self._remaining)
+            else:
+                logger.timing('{} 0.00 (notified)', self.get_tag())
+                self._cleared.set()
     
     async def serve(self, segment: List[Phase] = None):
         segment = segment or self.phases
         assert len(set(segment).difference(self.phases)) == 0
         
         if self.enabled:
-            logger.debug('{} activated', self.getTag())
+            logger.debug('{} activated', self.get_tag())
             
             self._state = RingState.SELECTING
             
@@ -520,21 +582,21 @@ class Ring(Referencable, PhaseContainer):
                 
                 if candidate.ready:
                     selected = candidate
-
+                    
                     self._state = RingState.ACTIVE
                     await selected.wait()
-
-                    if self._red_clearance > 0:
+                    
+                    if self._setpoint > 0:
                         logger.debug('{} {:03.02f} red clearance',
-                                     self.getTag(),
-                                     self._red_clearance)
-
-                        self._state = RingState.RED_CLEARANCE
+                                     self.get_tag(),
+                                     self._setpoint)
                         
-                        # todo: make this timed by time clock instead
-                        await asyncio.sleep(self._red_clearance)
+                        self._state = RingState.RED_CLEARANCE
+                        self._remaining = self._setpoint
+                        await self._cleared.wait()
+                        self._cleared.clear()
             
-            logger.debug('{} deactivated', self.getTag())
+            logger.debug('{} deactivated', self.get_tag())
         
         self._state = RingState.INACTIVE
 
@@ -544,16 +606,60 @@ class Barrier(Referencable, PhaseContainer):
     def __init__(self, id_: int, phases: Optional[Iterable[Union[int, Phase]]] = None):
         Referencable.__init__(self, id_)
         PhaseContainer.__init__(self, phases)
-        
+    
     def intersection(self, ring: Ring) -> Set[Phase]:
         return set(self.phases).intersection(ring.phases)
 
 
-class RingSynchronizer(Runnable):
+class RingCycler(Runnable):
     
     @property
     def active(self):
         return self._active
+    
+    @property
+    def rings(self):
+        return self._rings
+    
+    @property
+    def barriers(self):
+        return self._barriers
+    
+    @property
+    def phases(self) -> List[Phase]:
+        phases = []
+        
+        for ring in self.rings:
+            phases.extend(ring.phases)
+        
+        return phases
+    
+    @property
+    def signals(self) -> List[Signal]:
+        signals = []
+        
+        for phase in self.phases:
+            signals.extend(phase.signals)
+        
+        return signals
+    
+    @property
+    def load_switches(self) -> List[LoadSwitch]:
+        switches = []
+        
+        for signal in self.signals:
+            switches.extend(signal.load_switches)
+            
+        return switches
+    
+    @property
+    def field_outputs(self) -> List[FieldOutput]:
+        field_outputs = []
+        
+        for switch in self.load_switches:
+            field_outputs.extend(switch.field_outputs)
+        
+        return field_outputs
     
     def __init__(self,
                  rings: Iterable[Ring],
@@ -565,8 +671,12 @@ class RingSynchronizer(Runnable):
     
     async def run(self):
         while True:
+            # todo: cycle counting, count phases ran per cycle.
+            # if zero phases were served, the controller is in idle,
+            # meaning preferred phases can be recycled.
+            
             self._active = next(self._cycler)
-            logger.debug('{} is active barrier', self._active.getTag())
+            logger.debug('{} is active barrier', self._active.get_tag())
             
             routines = []
             for ring in self._rings:
@@ -618,7 +728,7 @@ class Call(Referencable):
         return False
     
     def __repr__(self):
-        return f'<Call #{self._id:02d} {self._target.getTag()} A{self._age:0>5.2f}>'
+        return f'<Call #{self._id:02d} {self._target.get_tag()} A{self._age:0>5.2f}>'
 
 
 @dataclass

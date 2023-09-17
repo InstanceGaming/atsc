@@ -193,9 +193,9 @@ def default_enum(et: Type[Enum], value: Any) -> dict:
 
 
 def field_representation(a, b, c):
-    first = 'A' if a else '-'
-    second = 'B' if b else '-'
-    third = 'C' if c else '-'
+    first = 'R' if a else '-'
+    second = 'Y' if b else '-'
+    third = 'G' if c else '-'
     return f'{first}{second}{third}'
 
 
