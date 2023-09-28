@@ -4,4 +4,3 @@ env/
 *.zip
 picp.bat
 profiling/
-/scripts/serialbridge.py

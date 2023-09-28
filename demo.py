@@ -1,11 +1,11 @@
 from atsc.logging import setup_logger
-from atsc.programs import Daemon
+from atsc.programs import Controller
 from atsc.models import *
 from atsc.constants import *
 from atsc.primitives import ref
 
 
-logger = setup_logger('default=FIELD,stderr=ERROR')
+logger = setup_logger('FIELD,INFO;stderr=ERROR')
 
 
 def generate_load_switches():
@@ -97,4 +97,4 @@ barriers = [
     Barrier(801, (601, 602, 605, 606)),
     Barrier(802, (603, 604, 607, 608))
 ]
-Daemon(logger, rings, barriers).start()
+Controller(logger, signals, rings, barriers).start()

@@ -53,10 +53,9 @@ class Clock(Referencable, Runnable, DelayProvider):
                           format_us(micros() - marker))
 
 
-class Ticking(Referencable):
+class Ticking:
     
-    def __init__(self, id_: int):
-        super().__init__(id_)
+    def __init__(self):
         eventbus.listeners[StandardObjects.E_CLOCK].add(self.on_clock)
     
     def on_clock(self, clock: Clock):
@@ -88,7 +87,7 @@ class Ticking(Referencable):
         pass
 
 
-class Flasher(Ticking):
+class Flasher(Referencable, Ticking):
     
     @property
     def a(self):
@@ -101,7 +100,8 @@ class Flasher(Ticking):
     def __init__(self,
                  id_: int,
                  invert: bool = False):
-        Ticking.__init__(self, id_)
+        Referencable.__init__(self, id_)
+        Ticking.__init__(self)
         
         self._a = not invert
         self._b = invert
@@ -112,28 +112,11 @@ class Flasher(Ticking):
         eventbus.invoke(StandardObjects.E_FLASHER, self)
 
 
-class FieldOutput(Ticking):
+class FieldOutput(Referencable, Ticking):
     
     @property
     def state(self):
         return self._state
-    
-    @state.setter
-    def state(self, next_state: FieldState):
-        if next_state != FieldState.INHERIT:
-            qb = self._q
-            if next_state & FieldState.ON:
-                if next_state & FieldState.FLASHING:
-                    self._q = False
-                else:
-                    self._q = True
-            elif next_state == FieldState.OFF:
-                self._q = False
-            
-            self._state = next_state
-            if self._q != self._lq:
-                self._lq = qb
-                eventbus.invoke(StandardObjects.E_FIELD_OUTPUT_CHANGED, self)
     
     @property
     def q(self):
@@ -142,34 +125,61 @@ class FieldOutput(Ticking):
     def __init__(self,
                  id_: int,
                  flash_polarity: FlashPolarity):
-        super().__init__(id_)
+        Referencable.__init__(self, id_)
+        Ticking.__init__(self)
         eventbus.listeners[StandardObjects.E_FLASHER].add(self.on_flasher)
         self._flash_polarity = flash_polarity
+        self._flash_positive = False
         self._state = FieldState.OFF
         self._q = False
         self._lq = True
+        
+        self._change_event()
     
     def __bool__(self):
         return self.q
     
+    def _change_event(self):
+        if self._q != self._lq:
+            eventbus.invoke(StandardObjects.E_FIELD_OUTPUT_Q_CHANGED, self)
+    
     def on_flasher(self, flasher: Flasher):
         if self.state & FieldState.FLASHING:
             self._lq = self._q
-            if self._flash_polarity == FlashPolarity.A:
-                self._q = flasher.a
-            elif self._flash_polarity == FlashPolarity.B:
-                self._q = flasher.b
-            else:
-                raise NotImplementedError()
+            match self._flash_polarity:
+                case FlashPolarity.A:
+                    self._q = flasher.a
+                case FlashPolarity.B:
+                    self._q = flasher.b
+            if self._q:
+                self._flash_positive = True
+            self._change_event()
+            
+    async def wait_flasher(self):
+        while not self._flash_positive:
+            await asyncio.sleep(0)
+        self._flash_positive = False
     
-    def on(self):
-        self.state = FieldState.ON
-    
-    def flashing(self):
-        self.state = FieldState.FLASHING
-    
-    def off(self):
-        self.state = FieldState.OFF
+    async def update(self, next_state: FieldState):
+        if next_state != FieldState.INHERIT:
+            self._flash_positive = False
+            self._lq = self._q
+            
+            if next_state & FieldState.ON:
+                if next_state & FieldState.FLASHING:
+                    self._q = False
+                else:
+                    self._q = True
+            elif next_state == FieldState.OFF:
+                self._q = False
+            
+            if next_state == FieldState.FLASHING:
+                await self.wait_flasher()
+            
+            self._state = next_state
+            
+            eventbus.invoke(StandardObjects.E_FIELD_OUTPUT_STATE_CHANGED, self)
+            self._change_event()
 
 
 FieldTriad = namedtuple('FieldTriad', ('a', 'b', 'c'))
@@ -198,13 +208,13 @@ class LoadSwitch(Referencable):
         self.b = b
         self.c = c
     
-    def update(self, signal_state: SignalState):
+    async def update(self, signal_state: SignalState):
         field_states = self._mapping.get(signal_state)
         if field_states is not None:
-            self.a.state = field_states.a
-            self.b.state = field_states.b
-            self.c.state = field_states.c
-            
+            await self.a.update(field_states.a)
+            await self.b.update(field_states.b)
+            await self.c.update(field_states.c)
+       
     def __repr__(self):
         field_rep = field_representation(self.a, self.b, self.c)
         return f'<LoadSwitch #{self.id} {field_rep}>'
@@ -317,7 +327,7 @@ class TimingPlan:
 DEFAULT_SIGNAL_STATE = SignalState.OFF
 
 
-class Signal(Ticking):
+class Signal(Runnable, Referencable, Ticking):
     
     @property
     def ready(self):
@@ -376,11 +386,11 @@ class Signal(Ticking):
                  primary: LoadSwitch,
                  secondary: Optional[LoadSwitch] = None,
                  initial_state: SignalState = SignalState.STOP):
-        super().__init__(id_)
+        Runnable.__init__(self)
+        Referencable.__init__(self, id_)
+        Ticking.__init__(self)
         
         self._primary = primary
-        primary.update(initial_state)
-        
         self._secondary = secondary
         self._state = initial_state
         self._previous_states: List[SignalState] = []
@@ -389,6 +399,8 @@ class Signal(Ticking):
         self._elapsed: float = 0.0
         self._ready = asyncio.Event()
         self._ready.set()
+        self._update = asyncio.Event()
+        # self._update.set()
         self.timing = timing
         self.demand = False
     
@@ -411,14 +423,14 @@ class Signal(Ticking):
             case _:
                 raise NotImplementedError()
     
-    def change(self):
+    async def update(self):
         self._previous_states.insert(0, self._state)
         
         if len(self._previous_states) > len(SignalState):
             self._previous_states.pop(-1)
         
         self._state = self.get_next_state()
-        self._primary.update(self._state)
+        await self._primary.update(self._state)
         
         self._setpoint: float = self.minimum
         self._remaining: float = self._setpoint
@@ -463,7 +475,7 @@ class Signal(Ticking):
                 reason = 'demand'
             
             logger.timing('{} 0.00 ({})', self.get_tag(), reason)
-            self.change()
+            self._update.set()
         
         if not self.ready:
             if not self.idle:
@@ -474,9 +486,16 @@ class Signal(Ticking):
     
     async def wait(self):
         logger.debug('{} activated', self.get_tag())
-        self.change()
+        self._update.set()
         await self._ready.wait()
         logger.debug('{} deactivated', self.get_tag())
+        
+    async def run(self):
+        while True:
+            if self._update.is_set():
+                await self.update()
+                self._update.clear()
+            await asyncio.sleep(0)
 
 
 class Phase(Referencable):
@@ -540,7 +559,7 @@ class PhaseContainer:
             self.phases = phases
 
 
-class Ring(Ticking, PhaseContainer):
+class Ring(Referencable, Ticking, PhaseContainer):
     
     @property
     def state(self):
@@ -551,7 +570,8 @@ class Ring(Ticking, PhaseContainer):
                  phases: Optional[Iterable[Union[int, Phase]]] = None,
                  red_clearance: float = 0,
                  enabled: bool = True):
-        Ticking.__init__(self, id_)
+        Referencable.__init__(self, id_)
+        Ticking.__init__(self)
         PhaseContainer.__init__(self, phases)
         self._state = RingState.INACTIVE
         self._setpoint = red_clearance

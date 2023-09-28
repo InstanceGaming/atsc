@@ -14,9 +14,9 @@
 
 import enum
 import crcmod
-from utils import pretty_byte_size
-from utils import pretty_bin_literal as PBL
 from typing import Tuple, Optional
+
+from atsc.utils import pretty_byte_size, pretty_bin_literal
 
 
 HDLC_FLAG = 0x7E
@@ -56,7 +56,7 @@ class Frame:
         return self._crc == other.crc
     
     def __repr__(self):
-        return f'<Frame {PBL(self._data)} CRC{self._crc:05d} ' \
+        return f'<Frame {pretty_bin_literal(self._data)} CRC{self._crc:05d} ' \
                f'{pretty_byte_size(len(self._data))}>'
 
 

@@ -13,6 +13,12 @@ MAXIMUM_NETWORK_RATE = 40.0
 MINIMUM_FLASH_RATE = 54.0
 MAXIMUM_FLASH_RATE = 66.0
 
+SERIAL_BUS_CRC_POLY = 0x11021
+SERIAL_BUS_CRC_INIT = 0xFFFF
+SERIAL_BUS_CRC_REVERSE = True
+SERIAL_BUS_CRC_XOR_OUT = 0
+SERIAL_BUS_BYTE_ORDER = 'big'
+
 
 class StandardObjects(IntEnum):
     CONTROLLER = 1
@@ -53,7 +59,8 @@ class StandardObjects(IntEnum):
     E_FLASHER = 10002
     E_PARAMETER_CHANGED = 10003
     
-    E_FIELD_OUTPUT_CHANGED = 10100
+    E_FIELD_OUTPUT_STATE_CHANGED = 10100
+    E_FIELD_OUTPUT_Q_CHANGED = 10101
     E_LOAD_SWITCH_CHANGED = 10101
     E_SIGNAL_CHANGED = 10102
     E_SIGNAL_IDLE_START = 10103
@@ -101,6 +108,25 @@ class FieldState(IntFlag):
 
 
 class SignalState(IntEnum):
+    
+    @property
+    def shorthand(self):
+        match self:
+            case SignalState.OFF:
+                return 'OFF'
+            case SignalState.STOP:
+                return 'STP'
+            case SignalState.CAUTION:
+                return 'CAU'
+            case SignalState.GO:
+                return 'GO '
+            case SignalState.FYA:
+                return 'FYA'
+            case SignalState.LS_FLASH:
+                return 'LSF'
+            case _:
+                raise NotImplementedError()
+    
     OFF = 0
     STOP = 1
     CAUTION = 2
@@ -126,6 +152,14 @@ class RingState(IntFlag):
     ACTIVE = 0x2
     RED_CLEARANCE = 0x4
     BARRIER = 0x8
+
+
+class BusState(IntFlag):
+    STANDBY = 0
+    INIT = 1
+    ACTIVE = 2
+    DEGRADED = 4
+    FAILED = 8
 
 
 class CallSource(IntFlag):

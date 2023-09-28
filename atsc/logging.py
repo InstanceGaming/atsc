@@ -4,25 +4,51 @@ import sys
 from datetime import timedelta
 from functools import partialmethod
 from pathlib import Path
-from typing import Optional, TypedDict, Union
+from typing import Optional, TypedDict, Union, Tuple
 import loguru
 from atsc.constants import ExitCode
 
 
 QUENCH_LOG_EXCEPTIONS = True
-LOG_LEVEL_PATTERN = re.compile(r'([a-z_]+|\d+)', flags=re.IGNORECASE)
+LOG_LEVEL_PATTERN = re.compile(r'^([a-z_]+|\d+)(,([a-z_]+|\d+))?$', flags=re.IGNORECASE)
 
 
 class SinkLevels(TypedDict):
-    default: Union[int, str]
-    stdout: Union[int, str]
-    stderr: Union[int, str]
-    file: Union[int, str]
+    default: Tuple[int, int]
+    stdout: Tuple[int, int]
+    stderr: Tuple[int, int]
+    file: Tuple[int, int]
 
 
-def parse_log_level_shorthand(arg: Optional[str]) -> SinkLevels:
+def parse_log_level_shorthand(l, arg: Optional[str]) -> SinkLevels:
+    def _parse_value(_sink, _l1) -> tuple:
+        _re_result = LOG_LEVEL_PATTERN.match(_l1)
+        if _re_result is not None:
+            def _coerce_number(_l2):
+                try:
+                    _l2 = int(_l2)
+                except ValueError:
+                    try:
+                        _l2 = l.level(_l2).no
+                    except ValueError:
+                        raise ValueError(f'unknown logging min_level "{_l2}" for sink "{_sink}"')
+                return _l2
+            
+            lower = _coerce_number(_re_result.group(1))
+            upper = _re_result.group(3)
+            
+            if upper is not None:
+                upper = _coerce_number(upper)
+                
+                if lower >= upper:
+                    raise ValueError(f'impossible logging min_level range for sink "{_sink}" ({lower} >= {upper})')
+            
+            return lower, upper
+        else:
+            raise ValueError(f'invalid logging min_level "{_l1}" for sink "{_sink}"')
+    
     levels = {
-        'default': 0,
+        'default': (0, sys.maxsize),
         'stdout': None,
         'stderr': None,
         'file': None
@@ -30,44 +56,28 @@ def parse_log_level_shorthand(arg: Optional[str]) -> SinkLevels:
     if arg:
         cleaned = arg.strip()
         default_set = False
-        for part in cleaned.split(','):
+        for part in cleaned.split(';'):
             part = part.strip()
             if '=' in part:
                 kv_parts = part.split('=')
                 key = kv_parts[0]
+                
                 if key not in levels.keys():
                     raise KeyError(f'unknown logging sink "{key}"')
-                value = kv_parts[1]
-                result = LOG_LEVEL_PATTERN.match(value)
-                if result is not None:
-                    value = result.group(1)
-                else:
-                    raise ValueError(f'unknown logging level "{value}" for {key} sink')
-                levels[key] = value
+                
+                levels[key] = _parse_value(key, kv_parts[1])
             else:
                 if default_set:
-                    raise ValueError('default already set')
+                    raise ValueError('default already defined')
 
-                result = LOG_LEVEL_PATTERN.match(part)
-                if result is not None:
-                    levels['default'] = result.group(1)
-                    default_set = True
-                else:
-                    raise ValueError(f'unknown logging level "{part}" for default sink')
+                levels['default'] = _parse_value('default', part)
+                default_set = True
 
+    default_level = levels.pop('default')
     for k, v in levels.items():
-        if v is not None:
-            try:
-                levels[k] = int(v)
-            except ValueError:
-                pass
-
-    default_level = levels['default']
-    for k, v in levels.items():
-        if k == 'default':
-            continue
         if v is None:
             levels[k] = default_level
+    
     return levels
 
 
@@ -77,45 +87,42 @@ def register_custom_levels(l):
     klass.clocks = partialmethod(klass.log, 'CLOCKS')
     l.level('TIMING', no=3, color='<d>')
     klass.timing = partialmethod(klass.log, 'TIMING')
+    l.level('BUS', no=4, color='<d>')
+    klass.bus = partialmethod(klass.log, 'BUS')
     l.level('FIELD', no=6, color='<d>')
     klass.field = partialmethod(klass.log, 'FIELD')
     l.level('VERB', no=7, color='<c>')
     klass.verb = partialmethod(klass.log, 'VERB')
 
 
-def setup_sink(sink,
-               level=0,
-               max_level=None,
+def setup_sink(l,
+               sink,
+               levels: Tuple[int, Optional[int]],
                color=False,
                timestamp=False,
-               logger=None,
                backtrace=False,
                rotation=None,
                retention=None,
                compression=None,
                mode='a'):
-    l = logger or loguru.logger
-    if logger is None:
-        l.remove()
-        register_custom_levels(l)
-
     fmt = '<level>{level: >8}</level>: {message} '
     if timestamp:
         fmt = '[{time:YYYY-MM-DD hh:mm:ss A}] ' + fmt
     if __debug__:
         fmt += '<d>[<i>{file}:{line}</i>]</d> '
-    # fmt += '<d>{extra}</d>'
+    
     kwargs = {
         'colorize': color,
-        'level': level,
+        'level': levels[0],
         'format': fmt,
         'backtrace': backtrace,
         'catch': QUENCH_LOG_EXCEPTIONS,
     }
-
+    
+    max_level = levels[1]
     if max_level is not None:
         kwargs.update({'filter': lambda record: record['level'].no < max_level})
-
+    
     if isinstance(sink, str):
         kwargs.update({
             'rotation': rotation,
@@ -132,19 +139,30 @@ def setup_logger(log_levels: Union[SinkLevels, str],
                  log_file: Optional[os.PathLike] = None,
                  rotation: timedelta = timedelta(days=1),
                  retention: timedelta = timedelta(days=7)):
+    
+    bootstrap_logger = loguru.logger
+    bootstrap_logger.remove()
+    register_custom_levels(bootstrap_logger)
+    
     if isinstance(log_levels, str):
-        log_levels = parse_log_level_shorthand(log_levels)
+        log_levels = parse_log_level_shorthand(bootstrap_logger, log_levels)
     
     stdout_level = log_levels['stdout']
     stderr_level = log_levels['stderr']
     
     try:
-        logger = setup_sink(sys.stdout,
-                            level=stdout_level,
+        logger = setup_sink(bootstrap_logger,
+                            sys.stdout,
+                            stdout_level,
                             color=True)
-        logger = setup_sink(sys.stderr, level=stderr_level, color=True,
-                            logger=logger)
+        
+        logger = setup_sink(logger,
+                            sys.stderr,
+                            stderr_level,
+                            color=True)
+        
         if log_file is not None:
+            
             file_level = log_levels['file']
             log_file = Path(log_file)
             try:
@@ -152,17 +170,22 @@ def setup_logger(log_levels: Union[SinkLevels, str],
             except OSError as e:
                 logger.error('failed to make directory structure for log file ({})', str(e))
                 exit(ExitCode.LOG_FILE_STRUCTURE_FAIL)
-            logger = setup_sink(log_file,
-                                level=file_level,
+            
+            logger = setup_sink(logger,
+                                log_file,
+                                file_level,
                                 timestamp=True,
-                                logger=logger,
                                 backtrace=True,
                                 rotation=rotation,
                                 retention=retention,
                                 compression='gz')
+    
     except (ValueError, TypeError) as e:
         print(f'ERROR: failed to create logging facility ({str(e)})', file=sys.stderr)
-        exit(ExitCode.LOG_FACILITY_FAIL)
+        if __debug__:
+            raise e
+        else:
+            exit(ExitCode.LOG_FACILITY_FAIL)
     
     logger.info('log levels {}', ', '.join([f'{k}={v}' for k, v in log_levels.items()]))
     

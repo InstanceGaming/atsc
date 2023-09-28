@@ -17,7 +17,7 @@ from threading import main_thread
 import loguru
 from atsc.constants import get_default_pid_path, ExitCode
 from atsc.logging import parse_log_level_shorthand, setup_logger
-from atsc.programs import Daemon
+from atsc.programs import Controller
 from atsc.utils import fix_path, fix_paths
 
 
@@ -70,7 +70,7 @@ def run():
     config_names = fix_paths(cla.config_names)
     
     # the logger is still passed to daemon instance as it will bind context vars
-    Daemon(logger, pid_path=pid_path).start()
+    Controller(logger, pid_path=pid_path).start()
 
 
 if __name__ == '__main__':

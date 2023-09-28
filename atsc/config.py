@@ -17,7 +17,7 @@ class ControlMode(BaseModel):
 class Configuration(BaseModel):
     name: str
     mode: ControlMode
-    load_switches: Set[LoadSwitch]
+    load_switches: Set
 
 
 def load(streams: Iterable[TextIO]) -> Configuration:

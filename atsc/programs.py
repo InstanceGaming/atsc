@@ -5,11 +5,13 @@ from asyncio import AbstractEventLoop
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any, TextIO, Union, Set, List
-from atsc.models import Flasher, Clock, RingCycler, Ring, Barrier, Ticking
-from atsc import parameters
+
+from atsc.fieldbus import SerialBus
+from atsc.models import Flasher, Clock, RingCycler, Ring, Barrier, FieldOutput, Signal
+from atsc import parameters, eventbus
 from atsc.primitives import StopwatchEvent, Runnable
 from atsc.constants import *
-from atsc.utils import format_ms, seconds, dhms, compact_datetime, field_representation
+from atsc.utils import format_ms, seconds, dhms, compact_datetime
 
 
 class AsyncProgram(Runnable, ABC):
@@ -45,10 +47,11 @@ class AsyncProgram(Runnable, ABC):
         self.loop.stop()
 
 
-class Daemon(AsyncProgram, Ticking):
+class Controller(AsyncProgram):
     
     def __init__(self,
                  logger,
+                 signals: List[Signal],
                  rings: List[Ring],
                  barriers: List[Barrier],
                  pid_path: Optional[os.PathLike] = None,
@@ -56,8 +59,8 @@ class Daemon(AsyncProgram, Ticking):
                  flashes_per_minute: float = 60.0,
                  shutdown_timeout: float = 10,
                  loop: AbstractEventLoop = asyncio.get_event_loop()):
-        Ticking.__init__(self, StandardObjects.CONTROLLER)
         AsyncProgram.__init__(self, logger, loop=loop)
+        eventbus.listeners[StandardObjects.E_FIELD_OUTPUT_STATE_CHANGED].add(self.on_field_output_changed)
         
         self._runnables: Set[Runnable] = set()
 
@@ -66,6 +69,9 @@ class Daemon(AsyncProgram, Ticking):
         self.shutdown_timeout = shutdown_timeout
         self.request_shutdown = StopwatchEvent()
         self.shutdown_clean = StopwatchEvent()
+
+        self._bus = SerialBus('COM4', 115200, loop=self.loop)
+        self.add_runnable(self._bus)
         
         self.add_runnable(Clock(StandardObjects.TIME_TICK,
                                 parameters.TimeRate(time_rate)))
@@ -79,21 +85,21 @@ class Daemon(AsyncProgram, Ticking):
                                 parameters.FlashRate(flashes_per_minute)))
         self.flasher = Flasher(StandardObjects.FLASHER1)
         
+        self._signals = signals
+        for sig in signals:
+            self.add_runnable(sig)
+        
         self._synchronizer = RingCycler(rings, barriers)
         self.add_runnable(self._synchronizer)
     
-    def on_flash_tick(self, clock: Clock):
+    def on_field_output_changed(self, field_output: FieldOutput):
         phases = []
         
         for phase in self._synchronizer.phases:
             signals = []
             
             for sig in phase.signals:
-                signals.append(field_representation(
-                    sig.primary.a,
-                    sig.primary.b,
-                    sig.primary.c
-                ))
+                signals.append(sig.state.shorthand)
             
             phases.append(f'{phase.id:03} {" ".join(signals)}')
         

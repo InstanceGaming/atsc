@@ -14,8 +14,9 @@
 
 import abc
 import enum
-from models import LoadSwitch
-from hdlc import HDLCContext
+
+from atsc.models import FieldOutput
+from atsc.hdlc import HDLCContext
 from typing import List, Union, Optional
 from bitarray import bitarray
 
@@ -109,25 +110,31 @@ class BeaconFrame(GenericFrame):
 class OutputStateFrame(GenericFrame):
     VERSION = 11
     
-    def __init__(self, address: int, lss: List[LoadSwitch], transfer: bool):
+    def __init__(self, address: int, fields: List[FieldOutput], transfer: bool):
         super(OutputStateFrame, self).__init__(address, self.VERSION, FrameType.OUTPUTS, FrameType.INPUTS)
-        assert len(lss) == 12
-        self._channel_states = lss
+        self._fields = fields
         self._transfer = transfer
     
     def getPayload(self):
         sf = bytearray([0] * 6)
-        ci = 0
-        for i in range(6):
-            l = self._channel_states[ci]
-            sf[i] += l.a * 64
-            sf[i] += l.b * 32
-            sf[i] += l.c * 16
-            r = self._channel_states[ci + 1]
-            sf[i] += r.a * 4
-            sf[i] += r.b * 2
-            sf[i] += r.c * 1
-            ci += 2
+        i = 0
+        
+        for byte in range(6):
+            for bit in (64, 32, 16, 4, 2, 1):
+                field = self._fields[i]
+                if field is not None:
+                    sf[byte] += field.q * bit
+                i += 1
+            
+            # l = self._channel_states[ci]
+            # sf[i] += l.a * 64
+            # sf[i] += l.b * 32
+            # sf[i] += l.c * 16
+            # r = self._channel_states[ci + 1]
+            # sf[i] += r.a * 4
+            # sf[i] += r.b * 2
+            # sf[i] += r.c * 1
+            # ci += 2
         
         payload = bytearray([128 if self._transfer else 0])
         payload.extend(sf)

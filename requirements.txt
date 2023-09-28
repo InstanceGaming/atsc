@@ -6,6 +6,8 @@ netifaces
 more-itertools
 natsort
 bitarray
-pyserial-asyncio
+pyserial
+aioserial
 loguru
 pydantic
+defaultlist
