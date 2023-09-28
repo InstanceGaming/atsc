@@ -175,6 +175,10 @@ class SerialBus(Runnable, Ticking):
         logger.bus('serial bus connected ({})',
                    self._formatParameterText())
         
+        await self.sendFrame(OutputStateFrame(DeviceAddress.TFIB1,
+                                              self._fields,
+                                              True))
+        
         while self.enabled:
             if self._tick:
                 if self._serial is not None:

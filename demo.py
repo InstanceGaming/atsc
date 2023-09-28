@@ -5,7 +5,7 @@ from atsc.constants import *
 from atsc.primitives import ref
 
 
-logger = setup_logger('FIELD,INFO;stderr=ERROR')
+logger = setup_logger('TIMING,INFO;stderr=ERROR')
 
 
 def generate_load_switches():
@@ -48,8 +48,8 @@ load_switches = generate_load_switches()
 plan_thru = TimingPlan(
     {
         SignalState.STOP   : 1,
-        SignalState.CAUTION: 3,
-        SignalState.GO     : 3
+        SignalState.CAUTION: 5,
+        SignalState.GO     : 5
     },
     {
         SignalState.STOP   : 300,
@@ -59,7 +59,7 @@ plan_thru = TimingPlan(
 )
 plan_ped = TimingPlan(
     {
-        SignalState.STOP   : 6,
+        SignalState.STOP   : 1,
         SignalState.CAUTION: 10,
         SignalState.GO     : 5
     }

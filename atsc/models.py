@@ -12,7 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import sys
 from collections import namedtuple
 from itertools import cycle
 from typing import Dict, List, Optional, Iterable, Tuple, Union, Set
@@ -129,7 +128,7 @@ class FieldOutput(Referencable, Ticking):
         Ticking.__init__(self)
         eventbus.listeners[StandardObjects.E_FLASHER].add(self.on_flasher)
         self._flash_polarity = flash_polarity
-        self._flash_positive = False
+        self._rising = asyncio.Event()
         self._state = FieldState.OFF
         self._q = False
         self._lq = True
@@ -142,6 +141,8 @@ class FieldOutput(Referencable, Ticking):
     def _change_event(self):
         if self._q != self._lq:
             eventbus.invoke(StandardObjects.E_FIELD_OUTPUT_Q_CHANGED, self)
+            if self._q:
+                self._rising.set()
     
     def on_flasher(self, flasher: Flasher):
         if self.state & FieldState.FLASHING:
@@ -151,18 +152,10 @@ class FieldOutput(Referencable, Ticking):
                     self._q = flasher.a
                 case FlashPolarity.B:
                     self._q = flasher.b
-            if self._q:
-                self._flash_positive = True
             self._change_event()
-            
-    async def wait_flasher(self):
-        while not self._flash_positive:
-            await asyncio.sleep(0)
-        self._flash_positive = False
     
     async def update(self, next_state: FieldState):
         if next_state != FieldState.INHERIT:
-            self._flash_positive = False
             self._lq = self._q
             
             if next_state & FieldState.ON:
@@ -173,8 +166,10 @@ class FieldOutput(Referencable, Ticking):
             elif next_state == FieldState.OFF:
                 self._q = False
             
-            if next_state == FieldState.FLASHING:
-                await self.wait_flasher()
+            # if next_state == FieldState.FLASHING:
+            #     if not self._q:
+            #         self._rising.clear()
+            #         await self._rising.wait()
             
             self._state = next_state
             
@@ -211,10 +206,12 @@ class LoadSwitch(Referencable):
     async def update(self, signal_state: SignalState):
         field_states = self._mapping.get(signal_state)
         if field_states is not None:
-            await self.a.update(field_states.a)
-            await self.b.update(field_states.b)
-            await self.c.update(field_states.c)
-       
+            await asyncio.gather(
+                self.a.update(field_states.a),
+                self.b.update(field_states.b),
+                self.c.update(field_states.c)
+            )
+    
     def __repr__(self):
         field_rep = field_representation(self.a, self.b, self.c)
         return f'<LoadSwitch #{self.id} {field_rep}>'
@@ -272,6 +269,10 @@ class LoadSwitch(Referencable):
             if flags & LSFlag.PED_CLEAR:
                 mapping.update({
                     SignalState.CAUTION: FieldTriad(FieldState.FLASHING, FieldState.INHERIT, FieldState.OFF)
+                })
+            else:
+                mapping.update({
+                    SignalState.CAUTION: FieldTriad(FieldState.ON, FieldState.INHERIT, FieldState.OFF)
                 })
             
             if flags & LSFlag.FYA_OUT_B:
@@ -342,6 +343,10 @@ class Signal(Runnable, Referencable, Ticking):
         return self._state
     
     @property
+    def pending_update(self):
+        return self._queue_update.is_set()
+    
+    @property
     def previous_states(self):
         return self._previous_states
     
@@ -357,7 +362,7 @@ class Signal(Runnable, Referencable, Ticking):
     
     @property
     def remaining(self):
-        return self._remaining
+        return max(self._setpoint - self._elapsed, 0)
     
     @property
     def elapsed(self):
@@ -395,12 +400,10 @@ class Signal(Runnable, Referencable, Ticking):
         self._state = initial_state
         self._previous_states: List[SignalState] = []
         self._setpoint: float = 0.0
-        self._remaining: float = 0.0
         self._elapsed: float = 0.0
         self._ready = asyncio.Event()
         self._ready.set()
-        self._update = asyncio.Event()
-        # self._update.set()
+        self._queue_update = asyncio.Event()
         self.timing = timing
         self.demand = False
     
@@ -424,78 +427,81 @@ class Signal(Runnable, Referencable, Ticking):
                 raise NotImplementedError()
     
     async def update(self):
-        self._previous_states.insert(0, self._state)
+        self._queue_update.clear()
         
+        self._previous_states.insert(0, self._state)
         if len(self._previous_states) > len(SignalState):
             self._previous_states.pop(-1)
-        
+
         self._state = self.get_next_state()
-        await self._primary.update(self._state)
+
+        if self.state != SignalState.STOP:
+            self._ready.clear()
         
         self._setpoint: float = self.minimum
-        self._remaining: float = self._setpoint
         self._elapsed: float = 0
+        
+        await self._primary.update(self._state)
         
         logger.debug('{} changed to {} for {:.02f}s',
                      self.get_tag(),
                      self.state.name,
                      self._setpoint)
-        
-        if self.state == SignalState.STOP:
-            self.demand = False
-            self._ready.set()
-        else:
-            if self._ready.is_set():
-                self._ready.clear()
     
     def on_time_tick(self, clock: Clock):
         was_idle = self.idle
-        
-        if self._remaining >= clock.delay:
-            self._remaining -= clock.delay
-        
         self._elapsed += clock.delay
         
-        timed_out = self.remaining <= clock.delay
-        if self.maximum is None:
-            exceeded_limit = self.elapsed >= self.minimum
-        elif self.maximum < clock.delay:
-            exceeded_limit = sys.maxsize
+        timed_out = self.remaining < clock.delay
+        exceeded_min = self.elapsed >= self.minimum
+        
+        exceeded_limit = False
+        if self.maximum is not None and self.maximum >= clock.delay:
+            exceeded_limit = self.elapsed > self.maximum
         else:
-            exceeded_limit = self.elapsed >= self.maximum
+            if self.state != SignalState.STOP and exceeded_min:
+                exceeded_limit = True
         
-        rigid_interval = self.state == SignalState.CAUTION
-        
-        if timed_out and (rigid_interval or exceeded_limit or self.demand):
-            if exceeded_limit:
-                reason = 'maximum'
-            elif rigid_interval:
-                reason = 'rigid'
-            else:
-                reason = 'demand'
+        if not self.pending_update:
+            if not self.ready:
+                if not self.idle:
+                    logger.timing('{} {:03.02f}', self.get_tag(), self.remaining)
+                elif self.idle and not was_idle:
+                    logger.timing('{} idle', self.get_tag())
+                    eventbus.invoke(StandardObjects.E_SIGNAL_IDLE_START, self)
             
-            logger.timing('{} 0.00 ({})', self.get_tag(), reason)
-            self._update.set()
-        
-        if not self.ready:
-            if not self.idle:
-                logger.timing('{} {:03.02f}', self.get_tag(), self.remaining)
-            elif self.idle and not was_idle:
-                logger.timing('{} 0.00 (idle)', self.get_tag())
-                eventbus.invoke(StandardObjects.E_SIGNAL_IDLE_START, self)
-    
+            rigid_interval = self.state == SignalState.CAUTION
+            if timed_out and (rigid_interval or exceeded_limit or self.demand):
+                reasons = []
+                if rigid_interval:
+                    reasons.append('rigid')
+                if exceeded_min:
+                    reasons.append('minimum')
+                if self.demand:
+                    reasons.append('demand')
+                if exceeded_limit:
+                    reasons.append('maximum')
+                
+                logger.timing('{} {}', self.get_tag(), ', '.join(reasons))
+                self._queue_update.set()
+
     async def wait(self):
+        if not self.ready:
+            raise RuntimeError(f'tried to await unready signal {self.get_tag()}')
         logger.debug('{} activated', self.get_tag())
-        self._update.set()
+        await self.update()
         await self._ready.wait()
         logger.debug('{} deactivated', self.get_tag())
-        
+    
     async def run(self):
+        await self._primary.update(SignalState.STOP)
         while True:
-            if self._update.is_set():
-                await self.update()
-                self._update.clear()
-            await asyncio.sleep(0)
+            await self._queue_update.wait()
+            await self.update()
+            
+            if self.state == SignalState.STOP:
+                self.demand = False
+                self._ready.set()
 
 
 class Phase(Referencable):
