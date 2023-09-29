@@ -75,6 +75,7 @@ R_T = TypeVar('R_T', bound=Referencable)
 
 
 def ref(r: Optional[Union[int, Referencable]], cls: Type[R_T]) -> Optional[R_T]:
+    assert isinstance(cls, type(Referencable))
     if r is None:
         return None
     if isinstance(r, Referencable):
@@ -85,6 +86,6 @@ def ref(r: Optional[Union[int, Referencable]], cls: Type[R_T]) -> Optional[R_T]:
                 if not isinstance(v, cls):
                     raise TypeError(f'type of {r} was not {cls.__name__}')
                 return v
-        raise LookupError(f'failed to find reference {r} (type {cls.__name__})')
+        raise LookupError(f'failed to find reference {r} (type {cls.__name__}), is it initialized?')
     else:
         raise TypeError()

@@ -60,8 +60,8 @@ class StandardObjects(IntEnum):
     E_PARAMETER_CHANGED = 10003
     
     E_FIELD_OUTPUT_STATE_CHANGED = 10100
-    E_FIELD_OUTPUT_Q_CHANGED = 10101
-    E_LOAD_SWITCH_CHANGED = 10101
+    E_FIELD_OUTPUT_TOGGLED = 10101
+    E_LOAD_SWITCH_UPDATED = 10101
     E_SIGNAL_CHANGED = 10102
     E_SIGNAL_IDLE_START = 10103
 
@@ -80,16 +80,9 @@ def get_default_pid_path():
     return os.path.join(os.getcwd(), 'atsc.pid')
 
 
-class FlasherMode(IntFlag):
+class FlashChannel(IntFlag):
     RED = 1
     YELLOW = 2
-    A = 4
-    B = 8
-
-
-class FlashPolarity(IntFlag):
-    A = 0
-    B = 1
 
 
 class OperationMode(IntEnum):

@@ -5,7 +5,10 @@ from atsc.constants import *
 from atsc.primitives import ref
 
 
-logger = setup_logger('TIMING,INFO;stderr=ERROR')
+logger = setup_logger('FIELD,INFO;stderr=ERROR')
+
+flasher_a = Flasher(StandardObjects.FLASHER1)
+flasher_b = Flasher(StandardObjects.FLASHER2, invert=True)
 
 
 def generate_load_switches():
@@ -30,13 +33,13 @@ def generate_load_switches():
         field_triad = FieldTriad(field_index,
                                  field_index + 1,
                                  field_index + 2)
-        polarity = FlashPolarity.A
+        flasher = StandardObjects.FLASHER1
         if i % 4 == 3 or i % 4 == 0:
-            polarity = FlashPolarity.B
-        load_switch = LoadSwitch.make_generic(ls_index,
-                                              field_triad,
-                                              flags[i],
-                                              flash_polarity=polarity)
+            flasher = StandardObjects.FLASHER2
+        load_switch = LoadSwitch.make_standard(ls_index,
+                                               field_triad,
+                                               flags[i],
+                                               flasher=flasher)
         ls_index += 1
         field_index += 3
         switches.append(load_switch)
@@ -64,6 +67,7 @@ plan_ped = TimingPlan(
         SignalState.GO     : 5
     }
 )
+
 signals = [
     Signal(501, plan_thru, ref(301, LoadSwitch)),
     Signal(502, plan_thru, ref(302, LoadSwitch)),
@@ -73,10 +77,10 @@ signals = [
     Signal(506, plan_thru, ref(308, LoadSwitch)),
     Signal(507, plan_thru, ref(309, LoadSwitch)),
     Signal(508, plan_thru, ref(310, LoadSwitch)),
-    Signal(509, plan_ped, ref(305, LoadSwitch)),
-    Signal(510, plan_ped, ref(306, LoadSwitch)),
-    Signal(511, plan_ped, ref(311, LoadSwitch)),
-    Signal(512, plan_ped, ref(312, LoadSwitch)),
+    Signal(509, plan_ped, ref(305, LoadSwitch), flash_aligned=True),
+    Signal(510, plan_ped, ref(306, LoadSwitch), flash_aligned=True),
+    Signal(511, plan_ped, ref(311, LoadSwitch), flash_aligned=True),
+    Signal(512, plan_ped, ref(312, LoadSwitch), flash_aligned=True),
 ]
 phases = [
     Phase(601, (ref(501, Signal),)),
@@ -97,4 +101,10 @@ barriers = [
     Barrier(801, (601, 602, 605, 606)),
     Barrier(802, (603, 604, 607, 608))
 ]
-Controller(logger, signals, rings, barriers).start()
+Controller(
+    logger,
+    {flasher_a, flasher_b},
+    signals,
+    rings,
+    barriers
+).start()

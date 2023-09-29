@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Dict, Optional, Any, TextIO, Union, Set, List
 
 from atsc.fieldbus import SerialBus
-from atsc.models import Flasher, Clock, RingCycler, Ring, Barrier, FieldOutput, Signal
-from atsc import parameters, eventbus
+from atsc.models import Flasher, Clock, RingCycler, Ring, Barrier, Signal
+from atsc import parameters
 from atsc.primitives import StopwatchEvent, Runnable
 from atsc.constants import *
 from atsc.utils import format_ms, seconds, dhms, compact_datetime
@@ -51,6 +51,7 @@ class Controller(AsyncProgram):
     
     def __init__(self,
                  logger,
+                 flashers: Set[Flasher],
                  signals: List[Signal],
                  rings: List[Ring],
                  barriers: List[Barrier],
@@ -60,7 +61,7 @@ class Controller(AsyncProgram):
                  shutdown_timeout: float = 10,
                  loop: AbstractEventLoop = asyncio.get_event_loop()):
         AsyncProgram.__init__(self, logger, loop=loop)
-        eventbus.listeners[StandardObjects.E_FIELD_OUTPUT_STATE_CHANGED].add(self.on_field_output_changed)
+        # eventbus.listeners[StandardObjects.E_FIELD_OUTPUT_TOGGLED].append(self.on_field_output_toggled)
         
         self._runnables: Set[Runnable] = set()
 
@@ -69,9 +70,8 @@ class Controller(AsyncProgram):
         self.shutdown_timeout = shutdown_timeout
         self.request_shutdown = StopwatchEvent()
         self.shutdown_clean = StopwatchEvent()
-
-        self._bus = SerialBus('COM4', 115200, loop=self.loop)
-        self.add_runnable(self._bus)
+        self.flashers = flashers
+        self.signals = signals
         
         self.add_runnable(Clock(StandardObjects.TIME_TICK,
                                 parameters.TimeRate(time_rate)))
@@ -83,27 +83,25 @@ class Controller(AsyncProgram):
                                 parameters.NetworkRate(20.0)))
         self.add_runnable(Clock(StandardObjects.FLASH_TICK,
                                 parameters.FlashRate(flashes_per_minute)))
-        self.flasher = Flasher(StandardObjects.FLASHER1)
         
-        self._signals = signals
-        for sig in signals:
-            self.add_runnable(sig)
+        self._bus = SerialBus('COM4', 115200, loop=self.loop)
+        self.add_runnable(self._bus)
         
         self._synchronizer = RingCycler(rings, barriers)
         self.add_runnable(self._synchronizer)
     
-    def on_field_output_changed(self, field_output: FieldOutput):
-        phases = []
-        
-        for phase in self._synchronizer.phases:
-            signals = []
-            
-            for sig in phase.signals:
-                signals.append(sig.state.shorthand)
-            
-            phases.append(f'{phase.id:03} {" ".join(signals)}')
-        
-        self.logger.field(' '.join(phases))
+    # def on_field_output_toggled(self, field_output: FieldOutput):
+    #     phases = []
+    #
+    #     for phase in self._synchronizer.phases:
+    #         signals = []
+    #
+    #         for sig in phase.signals:
+    #             signals.append(sig.state.shorthand)
+    #
+    #         phases.append(f'{phase.id:03} {" ".join(signals)}')
+    #
+    #     self.logger.field(' '.join(phases))
     
     def add_runnable(self, r):
         self._runnables.add(r)

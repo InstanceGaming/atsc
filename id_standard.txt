@@ -17,6 +17,7 @@ Specification of ID references:
     NETWORK_TICK = 904
 1001-2000       virtual flashers
     FLASHER_A = 1001
+    FLASHER_B = 1002
 2001-3000       call sources
 3001-3001       calls
 8001-10000      parameters

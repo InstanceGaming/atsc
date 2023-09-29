@@ -1,8 +1,8 @@
 from collections import defaultdict
-from typing import Callable, Dict, Set
+from typing import Callable, Dict, List
 
 
-listeners: Dict[str | int, Set[Callable]] = defaultdict(set)
+listeners: Dict[str | int, List[Callable]] = defaultdict(list)
 
 
 def invoke(event, *args, **kwargs):

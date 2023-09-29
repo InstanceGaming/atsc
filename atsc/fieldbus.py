@@ -26,8 +26,8 @@ class SerialBus(Runnable, Ticking):
     
     def __init__(self, port: str, baud: int, loop=None):
         Ticking.__init__(self)
-        eventbus.listeners[StandardObjects.E_FIELD_OUTPUT_Q_CHANGED].add(
-            self.on_field_output_q_changed
+        eventbus.listeners[StandardObjects.E_FIELD_OUTPUT_TOGGLED].append(
+            self.on_field_output_toggled
         )
         self.loop = loop or asyncio.get_event_loop()
         self.enabled = True
@@ -150,7 +150,7 @@ class SerialBus(Runnable, Ticking):
         self._rx_buf = None
         return rv
     
-    def on_field_output_q_changed(self, field_output: FieldOutput):
+    def on_field_output_toggled(self, field_output: FieldOutput):
         # todo: correct this insane hack
         self._fields[field_output.id - 101] = field_output
         self._changed = True

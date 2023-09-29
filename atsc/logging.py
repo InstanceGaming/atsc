@@ -85,12 +85,12 @@ def register_custom_levels(l):
     klass = l.__class__
     l.level('CLOCKS', no=1, color='<d>')
     klass.clocks = partialmethod(klass.log, 'CLOCKS')
-    l.level('TIMING', no=3, color='<d>')
-    klass.timing = partialmethod(klass.log, 'TIMING')
-    l.level('BUS', no=4, color='<d>')
+    l.level('BUS', no=2, color='<d>')
     klass.bus = partialmethod(klass.log, 'BUS')
-    l.level('FIELD', no=6, color='<d>')
+    l.level('FIELD', no=3, color='<d>')
     klass.field = partialmethod(klass.log, 'FIELD')
+    l.level('TIMING', no=4, color='<d>')
+    klass.timing = partialmethod(klass.log, 'TIMING')
     l.level('VERB', no=7, color='<c>')
     klass.verb = partialmethod(klass.log, 'VERB')
 
