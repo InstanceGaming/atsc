@@ -1,7 +1,8 @@
-from abc import ABC, abstractmethod
+import asyncio
+from dataclasses import dataclass
 from asyncio import Event
-from typing import Set, TypeVar, Optional, Union, Type
-from atsc.utils import millis
+from typing import Set, TypeVar, Optional, Union, Type, List
+from jacob.datetime.timing import millis
 
 
 class StopwatchEvent(Event):
@@ -18,16 +19,28 @@ class StopwatchEvent(Event):
         Event.set(self)
         self._marker = millis()
 
-    def clear(self) -> None:
+    def clear(self):
         Event.clear(self)
         self._marker = millis()
+        
 
-
-class Runnable(ABC):
+@dataclass()
+class Context:
+    rate: float
+    scale: float
     
-    @abstractmethod
-    async def run(self):
-        pass
+    @property
+    def delay(self):
+        return self.scale / self.rate
+
+
+class Updatable:
+    
+    def __init__(self):
+        self.children: List[Updatable] = []
+
+    async def update(self, context: Context):
+        await asyncio.gather(*[child.update(context) for child in self.children])
 
 
 class Identifiable:
@@ -39,16 +52,17 @@ class Identifiable:
     
     def __init__(self, id_: int):
         if id_ in self._global_identifiers:
-            raise ValueError('attempt to redefine reserved ID')
+            raise ValueError(f'attempt to redefine reserved identifier {id_}')
         self._id = id_
     
     def __hash__(self) -> int:
         return self._id
     
     def __eq__(self, other) -> bool:
-        if other is None:
-            return False
-        return self._id == other.id
+        if isinstance(other, Identifiable):
+            return self._id == other.id
+        else:
+            raise TypeError()
     
     def __lt__(self, other) -> bool:
         if isinstance(other, Referencable):

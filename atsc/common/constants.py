@@ -1,0 +1,11 @@
+from enum import IntEnum
+
+
+class ExitCode(IntEnum):
+    DIRECT_CALL_REQUIRED = 1
+    LOG_LEVEL_PARSE_FAIL = 2
+    LOG_FILE_STRUCTURE_FAIL = 3
+    LOG_FACILITY_FAIL = 4
+    PID_CREATE_FAIL = 5
+    PID_EXISTS = 6
+    PID_REMOVE_FAIL = 7

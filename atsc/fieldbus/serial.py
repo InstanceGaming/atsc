@@ -1,17 +1,15 @@
 import asyncio
 from collections import defaultdict
 from typing import Optional, Dict, List
-
-from defaultlist import defaultlist
 from loguru import logger
 import serial
 from aioserial import AioSerial
-from atsc import eventbus, hdlc
+from atsc import hdlc, eventbus
 from atsc.constants import *
 from atsc.frames import FrameType, DeviceAddress, GenericFrame, OutputStateFrame
 from atsc.models import FieldOutput, Ticking, Clock
-from atsc.primitives import Runnable
-from atsc.utils import millis
+from atsc.primitives import Runnable, ref
+from atsc.utils import millis, pretty_bin_literal
 
 
 class SerialBus(Runnable, Ticking):
@@ -26,15 +24,13 @@ class SerialBus(Runnable, Ticking):
     
     def __init__(self, port: str, baud: int, loop=None):
         Ticking.__init__(self)
-        eventbus.listeners[StandardObjects.E_FIELD_OUTPUT_TOGGLED].append(
-            self.on_field_output_toggled
-        )
+        eventbus.listeners[StandardObjects.BUS_TICK].append(self.on_bus_tick)
+        eventbus.listeners[StandardObjects.E_FIELD_OUTPUT_TOGGLED].append(self.on_field_output_toggled)
         self.loop = loop or asyncio.get_event_loop()
         self.enabled = True
-        self._fields = defaultlist()
-        self._tick = False
-        self._changed = False
-        self._ready = False
+        self._tick = asyncio.Event()
+        self._changed = asyncio.Event()
+        self._tx_lock = asyncio.Lock()
         self._port = port
         self._baud = baud
         self._hdlc = hdlc.HDLCContext(SERIAL_BUS_CRC_POLY,
@@ -46,6 +42,12 @@ class SerialBus(Runnable, Ticking):
         self._serial = None
         self._rx_buf: Optional[hdlc.Frame] = None
         self._stats: Dict[int, dict] = defaultdict(self._statsPopulator)
+    
+    def on_field_output_toggled(self, field_output: FieldOutput):
+        self._changed.set()
+
+    def on_bus_tick(self, clock: Clock):
+        self._tick.set()
     
     def _statsPopulator(self) -> dict:
         tx_map: Dict[FrameType, List[int, Optional[int]]] = {}
@@ -136,13 +138,19 @@ class SerialBus(Runnable, Ticking):
         await self._write(data)
     
     async def sendFrame(self, f: GenericFrame):
-        payload = f.build(self._hdlc)
-        await self._write(payload)
-        
         addr = f.address
         ft = f.type
+        
+        payload = f.build(self._hdlc)
+        
+        logger.bus('frame {} to {} payload: ',
+                   f.type.name,
+                   addr,
+                   pretty_bin_literal(payload))
+        
         self._stats[addr]['tx_frames'][ft][0] += 1
         self._stats[addr]['tx_frames'][ft][1] = millis()
+        await self._write(payload)
         logger.bus(f'sent frame type {f.type.name} to {addr} ({len(payload)}B)')
     
     def get(self) -> Optional[hdlc.Frame]:
@@ -150,13 +158,15 @@ class SerialBus(Runnable, Ticking):
         self._rx_buf = None
         return rv
     
-    def on_field_output_toggled(self, field_output: FieldOutput):
-        # todo: correct this insane hack
-        self._fields[field_output.id - 101] = field_output
-        self._changed = True
+    def prepare_output_frame(self):
+        field_base = 101
+        field_top = field_base + 36
+        fields = [ref(i, FieldOutput) for i in range(field_base, field_top)]
     
-    def on_bus_tick(self, clock: Clock):
-        self._tick = True
+        frame = OutputStateFrame(DeviceAddress.TFIB1,
+                                 fields,
+                                 True)
+        return frame
     
     async def run(self):
         try:
@@ -175,25 +185,12 @@ class SerialBus(Runnable, Ticking):
         logger.bus('serial bus connected ({})',
                    self._formatParameterText())
         
-        await self.sendFrame(OutputStateFrame(DeviceAddress.TFIB1,
-                                              self._fields,
-                                              True))
-        
         while self.enabled:
-            if self._tick:
-                if self._serial is not None:
-                    self._ready = True
-                    if self._serial.is_open:
-                        await self._read()
-                else:
-                    self._ready = False
-                self._tick = False
-            
-            if self._changed:
-                await self.sendFrame(OutputStateFrame(DeviceAddress.TFIB1,
-                                                      self._fields,
-                                                      True))
-                self._changed = False
+            if self._tick.is_set() or self._changed.is_set():
+                async with self._tx_lock:
+                    await self.sendFrame(self.prepare_output_frame())
+                    self._tick.clear()
+                    self._changed.clear()
             
             await asyncio.sleep(0)
     

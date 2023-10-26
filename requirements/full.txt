@@ -1,0 +1,5 @@
+loguru
+pydantic
+jacobs-boilerplate
+crcmod
+aioserial

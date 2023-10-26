@@ -125,16 +125,6 @@ class OutputStateFrame(GenericFrame):
                 if field is not None:
                     sf[byte] += field.q * bit
                 i += 1
-            
-            # l = self._channel_states[ci]
-            # sf[i] += l.a * 64
-            # sf[i] += l.b * 32
-            # sf[i] += l.c * 16
-            # r = self._channel_states[ci + 1]
-            # sf[i] += r.a * 4
-            # sf[i] += r.b * 2
-            # sf[i] += r.c * 1
-            # ci += 2
         
         payload = bytearray([128 if self._transfer else 0])
         payload.extend(sf)

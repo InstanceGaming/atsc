@@ -20,7 +20,7 @@ class Parameter(Referencable):
         self._previous_value = None
         self._last_editor: Optional[Referencable] = None
     
-    async def change(self, value: Any, editor: Referencable):
+    def change(self, value: Any, editor: Referencable):
         self._last_editor = editor
         
         msg = self.validate(value)

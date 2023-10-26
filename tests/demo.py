@@ -1,11 +1,12 @@
-from atsc.logging import setup_logger
-from atsc.programs import Controller
-from atsc.models import *
-from atsc.constants import *
-from atsc.primitives import ref
+import loguru
+from jacob.logging import setup_logger
+
+from atsc.common.primitives import ref
+from atsc.controller import Controller
 
 
-logger = setup_logger('FIELD,INFO;stderr=ERROR')
+logger = setup_logger('FIELD,DEBUG;stderr=ERROR')
+loguru.logger = logger
 
 flasher_a = Flasher(StandardObjects.FLASHER1)
 flasher_b = Flasher(StandardObjects.FLASHER2, invert=True)
@@ -50,21 +51,23 @@ def generate_load_switches():
 load_switches = generate_load_switches()
 plan_thru = TimingPlan(
     {
-        SignalState.STOP   : 1,
-        SignalState.CAUTION: 5,
-        SignalState.GO     : 5
+        SignalState.STOP    : 1,
+        SignalState.CAUTION : 6,
+        SignalState.GO      : 4,
+        SignalState.GAP     : 8
     },
     {
-        SignalState.STOP   : 300,
-        SignalState.CAUTION: 6,
-        SignalState.GO     : 15
+        SignalState.STOP    : 300,
+        SignalState.CAUTION : 6,
+        SignalState.GO      : 10,
+        SignalState.GAP     : 10
     }
 )
 plan_ped = TimingPlan(
     {
-        SignalState.STOP   : 1,
-        SignalState.CAUTION: 10,
-        SignalState.GO     : 5
+        SignalState.STOP    : 1,
+        SignalState.CAUTION : 9,
+        SignalState.GO      : 3
     }
 )
 
@@ -77,10 +80,10 @@ signals = [
     Signal(506, plan_thru, ref(308, LoadSwitch)),
     Signal(507, plan_thru, ref(309, LoadSwitch)),
     Signal(508, plan_thru, ref(310, LoadSwitch)),
-    Signal(509, plan_ped, ref(305, LoadSwitch), flash_aligned=True),
-    Signal(510, plan_ped, ref(306, LoadSwitch), flash_aligned=True),
-    Signal(511, plan_ped, ref(311, LoadSwitch), flash_aligned=True),
-    Signal(512, plan_ped, ref(312, LoadSwitch), flash_aligned=True),
+    Signal(509, plan_ped, ref(305, LoadSwitch)),
+    Signal(510, plan_ped, ref(306, LoadSwitch)),
+    Signal(511, plan_ped, ref(311, LoadSwitch)),
+    Signal(512, plan_ped, ref(312, LoadSwitch))
 ]
 phases = [
     Phase(601, (ref(501, Signal),)),
