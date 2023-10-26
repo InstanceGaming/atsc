@@ -894,44 +894,34 @@ class Controller:
         
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
-                active: List[Phase] = []
+                active = self.getActivePhases()
+                phase_pool = self.getCurrentPhasePool()
+                available_phases = self.getAvailablePhases(phase_pool, active)
+                available_calls = self.filterCallsByPhases(self._calls, available_phases)
+                if self._active_barrier is not None:
+                    available_calls = self.filterCallsByBarrier(available_calls, self._active_barrier)
                 
-                while len(active) < 2:
-                    active = self.getActivePhases()
-                    phase_pool = self.getCurrentPhasePool()
-                    available_phases = self.getAvailablePhases(phase_pool, active)
-                    available_calls = self.filterCallsByPhases(self._calls, available_phases)
-                    if self._active_barrier is not None:
-                        available_calls = self.filterCallsByBarrier(available_calls, self._active_barrier)
-                    
-                    if len(available_calls):
-                        ranked_calls = self.rankCalls(available_calls)
-                        if len(active):
-                            for rc in ranked_calls:
-                                if self.canPhaseRunAsPartner(rc.target, active):
-                                    self.serveCall(rc)
-                                    break
-                            else:
+                if len(available_calls):
+                    ranked_calls = self.rankCalls(available_calls)
+                    if len(active):
+                        for rc in ranked_calls:
+                            if self.canPhaseRunAsPartner(rc.target, active):
+                                self.serveCall(rc)
                                 break
-                        else:
-                            self.serveCall(ranked_calls[0])
-                            break
                     else:
-                        if len(active):
-                            for ip in self._idle_phases:
-                                if self.canPhaseRunAsPartner(ip, active):
-                                    self.detection(ip, ped_service=True, system=True)
-                                    break
-                            else:
+                        self.serveCall(ranked_calls[0])
+                else:
+                    if len(active):
+                        for ip in self._idle_phases:
+                            if self.canPhaseRunAsPartner(ip, active):
+                                self.detection(ip, ped_service=True, system=True)
                                 break
-                        else:
-                            stale = self.getStaleStopPhase(self._idle_phases)
-                            self.detection(stale, ped_service=True, system=True)
-                            break
+                    else:
+                        stale = self.getStaleStopPhase(self._idle_phases)
+                        self.detection(stale, ped_service=True, system=True)
                 
-                    if self._active_barrier is not None:
-                        if self.allPhasesInactive():
-                            self.handleRingAndBarrier(available_phases, phase_pool, len(available_calls))
+                if self.allPhasesInactive():
+                    self.handleRingAndBarrier(available_phases, phase_pool, len(available_calls))
                 
                 for phase in self._phases:
                     phase_conflict = False
