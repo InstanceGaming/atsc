@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from core import FrozenIdentifiableBase, IdentifiableBase
+from core import IdentifiableBase, FrozenIdentifiableBase
 from typing import List
 from dataclasses import dataclass
 

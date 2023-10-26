@@ -18,7 +18,11 @@ from utils import condText
 from typing import List, Tuple, Optional, FrozenSet
 from natsort import natsorted
 from datetime import datetime
-from timespan import (Timespan, day_of_year, datetime_month, datetime_weekday, sort_overlap_duration)
+from timespan import (Timespan,
+                      day_of_year,
+                      datetime_month,
+                      datetime_weekday,
+                      sort_overlap_duration)
 from functools import lru_cache
 from dataclasses import dataclass
 from ringbarrier import Ring, Barrier

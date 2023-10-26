@@ -894,14 +894,16 @@ class Controller:
         
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
-                active = self.getActivePhases()
-                phase_pool = self.getCurrentPhasePool()
-                available_phases = self.getAvailablePhases(phase_pool, active)
-                available_calls = self.filterCallsByPhases(self._calls, available_phases)
-                if self._active_barrier is not None:
-                    available_calls = self.filterCallsByBarrier(available_calls, self._active_barrier)
+                active: List[Phase] = []
                 
                 while len(active) < 2:
+                    active = self.getActivePhases()
+                    phase_pool = self.getCurrentPhasePool()
+                    available_phases = self.getAvailablePhases(phase_pool, active)
+                    available_calls = self.filterCallsByPhases(self._calls, available_phases)
+                    if self._active_barrier is not None:
+                        available_calls = self.filterCallsByBarrier(available_calls, self._active_barrier)
+                    
                     if len(available_calls):
                         ranked_calls = self.rankCalls(available_calls)
                         if len(active):
@@ -920,20 +922,16 @@ class Controller:
                                 if self.canPhaseRunAsPartner(ip, active):
                                     self.detection(ip, ped_service=True, system=True)
                                     break
-                        
-                        stale = self.getStaleStopPhase(self._idle_phases)
-                        self.detection(stale, ped_service=True, system=True)
-                    
-                    active = self.getActivePhases()
-                    phase_pool = self.getCurrentPhasePool()
-                    available_phases = self.getAvailablePhases(phase_pool, active)
-                    available_calls = self.filterCallsByPhases(self._calls, available_phases)
-                    if self._active_barrier is not None:
-                        available_calls = self.filterCallsByBarrier(available_calls, self._active_barrier)
+                            else:
+                                break
+                        else:
+                            stale = self.getStaleStopPhase(self._idle_phases)
+                            self.detection(stale, ped_service=True, system=True)
+                            break
                 
-                if self._active_barrier is not None:
-                    if self.allPhasesInactive():
-                        self.handleRingAndBarrier(available_phases, phase_pool, len(available_calls))
+                    if self._active_barrier is not None:
+                        if self.allPhasesInactive():
+                            self.handleRingAndBarrier(available_phases, phase_pool, len(available_calls))
                 
                 for phase in self._phases:
                     phase_conflict = False
@@ -1031,8 +1029,8 @@ class Controller:
             self.setOperationState(self._op_mode)
             self.transfer()
             while True:
-                time.sleep(self.INCREMENT)
                 self.tick()
+                time.sleep(self.INCREMENT)
     
     def shutdown(self):
         """Run termination tasks to stop control loop"""
