@@ -1,5 +1,4 @@
 import asyncio
-
 from atsc.common.primitives import AsyncDaemon
 
 

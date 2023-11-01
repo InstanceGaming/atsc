@@ -101,13 +101,13 @@ it waits for the next connect.
     group.add_argument(
         '--rts',
         type=int,
-        help='set initial RTS line state (possible values: 0, 1)',
+        help='set initial RTS line _state (possible values: 0, 1)',
         default=None)
 
     group.add_argument(
         '--dtr',
         type=int,
-        help='set initial DTR line state (possible values: 0, 1)',
+        help='set initial DTR line _state (possible values: 0, 1)',
         default=None)
 
     group = parser.add_argument_group('network settings')
@@ -184,8 +184,8 @@ it waits for the next connect.
                 client_socket, addr = srv.accept()
                 sys.stderr.write('Connected by {}\n'.format(addr))
                 # More quickly detect bad _clients who quit without closing the
-                # connection: After 1 second of idle, start sending TCP keep-alive
-                # packets every 1 second. If 3 consecutive keep-alive packets
+                # connection: After 1 timer of idle, start sending TCP keep-alive
+                # packets every 1 timer. If 3 consecutive keep-alive packets
                 # fail, assume the client is gone and close the connection.
                 try:
                     client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)

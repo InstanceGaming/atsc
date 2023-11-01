@@ -13,28 +13,12 @@
 #  limitations under the License.
 
 import abc
-import enum
-
-from atsc.models import FieldOutput
-from atsc.hdlc import HDLCContext
+import math
 from typing import List, Union, Optional
 from bitarray import bitarray
-
-
-class DeviceAddress(enum.IntEnum):
-    UNKNOWN = 0x00
-    CONTROLLER = 0xFF
-    TFIB1 = 0x08
-
-
-class FrameType(enum.IntEnum):
-    UNKNOWN = 0
-    AWK = 1
-    NAK = 2
-    IGN = 3
-    BEACON = 4
-    OUTPUTS = 16
-    INPUTS = 32
+from atsc.fieldbus.hdlc import HDLCContext
+from atsc.controller.models import FieldOutput
+from atsc.fieldbus.constants import FrameType
 
 
 class GenericFrame(abc.ABC):
@@ -110,24 +94,25 @@ class BeaconFrame(GenericFrame):
 class OutputStateFrame(GenericFrame):
     VERSION = 11
     
-    def __init__(self, address: int, fields: List[FieldOutput], transfer: bool):
+    def __init__(self,
+                 address: int,
+                 fields: List[FieldOutput],
+                 transfer: bool):
         super(OutputStateFrame, self).__init__(address, self.VERSION, FrameType.OUTPUTS, FrameType.INPUTS)
         self._fields = fields
         self._transfer = transfer
     
     def getPayload(self):
-        sf = bytearray([0] * 6)
-        i = 0
+        bytes_count = math.ceil(len(self._fields) / 6)
+        payload = bytearray([128 if self._transfer else 0] + ([0] * bytes_count))
         
-        for byte in range(6):
+        i = 0
+        for byte in range(bytes_count):
             for bit in (64, 32, 16, 4, 2, 1):
                 field = self._fields[i]
                 if field is not None:
-                    sf[byte] += field.q * bit
+                    payload[byte + 1] += int(field) * bit
                 i += 1
-        
-        payload = bytearray([128 if self._transfer else 0])
-        payload.extend(sf)
         
         return payload
 

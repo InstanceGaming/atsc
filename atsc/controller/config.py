@@ -1,5 +1,5 @@
 import json
-from typing import TextIO, Iterable, Set
+from typing import Set, TextIO, Iterable
 from pydantic import BaseModel
 
 

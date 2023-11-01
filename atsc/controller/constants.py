@@ -1,4 +1,12 @@
-from enum import IntEnum, auto, Enum
+from enum import Enum, IntEnum, auto
+from jacob.logging import CustomLevel
+
+
+LOGGING_LEVELS = {
+    CustomLevel(3, 'FIELD', '<d>'),
+    CustomLevel(6, 'TIMING', '<d>'),
+    CustomLevel(7, 'VERB', '<c>')
+}
 
 
 SHUTDOWN_POLL_RATE = 0.1
@@ -46,7 +54,7 @@ class RingState(Enum):
     INACTIVE = auto()
     SELECTING = auto()
     ACTIVE = auto()
-    RED_CLEARANCE = auto()
+    CLEARING = auto()
     BARRIER = auto()
 
 

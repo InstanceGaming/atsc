@@ -1,4 +1,4 @@
-## Actuated Traffic Signal Controller
+## Actuated Traffic Signal SimpleController
 
 This is the result of 4 years of clean-room reverse engineering how real traffic signal controllers work for intersections.
 

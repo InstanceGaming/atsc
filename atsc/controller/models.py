@@ -1,52 +1,16 @@
+import asyncio
+from loguru import logger
+from typing import Set, Dict, List, Iterable, Optional
 from asyncio import Lock, Event
 from itertools import cycle
-from typing import Dict, Iterable, Set, Optional, Union, List
-from loguru import logger
-import asyncio
 from dataclasses import dataclass
-
-from pydantic import BaseModel
-
-from atsc.common.primitives import Identifiable, Updatable, Context
-from atsc.controller.constants import FieldState, SignalState
-
-
-IntervalTime = Dict[SignalState, float]
-
-
-class TimingPlan(BaseModel):
-    minimum: IntervalTime
-    maximum: Optional[IntervalTime] = None
-    
-    def merge(self, *args, **kwargs) -> 'TimingPlan':
-        other_min = {}
-        other_max = {}
-        
-        arg_count = len(args)
-        if arg_count == 1:
-            first_arg = args[0]
-            if isinstance(first_arg, TimingPlan):
-                other_min = first_arg.minimum
-                other_max = first_arg.maximum
-            elif isinstance(first_arg, dict):
-                other_min = first_arg
-            else:
-                raise TypeError()
-        elif arg_count == 2:
-            if isinstance(args[0], dict) and isinstance(args[1], dict):
-                other_min = args[0]
-                other_max = args[1]
-            else:
-                raise TypeError()
-        elif arg_count == 0:
-            if len(kwargs) == 0:
-                raise TypeError()
-            else:
-                other_min = kwargs.get('minimum', {})
-                other_max = kwargs.get('maximum', {})
-        
-        return TimingPlan(minimum=self.minimum | other_min,
-                          maximum=self.maximum | other_max)
+from atsc.common.primitives import Timer, Context, Updatable, Identifiable
+from atsc.controller.constants import (RingState,
+                                       CallSource,
+                                       FieldState,
+                                       InputAction,
+                                       SignalState,
+                                       InputActivation)
 
 
 class FieldOutput(Identifiable, Updatable):
@@ -55,12 +19,13 @@ class FieldOutput(Identifiable, Updatable):
     def state(self):
         return self._state
     
-    def __init__(self, id_: int, invert: bool):
-        super().__init__(id_)
+    def __init__(self, id_: int, invert: bool = False):
+        Identifiable.__init__(self, id_)
+        Updatable.__init__(self)
         self._lock = Lock()
         self._state = FieldState.OFF
         self._scalar = not invert
-        self._elapsed = 0.0
+        self.flash_timer = Timer()
     
     async def write(self, state: FieldState):
         if state != FieldState.INHERIT:
@@ -68,134 +33,199 @@ class FieldOutput(Identifiable, Updatable):
                 match state:
                     case FieldState.OFF:
                         self._scalar = False
-                    case (FieldState.ON, FieldState.FLASHING):
+                    case FieldState.ON | FieldState.FLASHING:
                         self._scalar = True
                     case _:
                         raise NotImplementedError()
                 
                 self._state = state
     
-    async def read(self) -> bool:
-        async with self._lock:
-            return self._scalar
-        
+    def __bool__(self):
+        return self._scalar
+    
+    def __int__(self):
+        return 1 if self._scalar else 0
+    
     async def update(self, context: Context):
-        if self.state == FieldState.FLASHING and self._elapsed > (context.scale / 2):
-            async with self._lock:
-                self._scalar = not self._scalar
-            
-            self._elapsed = 0.0
-        else:
-            self._elapsed += context.delay
+        if self.state == FieldState.FLASHING:
+            if self.flash_timer.poll(context, 0.5):
+                async with self._lock:
+                    self._scalar = not self._scalar
+
+
+@dataclass()
+class IntervalConfig:
+    field: FieldOutput
+    minimum: float
+    maximum: Optional[float] = None
+    reduce: bool = False
+    flashing: bool = False
+    restable: bool = True
+    collect: bool = False
 
 
 class Signal(Identifiable, Updatable):
     
+    @property
+    def fields(self):
+        return self._fields
+    
     def __init__(self,
                  id_: int,
-                 outputs: Iterable[FieldOutput]):
-        super().__init__(id_)
+                 intervals: Dict[SignalState, IntervalConfig]):
+        Identifiable.__init__(self, id_)
+        Updatable.__init__(self)
         self._state = SignalState.STOP
-        self._outputs = outputs
-        self._limits_map = {}
-        self._field_map = {}
+        self._intervals = intervals
+        self._fields = list(set([c.field for c in intervals.values()]))
         
-        self._setpoint: float = 0.0
-        self._elapsed: float = 0.0
-        self._serve_elapsed: float = 0.0
-        
-        self.safe = Event()
+        self.demand = True
+        self.timer = Timer()
         self.conflicting_demand = Event()
+        self.safe = Event()
         
-        self.children.extend(outputs)
-    
-    def map_limit(self, state: SignalState, minimum: float, maximum: Optional[float] = None):
-        self._limits_map.update({state: (minimum, maximum)})
-        
-    def map_output(self, state: SignalState, output: FieldOutput, flashing: bool):
-        field_state = FieldState.FLASHING if flashing else FieldState.ON
-        self._field_map.update({state: (output, field_state)})
+        self.children.extend(self._fields)
     
     def get_next_state(self) -> SignalState:
-        pass
-    
-    def change_state(self, specific: Optional[SignalState] = None):
-        next_state = specific or self.get_next_state()
-        self._state = next_state
+        match self._state:
+            case SignalState.STOP:
+                return SignalState.GO
+            case SignalState.CAUTION:
+                return SignalState.STOP
+            case SignalState.REDUCE | SignalState.FYA:
+                return SignalState.CAUTION
+            case SignalState.GO:
+                if SignalState.REDUCE in self._intervals:
+                    return SignalState.REDUCE
+                else:
+                    return SignalState.CAUTION
+            case SignalState.LS_FLASH:
+                return SignalState.STOP
     
     async def update(self, context: Context):
+        config = self._intervals[self._state]
+        
+        if self.timer.poll(context, config.minimum):
+            conflicting_demand = config.restable and self.conflicting_demand.is_set()
+            rigid_interval = not config.restable
+            lacking_demand = not self.demand
+            
+            if conflicting_demand or rigid_interval or lacking_demand:
+                if config.maximum:
+                    trigger = config.maximum
+                    
+                    if config.reduce:
+                        trigger -= self.timer.value
+                    
+                    if self.timer.poll(context, trigger):
+                        await self.change()
+                else:
+                    await self.change()
+        
         await super().update(context)
+        
+    async def change(self, specific: Optional[SignalState] = None):
+        next_state = specific or self.get_next_state()
+        self._state = next_state
+        
+        config = self._intervals[self._state]
+        for field in self._fields:
+            if field == config.field:
+                if config.flashing:
+                    await field.write(FieldState.FLASHING)
+                else:
+                    await field.write(FieldState.ON)
+            else:
+                await field.write(FieldState.OFF)
+        
+        if self._state == SignalState.STOP:
+            self.safe.set()
+    
+    def actuation(self):
+        if self._intervals[self._state].collect:
+            self.demand = True
+        else:
+            self.timer.reset()
     
     async def wait(self):
-        self.change_state()
-        await asyncio.wait_for(self.safe.wait(), None)
+        if self.demand:
+            await self.change()
+            await self.safe.wait()
+        else:
+            await asyncio.sleep(0.0)
 
 
-class Phase(Referencable):
-    
-    @property
-    def ready(self):
-        return self.enabled and not self.active and not self.skip
+class Phase(Identifiable, Updatable):
     
     @property
     def active(self):
         return self._active
     
     @property
-    def signals(self):
-        return self._signals
+    def fields(self):
+        rv = []
+        for signal in self.signals:
+          rv.extend(signal.fields)
+        return rv
     
     def __init__(self,
                  id_: int,
-                 signals: Iterable[Signal],
-                 enabled: bool = True,
-                 skip: bool = False):
-        super().__init__(id_)
-        
+                 signals: Iterable[Signal]):
+        Identifiable.__init__(self, id_)
+        Updatable.__init__(self)
         self._active = False
-        self._signals = sorted(signals)
-        self.enabled = enabled
-        self.skip = skip
+        
+        self.signals = sorted(signals)
+        self.children.extend(self.signals)
     
     async def wait(self):
-        if self.ready:
+        if not self.active:
             self._active = True
             logger.debug('{} activated', self.get_tag())
-            await asyncio.gather(*[s.wait() for s in self._signals])
+            
+            await asyncio.gather(*[s.wait() for s in self.signals])
+            
             self._active = False
             logger.debug('{} deactivated', self.get_tag())
         else:
-            raise RuntimeError(f'attempted to await unready phase {self.get_tag()}')
+            raise RuntimeError(f'attempt to reactivate phase {self.get_tag()}')
 
 
-class Ring(Referencable, Ticking, PhaseContainer):
+class Ring(Identifiable, Updatable):
     
     @property
     def state(self):
         return self._state
     
+    @property
+    def fields(self):
+        rv = []
+        for phase in self.phases:
+            rv.extend(phase.fields)
+        return rv
+    
     def __init__(self,
                  id_: int,
-                 phases: Optional[Iterable[Union[int, Phase]]] = None,
-                 red_clearance: float = 0,
+                 phases: Iterable[Phase],
+                 clearance_time: float,
                  enabled: bool = True):
-        Referencable.__init__(self, id_)
-        Ticking.__init__(self)
-        PhaseContainer.__init__(self, phases)
+        Identifiable.__init__(self, id_)
+        Updatable.__init__(self)
         self._state = RingState.INACTIVE
-        self._setpoint = red_clearance
-        self._remaining = red_clearance
-        self._cleared = asyncio.Event()
+        
+        self.clearance_time = clearance_time
+        self.phases = sorted(phases)
         self.enabled = enabled
+        self.timer = Timer()
+        self.cleared = Event()
+        self.children.extend(self.phases)
     
-    async def on_time_tick(self, clock: Clock):
-        if self._state == RingState.RED_CLEARANCE:
-            if self._remaining > clock.delay:
-                self._remaining -= clock.delay
-                logger.timing('{} {:03.02f}', self.get_tag(), self._remaining)
-            else:
-                logger.timing('{} limit', self.get_tag())
-                self._cleared.set()
+    async def update(self, context: Context):
+        if self._state == RingState.CLEARING:
+            if self.timer.poll(context, self.clearance_time):
+                self.cleared.set()
+        
+        await super().update(context)
     
     async def serve(self, window: List[Phase] = None):
         window = window or self.phases
@@ -209,42 +239,28 @@ class Ring(Referencable, Ticking, PhaseContainer):
             while len(window):
                 candidate = window.pop(0)
                 
-                if candidate.ready:
-                    selected = candidate
-                    
-                    self._state = RingState.ACTIVE
-                    await selected.wait()
-                    
-                    if self._setpoint > 0:
-                        logger.debug('{} red clearance',
-                                     self.get_tag(),
-                                     self._setpoint)
-                        
-                        self._state = RingState.RED_CLEARANCE
-                        self._remaining = self._setpoint
-                        await self._cleared.wait()
-                        self._cleared.clear()
+                self._state = RingState.ACTIVE
+                self.cleared.clear()
+                await candidate.wait()
+                self._state = RingState.CLEARING
+                await self.cleared.wait()
             
             logger.debug('{} deactivated', self.get_tag())
         
         self._state = RingState.INACTIVE
 
 
-class Barrier(Referencable, PhaseContainer):
+class Barrier(Identifiable):
     
-    def __init__(self, id_: int, phases: Optional[Iterable[Union[int, Phase]]] = None):
-        Referencable.__init__(self, id_)
-        PhaseContainer.__init__(self, phases)
+    def __init__(self, id_: int, phases: Iterable[Phase]):
+        super().__init__(id_)
+        self.phases = phases
     
     def intersection(self, ring: Ring) -> Set[Phase]:
         return set(self.phases).intersection(ring.phases)
 
 
-class RingCycler(Runnable):
-    
-    @property
-    def active(self):
-        return self._active
+class RingCycler(Updatable):
     
     @property
     def rings(self):
@@ -253,6 +269,10 @@ class RingCycler(Runnable):
     @property
     def barriers(self):
         return self._barriers
+    
+    @property
+    def barrier(self):
+        return self._barrier
     
     @property
     def phases(self) -> List[Phase]:
@@ -273,30 +293,19 @@ class RingCycler(Runnable):
         return signals
     
     @property
-    def load_switches(self) -> List[LoadSwitch]:
-        switches = []
-        
-        for signal in self.signals:
-            switches.extend(signal.load_switches)
-        
-        return switches
+    def fields(self):
+        rv = []
+        for ring in self._rings:
+            rv.extend(ring.fields)
+        return rv
     
-    @property
-    def field_outputs(self) -> List[FieldOutput]:
-        field_outputs = []
-        
-        for switch in self.load_switches:
-            field_outputs.extend(switch.field_outputs)
-        
-        return field_outputs
-    
-    def __init__(self,
-                 rings: Iterable[Ring],
-                 barriers: Iterable[Barrier]):
+    def __init__(self, rings: Iterable[Ring], barriers: Iterable[Barrier]):
+        super().__init__()
         self._rings = sorted(rings)
         self._barriers = sorted(barriers)
         self._cycler = cycle(self._barriers)
-        self._active: Optional[Barrier] = None
+        self._barrier: Optional[Barrier] = None
+        self.children.extend(self._rings)
     
     async def run(self):
         while True:
@@ -304,18 +313,18 @@ class RingCycler(Runnable):
             # if zero phases were served, the controller is in idle,
             # meaning preferred phases can be recycled.
             
-            self._active = next(self._cycler)
-            logger.debug('{} is active barrier', self._active.get_tag())
+            self._barrier = next(self._cycler)
+            logger.debug('{} is active barrier', self._barrier.get_tag())
             
             routines = []
             for ring in self._rings:
-                window = sorted(self._active.intersection(ring))
+                window = sorted(self._barrier.intersection(ring))
                 routines.append(ring.serve(window))
             
             await asyncio.gather(*routines)
 
 
-class Call(Referencable):
+class Call(Identifiable):
     
     @property
     def target(self) -> Phase:
@@ -361,12 +370,11 @@ class Call(Referencable):
 
 
 @dataclass
-class Input(Referencable):
+class Input(Identifiable):
     trigger: InputActivation
     action: InputAction
     targets: List[Phase]
     
-    # update states and changed together
     state: bool = False
     last_state: bool = False
     changed: bool = False

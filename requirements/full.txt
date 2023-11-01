@@ -1,5 +1,6 @@
 loguru
 pydantic
-jacobs-boilerplate
+jacob
 crcmod
 aioserial
+bitarray

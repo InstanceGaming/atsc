@@ -1,5 +1,5 @@
 [Unit]
-Description=Actuated Traffic Signal Controller (ATSC)
+Description=Actuated Traffic Signal SimpleController (ATSC)
 
 [Service]
 Type=forking

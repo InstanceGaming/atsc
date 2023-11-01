@@ -1,46 +1,27 @@
 import asyncio
-from dataclasses import dataclass
+from typing import Set, List
 from asyncio import Event
-from typing import Set, TypeVar, Optional, Union, Type, List
+from atsc.common.structs import Context
 from jacob.datetime.timing import millis
 
 
 class StopwatchEvent(Event):
-
+    
     @property
     def elapsed(self):
         return millis() - self._marker
-
+    
     def __init__(self):
         Event.__init__(self)
         self._marker = 0
-
+    
     def set(self):
         Event.set(self)
         self._marker = millis()
-
+    
     def clear(self):
         Event.clear(self)
         self._marker = millis()
-        
-
-@dataclass()
-class Context:
-    rate: float
-    scale: float
-    
-    @property
-    def delay(self):
-        return self.scale / self.rate
-
-
-class Updatable:
-    
-    def __init__(self):
-        self.children: List[Updatable] = []
-
-    async def update(self, context: Context):
-        await asyncio.gather(*[child.update(context) for child in self.children])
 
 
 class Identifiable:
@@ -65,7 +46,7 @@ class Identifiable:
             raise TypeError()
     
     def __lt__(self, other) -> bool:
-        if isinstance(other, Referencable):
+        if isinstance(other, Identifiable):
             return self._id < other.id
         else:
             raise TypeError()
@@ -77,29 +58,31 @@ class Identifiable:
         return f'<{type(self).__name__} #{self.id}>'
 
 
-class Referencable(Identifiable):
-    _global_refs = {}
-
-    def __init__(self, id_: int):
-        super().__init__(id_)
-        self._global_refs.update({id_: self})
-
-
-R_T = TypeVar('R_T', bound=Referencable)
+class Updatable:
+    
+    def __init__(self):
+        self.children: List[Updatable] = []
+    
+    async def update(self, context: Context):
+        await asyncio.gather(*[child.update(context) for child in self.children])
 
 
-def ref(r: Optional[Union[int, Referencable]], cls: Type[R_T]) -> Optional[R_T]:
-    assert isinstance(cls, type(Referencable))
-    if r is None:
-        return None
-    if isinstance(r, Referencable):
-        return r
-    elif isinstance(r, int):
-        for k, v in Referencable._global_refs.items():
-            if k == r:
-                if not isinstance(v, cls):
-                    raise TypeError(f'type of {r} was not {cls.__name__}')
-                return v
-        raise LookupError(f'failed to find reference {r} (type {cls.__name__}), is it initialized?')
-    else:
-        raise TypeError()
+class Timer:
+    
+    @property
+    def value(self):
+        return self._value
+    
+    def __init__(self):
+        self._value = 0.0
+    
+    def poll(self, context: Context, trigger: float) -> bool:
+        if self._value >= trigger:
+            self.reset()
+            return True
+        else:
+            self._value += context.delay
+            return False
+    
+    def reset(self):
+        self._value = 0.0

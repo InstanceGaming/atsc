@@ -13,12 +13,12 @@
 #  limitations under the License.
 import os
 import sys
-import argparse
 import loguru
+import argparse
 from jacob import logging
+from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from atsc.common.constants import ExitCode
-from atsc.controller import Controller
 
 
 DEFAULT_LOG_LEVELS = 'INFO,stderr=ERROR,file=WARNING'
@@ -29,7 +29,7 @@ def get_default_pid_path():
 
 
 def get_cli_args():
-    root = argparse.ArgumentParser(description='Actuated Traffic Signal Controller CLI tool.')
+    root = argparse.ArgumentParser(description='Actuated Traffic Signal SimpleController CLI tool.')
     subparsers = root.add_subparsers(dest='subsystem')
     
     root.add_argument('-L', '--levels',

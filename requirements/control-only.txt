@@ -1,3 +1,4 @@
 loguru
 pydantic
 jacobs-boilerplate
+bitarray

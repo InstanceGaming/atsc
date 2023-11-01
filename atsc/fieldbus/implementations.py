@@ -1,31 +1,38 @@
-import asyncio
-from collections import defaultdict
-from typing import Optional, Dict, List
-from loguru import logger
 import serial
+import asyncio
+from atsc.fieldbus.constants import *
+from loguru import logger
+from typing import Dict, List, Optional
+from asyncio import AbstractEventLoop, get_event_loop
 from aioserial import AioSerial
-from atsc import hdlc, eventbus
-from atsc.constants import *
-from atsc.frames import FrameType, DeviceAddress, GenericFrame, OutputStateFrame
-from atsc.models import FieldOutput, Ticking, Clock
-from atsc.primitives import Runnable, ref
-from atsc.utils import millis, pretty_bin_literal
+from jacob.text import format_binary_literal
+from collections import defaultdict
+from atsc.common.models import AsyncDaemon
+from atsc.fieldbus.hdlc import HDLC_FLAG, Frame, HDLCContext
+from atsc.common.structs import Context
+from atsc.fieldbus.frames import GenericFrame, OutputStateFrame
+from jacob.datetime.timing import millis
 
 
-class SerialBus(Runnable, Ticking):
+class SerialBus(AsyncDaemon):
     
     @property
-    def hdlc_context(self):
+    def hdlc(self):
         return self._hdlc
     
     @property
     def stats(self):
-        return self._stats.copy()
+        return self._stats
     
-    def __init__(self, port: str, baud: int, loop=None):
-        Ticking.__init__(self)
-        eventbus.listeners[StandardObjects.BUS_TICK].append(self.on_bus_tick)
-        eventbus.listeners[StandardObjects.E_FIELD_OUTPUT_TOGGLED].append(self.on_field_output_toggled)
+    def __init__(self,
+                 context: Context,
+                 port: str,
+                 baud: int,
+                 shutdown_timeout: float = 5.0,
+                 pid_file: Optional[str] = None,
+                 loop: AbstractEventLoop = get_event_loop()):
+        super().__init__(context, shutdown_timeout, pid_file, loop)
+        
         self.loop = loop or asyncio.get_event_loop()
         self.enabled = True
         self._tick = asyncio.Event()
@@ -33,21 +40,15 @@ class SerialBus(Runnable, Ticking):
         self._tx_lock = asyncio.Lock()
         self._port = port
         self._baud = baud
-        self._hdlc = hdlc.HDLCContext(SERIAL_BUS_CRC_POLY,
+        self._hdlc = HDLCContext(SERIAL_BUS_CRC_POLY,
                                       SERIAL_BUS_CRC_INIT,
                                       SERIAL_BUS_CRC_REVERSE,
                                       SERIAL_BUS_CRC_XOR_OUT,
                                       byte_order=SERIAL_BUS_BYTE_ORDER)
         
         self._serial = None
-        self._rx_buf: Optional[hdlc.Frame] = None
+        self._rx_buf: Optional[Frame] = None
         self._stats: Dict[int, dict] = defaultdict(self._statsPopulator)
-    
-    def on_field_output_toggled(self, field_output: FieldOutput):
-        self._changed.set()
-
-    def on_bus_tick(self, clock: Clock):
-        self._tick.set()
     
     def _statsPopulator(self) -> dict:
         tx_map: Dict[FrameType, List[int, Optional[int]]] = {}
@@ -64,7 +65,7 @@ class SerialBus(Runnable, Ticking):
             'tx_bytes': 0, 'rx_bytes': 0, 'tx_frames': tx_map, 'rx_frames': rx_map
         }
     
-    def _updateStatsRx(self, f: hdlc.Frame):
+    def _updateStatsRx(self, f: Frame):
         data = f.data
         size = len(data)
         addr = data[0]
@@ -111,7 +112,7 @@ class SerialBus(Runnable, Ticking):
                 drydock = bytearray()
                 received = await self._serial.read_async(iw)
                 for b in received:
-                    if b == hdlc.HDLC_FLAG:
+                    if b == HDLC_FLAG:
                         if in_frame:
                             in_frame = False
                             
@@ -146,23 +147,19 @@ class SerialBus(Runnable, Ticking):
         logger.bus('frame {} to {} payload: ',
                    f.type.name,
                    addr,
-                   pretty_bin_literal(payload))
+                   format_binary_literal(payload))
         
         self._stats[addr]['tx_frames'][ft][0] += 1
         self._stats[addr]['tx_frames'][ft][1] = millis()
         await self._write(payload)
         logger.bus(f'sent frame type {f.type.name} to {addr} ({len(payload)}B)')
     
-    def get(self) -> Optional[hdlc.Frame]:
+    def get(self) -> Optional[Frame]:
         rv = self._rx_buf
         self._rx_buf = None
         return rv
     
     def prepare_output_frame(self):
-        field_base = 101
-        field_top = field_base + 36
-        fields = [ref(i, FieldOutput) for i in range(field_base, field_top)]
-    
         frame = OutputStateFrame(DeviceAddress.TFIB1,
                                  fields,
                                  True)

@@ -11,28 +11,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-import enum
 import crcmod
+from atsc.fieldbus.constants import *
 from typing import Tuple, Optional
-
-from atsc.utils import pretty_byte_size, pretty_bin_literal
-
-
-HDLC_FLAG = 0x7E
-HDLC_ESCAPE = 0x7D
-HDLC_ESCAPE_MASK = 0x20
-
-
-class HDLCError(enum.IntEnum):
-    UNKNOWN = 1
-    FLAG = 2
-    EMPTY = 3
-    NO_CRC = 4
-    BAD_CRC = 5
-    TOO_SHORT = 6
-    TOO_LONG = 7
-    NO_DATA = 8
+from jacob.text import format_byte_size, format_binary_literal
 
 
 class Frame:
@@ -56,8 +38,8 @@ class Frame:
         return self._crc == other.crc
     
     def __repr__(self):
-        return f'<Frame {pretty_bin_literal(self._data)} CRC{self._crc:05d} ' \
-               f'{pretty_byte_size(len(self._data))}>'
+        return f'<Frame {format_binary_literal(self._data)} CRC{self._crc:05d} ' \
+               f'{format_byte_size(len(self._data))}>'
 
 
 class HDLCContext:

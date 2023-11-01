@@ -1,6 +1,6 @@
 import string
-from atsc.hdlc import HDLCContext, HDLCError, HDLC_ESCAPE, HDLC_FLAG
 from atsc.constants import *
+from atsc.hdlc import HDLC_FLAG, HDLC_ESCAPE, HDLCError, HDLCContext
 
 
 def test_msg(text, expected_error=None):

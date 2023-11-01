@@ -14,28 +14,32 @@
 import os
 import signal
 from abc import ABC
-from asyncio import Event, AbstractEventLoop, get_event_loop, wait_for, sleep, TaskGroup, create_task
-from datetime import datetime
-from enum import IntFlag
+from loguru import logger
+from typing import List, TextIO, Optional, Coroutine
+from asyncio import (Event,
+                     TaskGroup,
+                     AbstractEventLoop,
+                     sleep,
+                     wait_for,
+                     create_task,
+                     get_event_loop)
 from pathlib import Path
-from typing import Optional, List, Coroutine, TextIO
-from jacob.datetime.formatting import format_dhms, compact_datetime, format_ms
-from loguru import Logger
+from datetime import datetime
+from atsc.common.structs import Context
 from atsc.common.constants import ExitCode
-from atsc.common.primitives import StopwatchEvent, Context, Updatable
+from atsc.common.primitives import Updatable, StopwatchEvent
+from jacob.datetime.formatting import format_ms, format_dhms, compact_datetime
 
 
 class AsyncDaemon(Updatable, ABC):
     
     def __init__(self,
-                 logger: Logger,
                  context: Context,
-                 shutdown_timeout: float = 5.0,
+                 shutdown_timeout: float,
                  pid_file: Optional[str] = None,
                  loop: AbstractEventLoop = get_event_loop()):
         super().__init__()
         self.loop = loop
-        self.logger = logger
         self.pid_file = pid_file
         self.shutdown_timeout = shutdown_timeout
         self.context = context
@@ -52,15 +56,15 @@ class AsyncDaemon(Updatable, ABC):
     async def signal_handler(self, sig, _):
         match sig:
             case signal.SIGTERM | signal.SIGINT:
-                self.logger.info('signal {} received', sig)
+                logger.info('signal {} received', sig)
                 await self.on_terminate()
             case unhandled_signal:
-                self.logger.warning('unhandled signal {} received', unhandled_signal)
+                logger.warning('unhandled signal {} received', unhandled_signal)
     
     async def lock_pid(self):
         pid = os.getpid()
         if self.pid_file is None:
-            self.logger.info('process #{} (file disabled)', pid)
+            logger.info('process #{} (file disabled)', pid)
         else:
             assert isinstance(self.pid_file, os.PathLike)
             abs_path = Path(self.pid_file).absolute()
@@ -69,13 +73,13 @@ class AsyncDaemon(Updatable, ABC):
                 file = open(abs_path, 'x')
                 file.write(str(pid))
                 file.flush()
-                self.logger.info('process #{} ({})', pid, abs_path)
+                logger.info('process #{} ({})', pid, abs_path)
                 self.pid_file = file
             except FileExistsError:
-                self.logger.error('process already running ({})', abs_path)
+                logger.error('process already running ({})', abs_path)
                 exit(ExitCode.PID_EXISTS)
             except OSError as e:
-                self.logger.error('could not create process lock at {}: {}', abs_path, str(e))
+                logger.error('could not create process lock at {}: {}', abs_path, str(e))
                 exit(ExitCode.PID_CREATE_FAIL)
     
     async def unlock_pid(self):
@@ -89,13 +93,13 @@ class AsyncDaemon(Updatable, ABC):
             try:
                 os.remove(pid_path)
             except OSError as e:
-                self.logger.error('could not remove PID file at {}: {}', pid_path, str(e))
+                logger.error('could not remove PID file at {}: {}', pid_path, str(e))
                 exit(ExitCode.PID_REMOVE_FAIL)
             
-            self.logger.info('removed PID file at {}', pid_path)
+            logger.info('removed PID file at {}', pid_path)
     
-    async def start(self):
-        await self.loop.run_until_complete(self.run())
+    def start(self):
+        self.loop.run_until_complete(self.run())
     
     async def before_run(self):
         self.started_at = datetime.now()
@@ -123,9 +127,9 @@ class AsyncDaemon(Updatable, ABC):
             await self.unlock_pid()
     
     async def after_run(self):
-        self.logger.info('ran for {} days {} hours {:02d}:{:02d} (since {})',
-                         format_dhms(self.running.elapsed / 1000),
-                         compact_datetime(self.started_at))
+        logger.info('ran for {} days {} hours {:02d}:{:02d} (since {})',
+                    format_dhms(self.running.elapsed / 1000),
+                    compact_datetime(self.started_at))
         self.running.clear()
     
     async def on_terminate(self):
@@ -135,22 +139,22 @@ class AsyncDaemon(Updatable, ABC):
         try:
             await wait_for(self.shutdown_clean.wait(),
                            timeout=self.shutdown_timeout)
-            self.logger.info('shutdown took {}',
-                             format_ms(self.request_shutdown.elapsed))
+            logger.info('shutdown took {}',
+                        format_ms(self.request_shutdown.elapsed))
         except TimeoutError:
             delta = self.request_shutdown.elapsed - (self.shutdown_timeout / 1000)
-            self.logger.error('exceeded shutdown timeout by {}', format_ms(delta))
+            logger.error('exceeded shutdown timeout by {}', format_ms(delta))
             self.stop()
     
     def shutdown(self):
         if not self.request_shutdown.is_set():
-            self.logger.info('shutdown requested')
+            logger.info('shutdown requested')
             self.request_shutdown.set()
             
             create_task(self._shutdown_wait())
         else:
-            self.logger.warning('shutdown already pending')
+            logger.warning('shutdown already pending')
     
     def stop(self):
-        self.logger.info('loop stopped')
+        logger.info('loop stopped')
         self.loop.stop()
