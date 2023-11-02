@@ -1,9 +1,9 @@
 {
   "version": 3,
   "random-actuation": {
-    "delay": 90,
+    "delay": 60,
     "min": 1,
-    "max": 20,
+    "max": 90,
     "enabled": true
   },
   "init": {
@@ -35,7 +35,7 @@
     {
       "timing": {
         "extend": 3.0,
-        "go": 4.0
+        "go": 5.0
       },
       "flash-mode": "yellow",
       "load-switches": {
@@ -52,7 +52,7 @@
     {
       "timing": {
         "extend": 3.0,
-        "go": 4.0
+        "go": 5.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -60,6 +60,13 @@
       }
     },
     {
+      "timing":  {
+        "extend": 3.0,
+        "go": 15.0,
+        "pclr": 12.0,
+        "walk": 3.0,
+        "max-go": 30.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 4,
@@ -69,7 +76,7 @@
     {
       "timing": {
         "extend": 3.0,
-        "go": 4.0
+        "go": 5.0
       },
       "flash-mode": "yellow",
       "load-switches": {
@@ -86,7 +93,7 @@
     {
       "timing": {
         "extend": 3.0,
-        "go": 4.0
+        "go": 5.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -94,6 +101,13 @@
       }
     },
     {
+      "timing":  {
+        "extend": 3.0,
+        "go": 15.0,
+        "pclr": 12.0,
+        "walk": 3.0,
+        "max-go": 30.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 10,
@@ -138,14 +152,14 @@
     }
   },
   "default-timing": {
-    "min-stop": 4.0,
+    "min-stop": 2.0,
     "rclr": 1.0,
-    "caution": 5.0,
-    "extend": 4.0,
-    "go": 45.0,
-    "pclr": 22.0,
-    "walk": 4.0,
-    "max-go": 55.0
+    "caution": 4.0,
+    "extend": 5.0,
+    "go": 23.0,
+    "pclr": 20.0,
+    "walk": 3.0,
+    "max-go": 45.0
   },
   "inputs": [
     {
