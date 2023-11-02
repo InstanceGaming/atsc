@@ -115,7 +115,7 @@
       }
     }
   ],
-  "idle-phases": [6, 2],
+  "idle-phases": [6, 2, 1, 5],
   "rings": [
     [
       1,
