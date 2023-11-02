@@ -7,19 +7,19 @@
     "enabled": true
   },
   "init": {
-    "mode": "cet",
+    "mode": "normal",
     "cet-delay": 6,
     "recall-all": true
   },
   "device": {
-    "name": "ATSC Development Intersection (Raspberry Pi)",
+    "name": "ATSC Development Intersection",
     "location": {
       "timezone": "America/Boise"
     }
   },
   "network": {
     "enabled": true,
-    "interface": "any",
+    "interface": "localhost",
     "monitor": {
       "enabled": true,
       "port": 7801
@@ -27,7 +27,7 @@
   },
   "bus": {
     "enabled": true,
-    "port": "/dev/serial0",
+    "port": "COM4",
     "baud": 115200,
     "response-attempts": 5
   },
