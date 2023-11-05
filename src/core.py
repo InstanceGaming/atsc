@@ -247,8 +247,8 @@ class Phase(IdentifiableBase):
         if tv > self._increment:
             tv -= self._increment
         
-        self._time_upper = tv
-        self._time_lower = tv
+        self._time_upper = round(tv, 1)
+        self._time_lower = round(tv, 1)
         
         if next_state == PhaseState.GO:
             go_time = self._timing[PhaseState.GO]
@@ -301,7 +301,7 @@ class Phase(IdentifiableBase):
         
         if self.extend_active:
             if self._time_lower >= self._timing[PhaseState.EXTEND]:
-                if conflicting_demand:
+                if conflicting_demand or idle_override:
                     self.update()
                     changed = True
                 else:
@@ -323,8 +323,8 @@ class Phase(IdentifiableBase):
                         else:
                             self._resting = True
                     else:
-                        if self._state == PhaseState.GO or self._state == PhaseState.EXTEND:
-                            if conflicting_demand:
+                        if self._state == PhaseState.GO:
+                            if conflicting_demand or (not self.extend_enabled and idle_override):
                                 self.update()
                                 changed = True
                             else:
@@ -335,6 +335,7 @@ class Phase(IdentifiableBase):
             else:
                 self._resting = True
         
+        self._time_lower = round(self._time_lower, 1)
         self._elapsed += self._increment
         
         pa = False

@@ -209,11 +209,9 @@ class Controller:
         
         # actuation
         self._call_counter: int = 0
-        self._calls: Set[Call] = set()
-        self._mvp_call: Optional[Call] = None
+        self._calls: List[Call] = []
         self._max_call_age = config['calls']['max-age']
         self._call_weights = config['calls']['weights']
-        self._last_call_count: int = 0
         
         # inputs data structure instances
         self._inputs: Dict[int, Input] = self.getInputs(config.get('inputs'))
@@ -421,19 +419,16 @@ class Controller:
         
         return False
     
-    def getAvailablePhases(self,
-                           phases: Iterable,
-                           active: List[Phase]) -> FrozenSet[Phase]:
+    def getAvailablePhases(self, phases: Iterable) -> FrozenSet[Phase]:
         """
         Determine what phases from a given pool can run given
         the current controller state.
 
         :param phases: an iterable of Phases to scrutinize
-        :param active: currently active phases for iteration
         :return: an immutable set of available Phases
         """
         results: Set[Phase] = set()
-        
+        active = self.getActivePhases()
         for phase in phases:
             if phase in active:
                 continue
@@ -458,53 +453,6 @@ class Controller:
         
         raise RuntimeError(f'Failed to get ring')
     
-    @lru_cache(maxsize=16)
-    def getDiagonalPartner(self, phase: Phase
-                           ) -> Phase:
-        """
-        Get Phase that is positioned diagonal to Phase a within barrier within
-        a standard ring-and-barrier model.
-
-        :param phase: primary Phase
-        :return: currently guaranteed to return a Phase. this will not be the
-        case when partial barrier configurations are implemented.
-        """
-        barrier = self.getBarrierByPhase(phase)
-        group = self.getBarrierPhases(barrier)
-        phase_index = barrier.phases.index(phase.id)
-        
-        if phase_index == 0:
-            return group[-1]
-        elif phase_index == 1:
-            return group[2]
-        elif phase_index == 2:
-            return group[1]
-        elif phase_index == 3:
-            return group[0]
-        
-        raise RuntimeError('Failed to find diagonal partner')
-    
-    @lru_cache(maxsize=16)
-    def getColumnPartner(self, phase: Phase
-                         ) -> Phase:
-        """
-        Get Phase that is positioned in the same column to Phase a within
-        a standard ring-and-barrier model.
-
-        :param phase: primary Phase
-        :return: currently guaranteed to return a Phase. this will not be the
-        case when partial barrier configurations are implemented.
-        """
-        barrier = self.getBarrierByPhase(phase)
-        group = self.getBarrierPhases(barrier)
-        phase_index = barrier.phases.index(phase.id)
-        half = len(group) // 2
-        
-        if phase_index < half:
-            return group[phase_index + 2]
-        else:
-            return group[phase_index - 2]
-    
     def getPriorityPhase(self, phases: List[Phase]) -> Optional[Phase]:
         """
         Get the ranks of the given iterable of `Phase` instances by
@@ -521,9 +469,6 @@ class Controller:
     
     def filterCallsByPhases(self, calls: Iterable[Call], phases: Iterable[Phase]) -> List[Call]:
         return [c for c in calls if c.target in phases]
-    
-    def filterCallsByBarrier(self, calls: Iterable[Call], barrier: Barrier) -> List[Call]:
-        return [c for c in calls if c.target.id in barrier.phases]
     
     @lru_cache(maxsize=2)
     def getBarrierByPhase(self, phase: Phase) -> Barrier:
@@ -579,9 +524,6 @@ class Controller:
     
     def getActivePhases(self) -> List[Phase]:
         return [ph for ph in self._phases if ph.active]
-    
-    def getInactivePhases(self) -> List[Phase]:
-        return [ph for ph in self._phases if not ph.active]
     
     def _sortCallsKeyFunc(self, left: Call, right: Call) -> int:
         """
@@ -672,8 +614,6 @@ class Controller:
         if not target.active:
             for call in self._calls:
                 if call.target == target:
-                    if system:
-                        return False
                     call.duplicates += 1
                     self._call_counter += 1
                     self.LOG.debug(f'Adding to existing call {call.getTag()} '
@@ -683,14 +623,14 @@ class Controller:
             else:
                 call = Call(self._call_counter + 1, self.INCREMENT, target, ped_service=ped_service)
                 
-                self._calls.add(call)
+                self._calls.append(call)
                 self._call_counter += 1
                 self.LOG.debug(f'Call {call.getTag()} '
                                f'{target.getTag()}{input_text}')
                 return True
         return False
     
-    def detection(self, phase: Phase, ped_service=False, input_slot=None, system=False):
+    def detection(self, phase: Phase, ped_service=True, input_slot=None, system=False):
         postfix = ''
         
         if input_slot is not None:
@@ -725,8 +665,7 @@ class Controller:
         self.LOG.info(f'Operation state is now {new_state.name} '
                       f'(was {previous_state.name})')
     
-    def getPhasesWithCalls(self, barrier: Optional[Barrier] = None
-                           ) -> FrozenSet[Phase]:
+    def getPhasesWithCalls(self, barrier: Optional[Barrier] = None) -> FrozenSet[Phase]:
         """
         Get phases that have at least one call.
 
@@ -751,17 +690,18 @@ class Controller:
         return True
     
     def handleRingAndBarrier(self,
+                             phase_pool: FrozenSet[Phase],
                              available_phases: FrozenSet[Phase],
-                             barrier_phases: List[Phase],
-                             available_call_count: int):
+                             available_calls: List[Call]):
         # no available phases for barrier
         c1 = len(available_phases) == 0
         
         # there are no available calls
-        c2 = available_call_count == 0
+        c2 = len(available_calls) == 0
         
         if (c1 or c2) and len(self._calls):
             barriers_exhausted = False
+            
             if self._active_barrier is not None:
                 barriers_exhausted = True
                 for barrier in self._barriers:
@@ -771,25 +711,25 @@ class Controller:
             
             if len(self._cycle_window) == len(self._phases):
                 self.endCycle(False)
-            
-            next_barrier = next(self._barrier_pool)
-
-            # if only available phase has no calls, prematurely
-            # end cycle as it will cause deadlock otherwise
-            with_calls = self.getPhasesWithCalls(barrier=self._active_barrier)
-            no_calls = set(barrier_phases) - with_calls
-
-            if len(available_phases - no_calls) == 0:
-                self.LOG.debug(f'{self._active_barrier.getTag()} had calls '
-                               'on only unavailable phases')
-                next_barrier = self.getPriorityBarrier()
-                self.endCycle(True)
-            
-            if barriers_exhausted:
-                self.LOG.debug(f'Barriers exhausted')
-                self._active_barrier = None
             else:
-                self.changeBarrier(next_barrier)
+                next_barrier = next(self._barrier_pool)
+    
+                # if only available phase has no calls, prematurely
+                # end cycle as it will cause deadlock otherwise
+                with_calls = self.getPhasesWithCalls(barrier=self._active_barrier)
+                no_calls = phase_pool - with_calls
+    
+                if len(available_phases - no_calls) == 0:
+                    self.LOG.debug(f'{self._active_barrier.getTag()} had calls '
+                                   'on only unavailable phases')
+                    next_barrier = self.getPriorityBarrier()
+                    self.endCycle(True)
+                
+                if barriers_exhausted:
+                    self.LOG.debug(f'Barriers exhausted')
+                    self._active_barrier = None
+                else:
+                    self.changeBarrier(next_barrier)
     
     def serveCall(self, call: Call):
         self.servePhase(call.target, ped_service=call.ped_service)
@@ -829,10 +769,10 @@ class Controller:
                     if inp.activated():
                         if inp.action == InputAction.CALL:
                             for target in inp.targets:
-                                self.placeCall(target, ped_service=True, input_slot=slot)
+                                self.placeCall(target, input_slot=slot)
                         elif inp.action == InputAction.DETECT:
                             for target in inp.targets:
-                                self.detection(target, ped_service=True, input_slot=slot)
+                                self.detection(target, input_slot=slot)
                         else:
                             raise NotImplementedError()
                 except IndexError:
@@ -862,29 +802,35 @@ class Controller:
         osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self._transfer)
         self._bus.sendFrame(osf)
     
-    def getCurrentPhasePool(self) -> List[Phase]:
+    def getCurrentPhasePool(self) -> FrozenSet[Phase]:
         if self._active_barrier is not None:
-            return self.getBarrierPhases(self._active_barrier)
+            return frozenset(self.getBarrierPhases(self._active_barrier))
         else:
-            return self._phases
+            return frozenset(self._phases)
+    
+    def canPhaseRun(self, phase: Phase, pool: FrozenSet[Phase]) -> bool:
+        assert not phase.active
         
-    def canPhaseRunAsPartner(self, phase: Phase, active: List[Phase]) -> bool:
-        for act in active:
-            if phase == act:
+        if phase not in pool:
+            return False
+        
+        if self._cycle_window and phase == self._cycle_window[0]:
+            return False
+        
+        for other in self._phases:
+            if other == phase:
+                continue
+            if other.active and self.checkPhaseConflict(phase, other):
                 return False
-            if self.checkPhaseConflict(phase, act):
-                return False
-            if act.state not in PHASE_PARTNER_START_STATES:
-                return False
-            if len(self._cycle_window):
-                if phase == self._cycle_window[0]:
-                    return False
+            
         return True
     
-    def getStaleStopPhase(self, phases: Iterable[Phase]) -> Phase:
+    def getStaleStopPhase(self, phases: Iterable[Phase]) -> Optional[Phase]:
         mapping = [(p, p.max_time) for p in phases if p.state == PhaseState.STOP]
-        ranked = sorted(mapping, key=lambda m: m[1], reverse=True)
-        return ranked[0][0]
+        if mapping:
+            ranked = sorted(mapping, key=lambda m: m[1], reverse=True)
+            return ranked[0][0]
+        return None
     
     def tick(self):
         """Polled once every 100ms"""
@@ -894,34 +840,34 @@ class Controller:
         
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
+                call_count = len(self._calls)
                 active = self.getActivePhases()
+                active_count = len(active)
                 phase_pool = self.getCurrentPhasePool()
-                available_phases = self.getAvailablePhases(phase_pool, active)
-                available_calls = self.filterCallsByPhases(self._calls, available_phases)
-                if self._active_barrier is not None:
-                    available_calls = self.filterCallsByBarrier(available_calls, self._active_barrier)
                 
-                if len(available_calls):
-                    ranked_calls = self.rankCalls(available_calls)
-                    if len(active):
-                        for rc in ranked_calls:
-                            if self.canPhaseRunAsPartner(rc.target, active):
-                                self.serveCall(rc)
+                if call_count:
+                    if active_count < 2:
+                        for call in self._calls:
+                            if self.canPhaseRun(call.target, phase_pool):
+                                self.serveCall(call)
                                 break
-                    else:
-                        self.serveCall(ranked_calls[0])
                 else:
-                    if len(active):
+                    if active_count:
                         for ip in self._idle_phases:
-                            if self.canPhaseRunAsPartner(ip, active):
-                                self.detection(ip, ped_service=True, system=True)
-                                break
+                            if not ip.active:
+                                if self.canPhaseRun(ip, phase_pool):
+                                    self.detection(ip, system=True)
+                                    break
                     else:
                         stale = self.getStaleStopPhase(self._idle_phases)
-                        self.detection(stale, ped_service=True, system=True)
+                        if stale:
+                            self.detection(stale, system=True)
                 
                 if self.allPhasesInactive():
-                    self.handleRingAndBarrier(available_phases, phase_pool, len(available_calls))
+                    available_phases = self.getAvailablePhases(phase_pool)
+                    available_calls = self.filterCallsByPhases(self._calls, available_phases)
+                    
+                    self.handleRingAndBarrier(phase_pool, available_phases, available_calls)
                 
                 for phase in self._phases:
                     phase_conflict = False
