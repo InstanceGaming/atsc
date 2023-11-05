@@ -795,7 +795,7 @@ class Controller:
         self.servePhase(call.target, ped_service=call.ped_service)
         self._calls.remove(call)
         
-    def servePhase(self, phase: Phase, ped_service: bool = False):
+    def servePhase(self, phase: Phase, ped_service: bool):
         if self._active_barrier is None:
             self.changeBarrier(self.getBarrierByPhase(phase))
             self.LOG.debug(f'Active barrier set serving phase {phase.getTag()}')
@@ -803,7 +803,7 @@ class Controller:
             self._active_barrier.cycle_count += 1
     
         self.LOG.debug(f'Serving phase {phase.getTag()}')
-        phase.activate(ped_inhibit=not ped_service)
+        phase.activate(ped_service)
     
     def busHealthCheck(self):
         """Ensure bus thread is still running, if enabled"""
@@ -931,7 +931,8 @@ class Controller:
                             phase_conflict = True
                             break
                     
-                    if phase.tick(phase_conflict, self.flasher):
+                    idle_override = self._idle_phases and phase not in self._idle_phases
+                    if phase.tick(self.flasher, phase_conflict, idle_override):
                         if phase.state == PhaseState.STOP:
                             self._cycle_window.insert(0, phase)
                 
@@ -939,7 +940,7 @@ class Controller:
                     call.tick()
             elif self._op_mode == OperationMode.CET:
                 for ph in self._phases:
-                    ph.tick(False, self._flasher)
+                    ph.tick(self._flasher)
                 
                 if self._cet_counter > self.INCREMENT:
                     self._cet_counter -= self.INCREMENT

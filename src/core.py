@@ -128,16 +128,12 @@ class Phase(IdentifiableBase):
     FYA_PED = -2
     
     @property
-    def ped_enabled(self) -> bool:
-        return self._pls is not None
-    
-    @property
     def ped_service(self) -> bool:
-        return not self._ped_inhibit and self.ped_enabled
+        return self._pls is not None and self._ped_service
     
     @property
     def extend_enabled(self):
-        return self._timing[PhaseState.EXTEND] > 0 and not self._extend_inhibit
+        return self._timing[PhaseState.EXTEND] > 0.0
     
     @property
     def extend_active(self):
@@ -177,7 +173,7 @@ class Phase(IdentifiableBase):
     
     @property
     def max_time(self):
-        return self._max_time
+        return self._elapsed
     
     def _validate_timing(self):
         if self.active:
@@ -196,25 +192,23 @@ class Phase(IdentifiableBase):
                  timing: Dict[PhaseState, float],
                  veh_ls: LoadSwitch,
                  ped_ls: Optional[LoadSwitch],
-                 flash_mode: FlashMode = FlashMode.RED,
-                 ped_clear_enable: bool = True
-                 ):
+                 flash_mode: FlashMode = FlashMode.RED):
         super().__init__(id_)
         self._increment = time_increment
         self._timing = timing
-        self._vls = veh_ls
-        self._pls = ped_ls
         self._flash_mode = flash_mode
+        
         self._state: PhaseState = PhaseState.STOP
+        
         self._time_lower: float = 0.0
         self._time_upper: float = 0.0
-        self._max_time: float = 0.0
-        self._ped_inhibit: bool = True
-        self._ped_cycle: bool = False
-        self._resting: bool = False
-        self._extend_inhibit = False
-        self.ped_clear_enable: bool = ped_clear_enable
+        self._elapsed: float = 0.0
         
+        self._ped_service: bool = True
+        self._resting: bool = False
+        
+        self._vls = veh_ls
+        self._pls = ped_ls
         self._validate_timing()
     
     def getNextState(self, ped_service: bool) -> PhaseState:
@@ -239,10 +233,7 @@ class Phase(IdentifiableBase):
         elif self._state == PhaseState.PCLR:
             return PhaseState.GO
         elif self._state == PhaseState.WALK:
-            if self.ped_clear_enable:
-                return PhaseState.PCLR
-            else:
-                return PhaseState.GO
+            return PhaseState.PCLR
         else:
             raise NotImplementedError()
     
@@ -259,23 +250,21 @@ class Phase(IdentifiableBase):
         self._time_upper = tv
         self._time_lower = tv
         
-        if next_state == PhaseState.STOP:
-            self._ped_cycle = False
-            self._extend_inhibit = False
-        elif next_state == PhaseState.GO:
-            if self._ped_cycle:
-                go_time = self._timing[PhaseState.GO]
+        if next_state == PhaseState.GO:
+            go_time = self._timing[PhaseState.GO]
+            
+            if self.ped_service:
                 walk_time = self._timing[PhaseState.WALK]
-                self._time_lower = go_time - walk_time
-                if self.ped_clear_enable:
-                    self._time_lower -= self._timing[PhaseState.PCLR]
-                if self._time_lower < 0:
-                    self._time_lower = 0.0
-        else:
-            if next_state == PhaseState.WALK:
-                self._ped_cycle = True
+                go_time -= walk_time
+                go_time -= self._timing[PhaseState.PCLR]
+            
+            go_time -= self._timing[PhaseState.CAUTION]
+            
+            assert go_time > 1.0
+            self._time_lower = go_time
+        
         self._state = next_state
-        self._max_time = 0.0
+        self._elapsed = 0.0
     
     def changeTiming(self, revised: Dict[PhaseState, float]):
         self._timing = revised
@@ -287,24 +276,26 @@ class Phase(IdentifiableBase):
         else:
             raise RuntimeError('Cannot reduce, not extending')
     
-    def activate(self, ped_inhibit: bool = True):
+    def activate(self, ped_service: bool):
         if self.active:
             raise RuntimeError('Cannot activate active phase')
         
         if self.state == PhaseState.MIN_STOP:
             raise RuntimeError('Cannot activate phase during MIN_STOP interval')
         
-        self._ped_inhibit = ped_inhibit
+        self._ped_service = ped_service
         self.update()
     
-    def tick(self, conflicting_demand: bool, flasher: bool) -> bool:
+    def tick(self,
+             flasher: bool,
+             conflicting_demand: bool = False,
+             idle_override: bool = False) -> bool:
         changed = False
         self._resting = False
         
         if self._state in PHASE_GO_STATES:
-            if self._max_time > self._timing[PhaseState.MAX_GO]:
-                if conflicting_demand:
-                    # todo: make this condition configurable per phase
+            if self._elapsed > self._timing[PhaseState.MAX_GO]:
+                if conflicting_demand or idle_override:
                     self.update()
                     return True
         
@@ -331,7 +322,6 @@ class Phase(IdentifiableBase):
                                 changed = True
                         else:
                             self._resting = True
-                            self._extend_inhibit = True
                     else:
                         if self._state == PhaseState.GO or self._state == PhaseState.EXTEND:
                             if conflicting_demand:
@@ -345,7 +335,7 @@ class Phase(IdentifiableBase):
             else:
                 self._resting = True
         
-        self._max_time += self._increment
+        self._elapsed += self._increment
         
         pa = False
         pb = False

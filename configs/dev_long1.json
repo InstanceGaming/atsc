@@ -31,11 +31,21 @@
     "baud": 115200,
     "response-attempts": 5
   },
+  "default-timing": {
+    "min-stop": 2.0,
+    "rclr": 1.0,
+    "go": 20.0,
+    "max-go": 30.0,
+    "caution": 4.0,
+    "extend": 3.0,
+    "pclr": 10.0,
+    "walk": 3.0
+  },
+  "idle-phases": [6, 2, 1, 5],
   "phases": [
     {
       "timing": {
-        "extend": 3.0,
-        "go": 5.0
+        "go": 12.0
       },
       "flash-mode": "yellow",
       "load-switches": {
@@ -43,6 +53,14 @@
       }
     },
     {
+      "timing": {
+        "go": 31.5,
+        "max-go": 46.5,
+        "caution": 5.0,
+        "extend": 3.5,
+        "pclr": 20.0,
+        "walk": 3.0
+      },
       "flash-mode": "yellow",
       "load-switches": {
         "vehicle": 2,
@@ -51,8 +69,8 @@
     },
     {
       "timing": {
-        "extend": 3.0,
-        "go": 5.0
+        "extend": 2.5,
+        "go": 10.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -60,13 +78,6 @@
       }
     },
     {
-      "timing":  {
-        "extend": 3.0,
-        "go": 15.0,
-        "pclr": 12.0,
-        "walk": 3.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 4,
@@ -75,8 +86,7 @@
     },
     {
       "timing": {
-        "extend": 3.0,
-        "go": 5.0
+        "go": 12.0
       },
       "flash-mode": "yellow",
       "load-switches": {
@@ -84,6 +94,14 @@
       }
     },
     {
+      "timing": {
+        "go": 31.5,
+        "max-go": 46.5,
+        "caution": 5.0,
+        "extend": 3.5,
+        "pclr": 20.0,
+        "walk": 3.0
+      },
       "flash-mode": "yellow",
       "load-switches": {
         "vehicle": 8,
@@ -92,8 +110,8 @@
     },
     {
       "timing": {
-        "extend": 3.0,
-        "go": 5.0
+        "extend": 2.5,
+        "go": 10.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -101,13 +119,6 @@
       }
     },
     {
-      "timing":  {
-        "extend": 3.0,
-        "go": 15.0,
-        "pclr": 12.0,
-        "walk": 3.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 10,
@@ -115,7 +126,6 @@
       }
     }
   ],
-  "idle-phases": [6, 2, 1, 5],
   "rings": [
     [
       1,
@@ -150,16 +160,6 @@
       "system": 600,
       "duplicate-factor": 2
     }
-  },
-  "default-timing": {
-    "min-stop": 2.0,
-    "rclr": 1.0,
-    "caution": 4.0,
-    "extend": 5.0,
-    "go": 23.0,
-    "pclr": 20.0,
-    "walk": 3.0,
-    "max-go": 45.0
   },
   "inputs": [
     {
