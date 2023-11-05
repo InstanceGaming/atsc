@@ -31,6 +31,16 @@
     "baud": 115200,
     "response-attempts": 5
   },
+  "default-timing": {
+    "min-stop": 2.0,
+    "rclr": 1.0,
+    "go": 20.0,
+    "max-go": 30.0,
+    "caution": 4.0,
+    "extend": 3.0,
+    "pclr": 10.0,
+    "walk": 3.0
+  },
   "idle-phases": [6, 2, 1, 5],
   "phases": [
     {
