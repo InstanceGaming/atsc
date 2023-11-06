@@ -32,7 +32,7 @@
     "response-attempts": 5
   },
   "default-timing": {
-    "min-stop": 2.0,
+    "min-stop": 1.0,
     "rclr": 1.0,
     "go": 20.0,
     "max-go": 30.0,
