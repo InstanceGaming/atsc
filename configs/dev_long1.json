@@ -1,11 +1,5 @@
 {
   "version": 3,
-  "random-actuation": {
-    "delay": 60,
-    "min": 1,
-    "max": 90,
-    "enabled": true
-  },
   "init": {
     "mode": "normal",
     "cet-delay": 6,
@@ -31,13 +25,19 @@
     "baud": 115200,
     "response-attempts": 5
   },
+  "random-actuation": {
+    "delay": 30,
+    "min": 1,
+    "max": 80,
+    "enabled": true
+  },
   "default-timing": {
     "min-stop": 1.0,
     "rclr": 1.0,
     "go": 20.0,
     "max-go": 30.0,
     "caution": 4.0,
-    "extend": 3.0,
+    "extend": 2.5,
     "pclr": 10.0,
     "walk": 3.0
   },
@@ -46,7 +46,8 @@
     {
       "number": 1,
       "timing": {
-        "go": 12.0,
+        "extend": 2.5,
+        "go": 10.0,
         "max-go": 22.0
       },
       "flash-mode": "yellow",
@@ -57,10 +58,10 @@
     {
       "number": 2,
       "timing": {
-        "go": 31.5,
-        "max-go": 46.5,
+        "go": 31.0,
+        "max-go": 46.0,
         "caution": 5.0,
-        "extend": 3.5,
+        "extend": 3.0,
         "pclr": 20.0,
         "walk": 3.0
       },
@@ -93,7 +94,8 @@
     {
       "number": 5,
       "timing": {
-        "go": 12.0,
+        "extend": 2.5,
+        "go": 10.0,
         "max-go": 22.0
       },
       "flash-mode": "yellow",
@@ -104,10 +106,10 @@
     {
       "number": 6,
       "timing": {
-        "go": 31.5,
-        "max-go": 46.5,
+        "go": 31.0,
+        "max-go": 46.0,
         "caution": 5.0,
-        "extend": 3.5,
+        "extend": 3.0,
         "pclr": 20.0,
         "walk": 3.0
       },
