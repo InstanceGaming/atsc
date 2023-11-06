@@ -4,4 +4,3 @@ protobuf
 jsonschema
 netifaces
 bitarray
-sdnotify

@@ -18,7 +18,6 @@ from atsc.core import *
 from atsc import utils, network, serialbus
 from typing import Set, Iterable, FrozenSet
 from bitarray import bitarray
-from sdnotify import SystemdNotifier
 from functools import lru_cache, cmp_to_key
 from itertools import cycle
 from atsc.frames import FrameType, DeviceAddress, OutputStateFrame
@@ -161,7 +160,6 @@ class Controller:
         self._last_input_bitfield: Optional[bitarray] = bitarray()
         
         # communications
-        self._sdn = SystemdNotifier()
         self._bus: Optional[serialbus.Bus] = self.getBus(config['bus'])
         self._monitor: Optional[network.Monitor] = self.getNetworkMonitor(config['network'])
         if self._monitor is not None:
@@ -856,7 +854,6 @@ class Controller:
     
     def halfSecond(self):
         """Polled once every 500ms"""
-        self._sdn.notify('WATCHDOG=1')
         self.busHealthCheck()
         
         self._flasher = not self._flasher
@@ -899,8 +896,6 @@ class Controller:
                     self.LOG.info(f'Waiting on bus...')
                 
                 self.LOG.info(f'Bus ready')
-            
-            self._sdn.notify('READY=1')
             
             self.setOperationState(self._op_mode)
             self.transfer()

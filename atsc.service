@@ -4,9 +4,7 @@ StartLimitBurst=5
 StartLimitIntervalSec=80s
 
 [Service]
-Type=notify
-NotifyAccess=all
-WatchdogSec=1s
+Type=forking
 
 TimeoutSec=10
 Restart=on-abnormal
