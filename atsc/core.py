@@ -68,11 +68,6 @@ class FlashMode(IntEnum):
     YELLOW = 2
 
 
-class TrafficType(IntEnum):
-    VEHICLE = 1
-    PEDESTRIAN = 2
-
-
 class OperationMode(IntEnum):
     DARK = 0
     CET = 1  # Control entrance transition
@@ -138,10 +133,6 @@ class Phase(IdentifiableBase):
     @property
     def extend_active(self):
         return self._state == PhaseState.EXTEND
-    
-    @property
-    def resting(self):
-        return self._resting
     
     @property
     def flash_mode(self) -> FlashMode:
@@ -266,10 +257,6 @@ class Phase(IdentifiableBase):
         self._state = next_state
         self._elapsed = 0.0
     
-    def changeTiming(self, revised: Dict[PhaseState, float]):
-        self._timing = revised
-        self._validate_timing()
-    
     def reduce(self):
         if self.extend_active:
             self._time_lower = 0.0
@@ -383,14 +370,6 @@ class Phase(IdentifiableBase):
     def __repr__(self):
         return f'<{self.getTag()} {self.state.name} {self.time_upper: 05.1f}' \
                f' {self.time_lower: 05.1f}>'
-
-
-@dataclass(frozen=True)
-class FrozenPhaseSetup:
-    vehicle_ls: int
-    ped_ls: int
-    flash_mode: FlashMode
-    fya_setting: int
 
 
 class Call(IdentifiableBase):

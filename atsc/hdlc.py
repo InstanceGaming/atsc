@@ -14,9 +14,9 @@
 
 import enum
 import crcmod
-from utils import prettyByteSize
-from utils import prettyBinaryLiteral as PBL
 from typing import Tuple, Optional
+from atsc.utils import prettyByteSize
+from atsc.utils import prettyBinaryLiteral as PBL
 
 
 HDLC_FLAG = 0x7E

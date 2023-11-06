@@ -13,21 +13,15 @@
 #  limitations under the License.
 
 import os
-import utils
-import timing
-import finelog  # will break if omitted! must be imported in its entirety.
 import logging
 import argparse
-import configfile
+from atsc import utils, timing, finelog, configfile
 from datetime import datetime as dt
-from dateutil import tz
 from threading import main_thread
-from controller import Controller
+from atsc.controller import Controller
 
 
 VERSION = '2.0.1'
-CONFIG_FILE = 'config.toml'
-DEVICE_FILE = 'device.toml'
 PID_FILE = 'atsc.pid'
 WELCOME_MSG = f'Actuated Traffic Signal Controller v{VERSION} by Jacob Jewett'
 CONFIG_SCHEMA_CHECK = True
@@ -163,12 +157,9 @@ def run():
     
     run_timer = timing.SecondTimer(0)
     
-    timezone = config['device']['location']['timezone']
-    tzo = tz.gettz(timezone)
-    LOG.info(f'Timezone set to "{timezone}"')
-    LOG.info(dt.now(tzo).strftime('Started at %I:%M %p %b %d %Y'))
+    LOG.info(dt.now().strftime('Started at %b %d %Y %I:%M %p'))
     
-    controller = Controller(config, tzo)
+    controller = Controller(config)
     try:
         controller.run()
     except KeyboardInterrupt:

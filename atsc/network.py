@@ -11,15 +11,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
 import time
 import socket
 import logging
-import proto.controller_pb2 as pb
-from core import Phase, LoadSwitch
-from utils import prettyByteSize
+import atsc.proto.controller_pb2 as pb
 from typing import Dict, List, Tuple, Optional
+from atsc.core import Phase, LoadSwitch
 from threading import Thread
+from atsc.utils import prettyByteSize
 
 
 class Monitor(Thread):

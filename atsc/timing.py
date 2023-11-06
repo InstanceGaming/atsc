@@ -87,11 +87,6 @@ class HardwareTimer:
             return self.marker < other.marker
         return False
     
-    def getMarkerGoal(self) -> int:
-        if self._trigger is not None:
-            return self._marker + self._trigger
-        return 0
-    
     def getDelta(self) -> int:
         if self._paused:
             return self._last_delta

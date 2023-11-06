@@ -12,40 +12,24 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import time
-import utils
 import random
 import logging
-import network
-import serialbus
-from core import *
-from frames import FrameType, DeviceAddress, OutputStateFrame
+from atsc.core import *
+from atsc import utils, network, serialbus
 from typing import Set, Iterable, FrozenSet
 from bitarray import bitarray
+from sdnotify import SystemdNotifier
 from functools import lru_cache, cmp_to_key
 from itertools import cycle
-from ringbarrier import Ring, Barrier
-from dateutil.parser import parse as _dt_parser
-
-
-def parse_datetime_text(text: str, tz):
-    rv = _dt_parser(text, dayfirst=False, fuzzy=True)
-    return rv.replace(tzinfo=tz)
+from atsc.frames import FrameType, DeviceAddress, OutputStateFrame
+from atsc.ringbarrier import Ring, Barrier
 
 
 class RandomActuation:
-    LOG = logging.getLogger('atsc.demo')
     
     @property
     def enabled(self):
         return self._enabled
-    
-    @property
-    def min(self):
-        return self._min
-    
-    @property
-    def max(self):
-        return self._max
     
     def __init__(self, configuration_node: dict, phase_id_pool: List[int]
                  ):
@@ -74,28 +58,9 @@ class RandomActuation:
         return random.choice(self._pool)
 
 
-class TimeFreezeReason(IntEnum):
-    SYSTEM = 0
-    INPUT = 1
-
-
-class PhaseStatus(IntEnum):
-    INACTIVE = 0
-    NEXT = 1
-    LEADER = 2
-    SECONDARY = 3
-
-
 class Controller:
-    PHASE_COUNT = 8
-    LS_COUNT = 12
     INCREMENT = 0.1
     LOG = logging.getLogger('atsc.controller')
-    
-    @property
-    def running(self):
-        """Is the controller running"""
-        return self._running
     
     @property
     def bus_enabled(self):
@@ -110,22 +75,12 @@ class Controller:
     @property
     def time_freeze(self):
         """If the controller is currently freezing time"""
-        return len(self._time_freeze_reasons) > 0
+        return self._time_freeze
     
     @property
     def name(self):
         """Name of the controller"""
         return self._name
-    
-    @property
-    def operation_mode(self):
-        """Current operation mode of the controller"""
-        return self._op_mode
-    
-    @property
-    def transferred(self):
-        """Has the controller transferred the flash transfer relays"""
-        return self._transfer
     
     @property
     def flasher(self):
@@ -137,25 +92,12 @@ class Controller:
         """A copy of the current controller calls stack"""
         return self._calls.copy()
     
-    @property
-    def active_barrier(self):
-        """The current barrier being served"""
-        return self._active_barrier
-    
-    @property
-    def inputs_count(self):
-        """Number of input objects"""
-        return len(self._inputs.keys())
-    
-    def __init__(self, config: dict, tz):
+    def __init__(self, config: dict):
         # controller name (arbitrary)
         self._name = config['device']['name']
         
         # should place calls on all phases when started?
         self._recall_all = config['init']['recall-all']
-        
-        # controller timezone name
-        self._tz = tz
         
         # 1Hz square wave reference clock
         self._flasher = True
@@ -171,7 +113,7 @@ class Controller:
         
         # there are two trigger sources for time freeze: system, input
         # see self.time_freeze for a scalar state
-        self._time_freeze_reasons: Set[TimeFreezeReason] = set()
+        self._time_freeze: bool = False
         
         self._load_switches: List[LoadSwitch] = [LoadSwitch(1), LoadSwitch(2), LoadSwitch(3), LoadSwitch(4),
                                                  LoadSwitch(5), LoadSwitch(6), LoadSwitch(7), LoadSwitch(8),
@@ -210,7 +152,6 @@ class Controller:
         # actuation
         self._call_counter: int = 0
         self._calls: List[Call] = []
-        self._max_call_age = config['calls']['max-age']
         self._call_weights = config['calls']['weights']
         
         # inputs data structure instances
@@ -220,6 +161,7 @@ class Controller:
         self._last_input_bitfield: Optional[bitarray] = bitarray()
         
         # communications
+        self._sdn = SystemdNotifier()
         self._bus: Optional[serialbus.Bus] = self.getBus(config['bus'])
         self._monitor: Optional[network.Monitor] = self.getNetworkMonitor(config['network'])
         if self._monitor is not None:
@@ -281,13 +223,6 @@ class Controller:
         for i, n in enumerate(configuration_node, start=1):
             barriers.append(Barrier(i, n))
         return barriers
-    
-    def buildMockPhase(self, timing, i: int, vi, pi=None) -> Phase:
-        veh = self._load_switches[vi - 1]
-        ped = None
-        if pi is not None:
-            ped = self._load_switches[pi - 1]
-        return Phase(i, self.INCREMENT, timing, veh, ped)
     
     @lru_cache(maxsize=8)
     def getPhaseLoadSwitchIndexMapping(self) -> Dict[Phase, List[int]]:
@@ -921,24 +856,25 @@ class Controller:
     
     def halfSecond(self):
         """Polled once every 500ms"""
+        self._sdn.notify('WATCHDOG=1')
+        self.busHealthCheck()
+        
         self._flasher = not self._flasher
         
         if not self.time_freeze:
             if self._flasher:
                 self.second()
-        
-        self.busHealthCheck()
     
     def second(self):
         """Polled once every 1000ms"""
+        if self.monitor_enabled:
+            self._monitor.clean()
+        
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
                 choice = self._random_actuation.poll()
                 if choice is not None:
-                    self.detection(self.getPhaseById(choice), ped_service=True, system=True)
-        
-        if self.monitor_enabled:
-            self._monitor.clean()
+                    self.detection(self.getPhaseById(choice), system=True)
     
     def run(self):
         """Begin control loop"""
@@ -963,6 +899,8 @@ class Controller:
                     self.LOG.info(f'Waiting on bus...')
                 
                 self.LOG.info(f'Bus ready')
+            
+            self._sdn.notify('READY=1')
             
             self.setOperationState(self._op_mode)
             self.transfer()

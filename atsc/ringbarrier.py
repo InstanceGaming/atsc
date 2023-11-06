@@ -12,8 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from core import IdentifiableBase, FrozenIdentifiableBase
 from typing import List
+from atsc.core import IdentifiableBase, FrozenIdentifiableBase
 from dataclasses import dataclass
 
 

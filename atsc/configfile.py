@@ -20,7 +20,6 @@ import jsonschema
 from typing import List, Optional
 from jsonschema import SchemaError, ValidationError
 from collections import ChainMap
-from dateutil.parser import parse as dt_parse
 
 
 CONFIG_SCHEMA_VERSION = 3
@@ -30,7 +29,6 @@ class ErrorType(enum.Enum):
     NO_PATHS = 1
     NOT_FOUND = 2
     CANNOT_READ = 3
-    BAD_SYNTAX = 4
     NO_VERSION = 5
     MIXING_VERSIONS = 6
     UNKNOWN_VERSION = 7
@@ -62,9 +60,7 @@ class ConfigValidator:
         return self._version
     
     def __init__(self, config_schema: str):
-        self._schema_path = config_schema
-        
-        with open(config_schema, 'r') as sf:
+        with open(config_schema) as sf:
             self._schema = json.load(sf)
         
         self._version = None
@@ -77,7 +73,7 @@ class ConfigValidator:
                 if not os.path.exists(path):
                     raise ConfigError(ErrorType.NOT_FOUND, file=path)
                 try:
-                    with open(path, 'r') as f:
+                    with open(path) as f:
                         file_data = json.load(f)
                         file_version = file_data.get('version')
                         
@@ -121,14 +117,6 @@ def get_config_schema_path() -> str:
     entry_script_dir = os.path.abspath(os.path.dirname(__file__))
     config_schema_path = os.path.join(entry_script_dir, 'schema', 'configuration.json')
     return config_schema_path
-
-
-def validate_time_text(text):
-    try:
-        dt_parse(text, fuzzy=True, ignoretz=True)
-        return True
-    except ValueError:
-        return False
 
 
 def validate_config_dynamic(config: dict, version: int) -> Optional[str]:

@@ -14,10 +14,10 @@
 
 import abc
 import enum
-from core import LoadSwitch
-from hdlc import HDLCContext
 from typing import List, Union, Optional
 from bitarray import bitarray
+from atsc.core import LoadSwitch
+from atsc.hdlc import HDLCContext
 
 
 class DeviceAddress(enum.IntEnum):

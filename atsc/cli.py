@@ -47,8 +47,6 @@ class ReturnCode(enum.IntEnum):
     CONFIG_PARSE_ERROR = 6
     CONFIG_STATIC_ERROR = 7
     CONFIG_DYNAMIC_ERROR = 8
-    NOT_RUNNING = 9
-    CANNOT_CONNECT = 10
     DEVELOPER_ISSUE = 11
 
 

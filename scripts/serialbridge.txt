@@ -1,4 +1,0 @@
-CLIENT:
-serialbridge.py -c <IP>:<PORT> <SERIAL> <BAUD>
-SERVER:
-serialbridge.py -P <PORT> <SERIAL> <BAUD>
