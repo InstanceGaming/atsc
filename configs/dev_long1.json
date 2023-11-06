@@ -44,8 +44,10 @@
   "idle-phases": [6, 2, 1, 5],
   "phases": [
     {
+      "number": 1,
       "timing": {
-        "go": 12.0
+        "go": 12.0,
+        "max-go": 22.0
       },
       "flash-mode": "yellow",
       "load-switches": {
@@ -53,6 +55,7 @@
       }
     },
     {
+      "number": 2,
       "timing": {
         "go": 31.5,
         "max-go": 46.5,
@@ -68,9 +71,11 @@
       }
     },
     {
+      "number": 3,
       "timing": {
         "extend": 2.5,
-        "go": 10.0
+        "go": 10.0,
+        "max-go": 22.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -78,6 +83,7 @@
       }
     },
     {
+      "number": 4,
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 4,
@@ -85,8 +91,10 @@
       }
     },
     {
+      "number": 5,
       "timing": {
-        "go": 12.0
+        "go": 12.0,
+        "max-go": 22.0
       },
       "flash-mode": "yellow",
       "load-switches": {
@@ -94,6 +102,7 @@
       }
     },
     {
+      "number": 6,
       "timing": {
         "go": 31.5,
         "max-go": 46.5,
@@ -109,9 +118,11 @@
       }
     },
     {
+      "number": 7,
       "timing": {
         "extend": 2.5,
-        "go": 10.0
+        "go": 10.0,
+        "max-go": 22.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -119,6 +130,7 @@
       }
     },
     {
+      "number": 8,
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 10,

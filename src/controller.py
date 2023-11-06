@@ -877,7 +877,8 @@ class Controller:
                             phase_conflict = True
                             break
                     
-                    idle_override = self._idle_phases and phase not in self._idle_phases
+                    idle_override = self._idle_phases and (phase not in self._idle_phases) or not phase.ped_service
+                    
                     if phase.tick(self.flasher, phase_conflict, idle_override):
                         if phase.state == PhaseState.STOP:
                             self._cycle_window.insert(0, phase)
