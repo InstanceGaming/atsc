@@ -1,8 +1,0 @@
-pip-tools
-pyserial
-crcmod
-protobuf
-jsonschema
-netifaces
-bitarray
-sdnotify
