@@ -24,6 +24,3 @@ then
     exit 10001
   fi
 fi
-
-source "$INTERPRETER_DIR/activate"
-pip-sync
