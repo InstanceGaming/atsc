@@ -7,6 +7,7 @@ then
   then
     echo "Creating virtual environment"
 
+    $INTERPRETER -m pip install python3-venv
     $INTERPRETER -m venv $ENV_DIR
 
     if [ $? -ne 0 ];
@@ -16,7 +17,6 @@ then
   fi
 
   echo "Updating pip and installing pip-tools"
-  $INTERPRETER_PATH -m pip install --upgrade pip
   $INTERPRETER_PATH -m pip install pip-tools
 
   if [ $? -ne 0 ];
