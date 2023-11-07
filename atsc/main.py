@@ -34,7 +34,11 @@ CONFIG_LOGIC_CHECK = True
 CUSTOM_LOG_LEVELS = {
     CustomLevel(1, 'bus'),
     CustomLevel(2, 'sorting'),
-    CustomLevel(3, 'fine')
+    CustomLevel(3, 'fine'),
+    CustomLevel(10, 'debug'),
+    CustomLevel(20, 'info'),
+    CustomLevel(30, 'warning'),
+    CustomLevel(40, 'error')
 }
 
 logger = loguru.logger
@@ -107,8 +111,8 @@ def run():
                               custom_levels=CUSTOM_LOG_LEVELS,
                               log_file=log_file)
         loguru.logger = logger
-    except ValueError:
-        print(f'Malformed logging level specification "{levels_notation}"')
+    except ValueError as e:
+        print(f'Malformed logging level specification "{levels_notation}":', e)
         return 5
     
     pid_path = fix_path(cla.get('pid_path'))

@@ -845,7 +845,7 @@ class Controller:
             
             self._monitor.broadcastControlUpdate(self._phases, pmd, self._load_switches)
         
-        logger.fine(buildFieldMessage(self._load_switches))
+        logger.bus(buildFieldMessage(self._load_switches))
     
     def halfSecond(self):
         """Polled once every 500ms"""
