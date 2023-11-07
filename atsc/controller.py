@@ -741,8 +741,13 @@ class Controller:
         else:
             return frozenset(self._phases)
     
-    def canPhaseRun(self, phase: Phase, pool: FrozenSet[Phase]) -> bool:
+    def canPhaseRun(self,
+                    phase: Phase,
+                    pool: FrozenSet[Phase]) -> bool:
         assert not phase.active
+        
+        if phase.state != PhaseState.STOP:
+            return False
         
         if phase not in pool:
             return False
@@ -779,7 +784,7 @@ class Controller:
                 phase_pool = self.getCurrentPhasePool()
                 
                 if call_count:
-                    if active_count < 2:
+                    if active_count < len(self._rings):
                         for call in self._calls:
                             if self.canPhaseRun(call.target, phase_pool):
                                 self.serveCall(call)
