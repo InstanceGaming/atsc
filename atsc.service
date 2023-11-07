@@ -5,10 +5,7 @@ StartLimitIntervalSec=80s
 
 [Service]
 Type=forking
-
 TimeoutSec=10
-Restart=on-abnormal
-RestartSec=16
 
 WorkingDirectory=/home/pi/atsc/
 ExecStart=/home/pi/atsc/run_pi.sh
@@ -16,10 +13,7 @@ PIDFile=/home/pi/atsc/atsc.pid
 
 KillMode=mixed
 Restart=on-abnormal
-RestartSec=15
-
-SuccessExitStatus=1
-RestartPreventExitStatus=1
+RestartSec=16
 
 [Install]
 WantedBy=default.target
