@@ -13,16 +13,25 @@
 #  limitations under the License.
 import time
 import socket
-import logging
+
+from loguru import logger
+
 import atsc.proto.controller_pb2 as pb
 from typing import Dict, List, Tuple, Optional
 from atsc.core import Phase, LoadSwitch
 from threading import Thread
-from atsc.utils import prettyByteSize
+from jacob.text import format_byte_size
+
+
+def getIPAddress(filter_if_name: str):
+    from netifaces import AF_INET, ifaddresses
+    
+    interface = ifaddresses(filter_if_name)
+    protocol = interface[AF_INET]
+    return protocol[0]['addr']
 
 
 class Monitor(Thread):
-    LOG = logging.getLogger('atsc.net')
     
     @property
     def client_count(self):
@@ -61,11 +70,11 @@ class Monitor(Thread):
         try:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.socket.bind((self._host, self._port))
-            self.LOG.info('Network monitor started on {0}:{1}'.format(self._host, self._port))
+            logger.info('Network monitor started on {0}:{1}'.format(self._host, self._port))
             self.socket.listen(5)
             self._running = True
         except OSError as e:
-            self.LOG.warning('Error binding or listening to '
+            logger.warning('Error binding or listening to '
                              f'{self._host}:{self._port}: {str(e)}')
         
         while self._running:
@@ -91,7 +100,7 @@ class Monitor(Thread):
                 for c in remove:
                     self._clients.remove(c)
                 
-                self.LOG.debug('Removed %d dead client threads' % len(remove))
+                logger.debug('Removed %d dead client threads' % len(remove))
     
     def _prefix(self, raw_data: bytes) -> bytes:
         length = len(raw_data)
@@ -138,7 +147,6 @@ class Monitor(Thread):
 
 
 class MonitorClient:
-    LOG = logging.getLogger('atsc.net.client')
     
     @property
     def stopped(self):
@@ -150,30 +158,30 @@ class MonitorClient:
         self._stopped = False
         self._total_sent = 0
         
-        self.LOG.info('M{0:02d} at {1}:{2}'.format(index, ip, port))
+        logger.info('M{0:02d} at {1}:{2}'.format(index, ip, port))
     
     def send(self, data: bytes):
         if len(data) > 0:
             try:
                 self._sock.sendall(data)
                 size = len(data)
-                self.LOG.fine(f'M{self._index:02d} transmitted '
-                              f'{prettyByteSize(size)}')
+                logger.fine(f'M{self._index:02d} transmitted '
+                              f'{format_byte_size(size)}')
                 self._total_sent += size
             except OSError as e:
-                self.LOG.debug('M{:02d} {}'.format(self._index, str(e)))
+                logger.debug('M{:02d} {}'.format(self._index, str(e)))
                 self.stop()
     
     def stop(self):
         if not self._stopped:
-            self.LOG.info(f'M{self._index:02d} transmitted a total of '
-                          f'{prettyByteSize(self._total_sent)}')
+            logger.info(f'M{self._index:02d} transmitted a total of '
+                          f'{format_byte_size(self._total_sent)}')
             
             if self._sock is not None:
                 try:
                     self._sock.close()
                 except OSError as e:
-                    self.LOG.debug('M{:02d} (closing): {}'.format(self._index, str(e)))
+                    logger.debug('M{:02d} (closing): {}'.format(self._index, str(e)))
             
             self._stopped = True
-            self.LOG.info('M{:02d} stopped'.format(self._index))
+            logger.info('M{:02d} stopped'.format(self._index))

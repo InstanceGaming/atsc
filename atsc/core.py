@@ -273,20 +273,19 @@ class Phase(IdentifiableBase):
     
     def tick(self,
              flasher: bool,
-             conflicting_demand: bool = False,
-             idle_override: bool = False) -> bool:
+             rest_inhibit: bool) -> bool:
         changed = False
         self._resting = False
         
         if self._state in PHASE_GO_STATES:
             if self._elapsed > self._timing[PhaseState.MAX_GO]:
-                if conflicting_demand or idle_override:
+                if rest_inhibit:
                     self.update()
                     return True
         
         if self.extend_active:
             if self._time_lower >= self._timing[PhaseState.EXTEND]:
-                if conflicting_demand or idle_override:
+                if rest_inhibit:
                     self.update()
                     changed = True
                 else:
@@ -301,7 +300,7 @@ class Phase(IdentifiableBase):
                         self._time_lower = 0
                 else:
                     if self._state == PhaseState.WALK:
-                        if conflicting_demand:
+                        if rest_inhibit:
                             if flasher:
                                 self.update()
                                 changed = True
@@ -309,7 +308,7 @@ class Phase(IdentifiableBase):
                             self._resting = True
                     else:
                         if self._state == PhaseState.GO:
-                            if conflicting_demand or (not self.extend_enabled and idle_override):
+                            if rest_inhibit:
                                 self.update()
                                 changed = True
                             else:

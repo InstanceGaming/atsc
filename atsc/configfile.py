@@ -15,9 +15,9 @@
 import os
 import enum
 import json
-import logging
 import jsonschema
 from typing import List, Optional
+from pathlib import Path
 from jsonschema import SchemaError, ValidationError
 from collections import ChainMap
 
@@ -53,7 +53,6 @@ class ConfigError(Exception):
 
 
 class ConfigValidator:
-    LOG = logging.getLogger('atsc.validator')
     
     @property
     def version(self):
@@ -65,10 +64,10 @@ class ConfigValidator:
         
         self._version = None
     
-    def load(self, paths: List[str]) -> dict:
+    def load(self, paths: List[Optional[Path]]) -> dict:
         cm = ChainMap()
         
-        if len(paths) > 0:
+        if len(paths):
             for path in paths:
                 if not os.path.exists(path):
                     raise ConfigError(ErrorType.NOT_FOUND, file=path)

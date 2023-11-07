@@ -4,3 +4,4 @@ protobuf
 jsonschema
 netifaces
 bitarray
+jacob[loguru] @ git+https://github.com/InstanceGaming/jacob

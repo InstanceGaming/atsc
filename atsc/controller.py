@@ -13,15 +13,18 @@
 #  limitations under the License.
 import time
 import random
-import logging
 from atsc.core import *
 from atsc import utils, network, serialbus
+from loguru import logger
 from typing import Set, Iterable, FrozenSet
 from bitarray import bitarray
-from functools import lru_cache, cmp_to_key
+from functools import cmp_to_key
 from itertools import cycle
 from atsc.frames import FrameType, DeviceAddress, OutputStateFrame
 from atsc.ringbarrier import Ring, Barrier
+from jacob.enumerations import text_to_enum
+
+from atsc.utils import buildFieldMessage
 
 
 class RandomActuation:
@@ -55,7 +58,6 @@ class RandomActuation:
 
 class Controller:
     INCREMENT = 0.1
-    LOG = logging.getLogger('atsc.controller')
     
     @property
     def bus_enabled(self):
@@ -104,7 +106,7 @@ class Controller:
         self._transfer = False
         
         # operation functionality of the controller
-        self._op_mode: OperationMode = utils.textToEnum(OperationMode, config['init']['mode'])
+        self._op_mode: OperationMode = text_to_enum(OperationMode, config['init']['mode'])
         
         # there are two trigger sources for time freeze: system, input
         # see self.time_freeze for a scalar state
@@ -168,23 +170,24 @@ class Controller:
                          ) -> Dict[PhaseState, float]:
         timing = {}
         for name, value in configuration_node.items():
-            ps = utils.textToEnum(PhaseState, name)
+            ps = text_to_enum(PhaseState, name)
             timing.update({ps: value})
         return timing
     
-    def getPhases(self, configuration_node: List[Dict], default_timing: Dict[PhaseState, float]
-                  ) -> List[Phase]:
+    def getPhases(self,
+                  configuration_node: List[Dict],
+                  default_timing: Dict[PhaseState, float]) -> List[Phase]:
         phases = []
         
         for i, node in enumerate(configuration_node, start=1):
             flash_mode_text = node['flash-mode']
-            flash_mode = utils.textToEnum(FlashMode, flash_mode_text)
+            flash_mode = text_to_enum(FlashMode, flash_mode_text)
             phase_timing: Dict[PhaseState, float] = default_timing.copy()
             timing_data = node.get('timing')
             
             if timing_data is not None:
                 for name, value in timing_data.items():
-                    ps = utils.textToEnum(PhaseState, name)
+                    ps = text_to_enum(PhaseState, name)
                     phase_timing.update({ps: value})
             
             ls_node = node['load-switches']
@@ -217,7 +220,6 @@ class Controller:
             barriers.append(Barrier(i, n))
         return barriers
     
-    @lru_cache(maxsize=8)
     def getPhaseLoadSwitchIndexMapping(self) -> Dict[Phase, List[int]]:
         mapping = {}
         
@@ -251,8 +253,8 @@ class Controller:
                 if ignore:
                     action = InputAction.NOTHING
                 else:
-                    action = utils.textToEnum(InputAction, input_node['action'])
-                active = utils.textToEnum(InputActivation, input_node['active'])
+                    action = text_to_enum(InputAction, input_node['action'])
+                active = text_to_enum(InputActivation, input_node['active'])
                 targets_node = input_node['targets']
                 
                 targets = []
@@ -269,19 +271,19 @@ class Controller:
     def getBus(self, configuration_node: dict) -> Optional[serialbus.Bus]:
         """Create the serial bus manager thread, if enabled"""
         if configuration_node['enabled']:
-            self.LOG.info('Serial bus subsystem ENABLED')
+            logger.info('Serial bus subsystem ENABLED')
             port = configuration_node['port']
             baud = configuration_node['baud']
             return serialbus.Bus(port, baud)
         else:
-            self.LOG.info('Serial bus subsystem DISABLED')
+            logger.info('Serial bus subsystem DISABLED')
         
         return None
     
     def getNetworkMonitor(self, configuration_node: dict) -> Optional[network.Monitor]:
         """Create the network monitor thread, if enabled"""
         if configuration_node['enabled']:
-            self.LOG.info('Networking subsystem ENABLED')
+            logger.info('Networking subsystem ENABLED')
             
             if_name = configuration_node['interface'].lower().strip()
             
@@ -291,22 +293,22 @@ class Controller:
                 
                 if if_name != 'localhost' and if_name != 'any':
                     try:
-                        auto_ip = utils.getIPAddress(if_name)
+                        auto_ip = network.getIPAddress(if_name)
                         host = auto_ip
                     except Exception as e:
-                        self.LOG.warning(f'Failed to get address of network '
+                        logger.warning(f'Failed to get address of network '
                                          f'interface: {str(e)}')
                 elif if_name == 'any':
                     host = '0.0.0.0'
                 
-                self.LOG.info(f'Using IP address {host}')
+                logger.info(f'Using IP address {host}')
                 
                 monitor_port = monitor_node['port']
                 return network.Monitor(host, monitor_port)
             else:
-                self.LOG.info('Network monitor disabled')
+                logger.info('Network monitor disabled')
         
-        self.LOG.info('Networking disabled')
+        logger.info('Networking disabled')
         return None
     
     def getBarrierPhases(self, barrier: Barrier) -> List[Phase]:
@@ -315,15 +317,23 @@ class Controller:
     
     def transfer(self):
         """Set the controllers flash transfer relays flag"""
-        self.LOG.info('Transferred')
+        logger.info('Transferred')
         self._transfer = True
     
     def untransfer(self):
         """Unset the controllers flash transfer relays flag"""
-        self.LOG.info('Untransfered')
+        logger.info('Untransfered')
         self._transfer = False
     
-    @lru_cache(maxsize=16)
+    def getRingByPhase(self, phase: Phase) -> Ring:
+        """Find a `Phase` instance by one of it's associated
+                `Channel` instances"""
+        for ring in self._rings:
+            if phase.id in ring.phases:
+                return ring
+        
+        raise RuntimeError(f'Failed to get ring')
+    
     def checkPhaseConflict(self, a: Phase, b: Phase) -> bool:
         """
         Check if two phases conflict based on Ring, Barrier and defined friend
@@ -347,19 +357,22 @@ class Controller:
         
         return False
     
-    def getAvailablePhases(self, phases: Iterable) -> FrozenSet[Phase]:
+    def getAvailablePhases(self,
+                           phases: Iterable,
+                           active: Optional[Iterable[Phase]] = None) -> FrozenSet[Phase]:
         """
         Determine what phases from a given pool can run given
         the current controller state.
 
         :param phases: an iterable of Phases to scrutinize
+        :param active: Phases to exclude from availability no matter what
         :return: an immutable set of available Phases
         """
         results: Set[Phase] = set()
-        active = self.getActivePhases()
         for phase in phases:
-            if phase in active:
-                continue
+            if active is not None:
+                if phase in active:
+                    continue
             
             if any([self.checkPhaseConflict(phase, act) for act in active]):
                 continue
@@ -370,88 +383,6 @@ class Controller:
             results.add(phase)
         
         return frozenset(results)
-    
-    @lru_cache(maxsize=8)
-    def getRingByPhase(self, phase: Phase) -> Ring:
-        """Find a `Phase` instance by one of it's associated
-                `Channel` instances"""
-        for ring in self._rings:
-            if phase.id in ring.phases:
-                return ring
-        
-        raise RuntimeError(f'Failed to get ring')
-    
-    def getPriorityPhase(self, phases: List[Phase]) -> Optional[Phase]:
-        """
-        Get the ranks of the given iterable of `Phase` instances by
-        associated `Call` priority, returning the top choice.
-
-        :param phases: a list of Phase instances
-        :return: top choice Phase or None if list was empty
-        """
-        if len(phases) > 0:
-            phase_calls = self.rankCalls(self.filterCallsByPhases(self._calls, phases))
-            if len(phase_calls) > 0:
-                return phase_calls[0].target
-        return None
-    
-    def filterCallsByPhases(self, calls: Iterable[Call], phases: Iterable[Phase]) -> List[Call]:
-        return [c for c in calls if c.target in phases]
-    
-    @lru_cache(maxsize=2)
-    def getBarrierByPhase(self, phase: Phase) -> Barrier:
-        """Get `Barrier` instance by associated `Phase` instance"""
-        assert isinstance(phase, Phase)
-        for b in self._barriers:
-            if phase.id in b.phases:
-                return b
-        
-        raise RuntimeError(f'Failed to get barrier by {phase.getTag()}')
-    
-    def placeAllCall(self, ped_service=False):
-        """Place calls on all phases"""
-        for phase in self._phases:
-            self.placeCall(phase, ped_service=ped_service)
-    
-    def getPriorityBarrier(self) -> Optional[Barrier]:
-        """
-        Get the barrier with the most priority phase, if there is one.
-        """
-        priority_phase = self.getPriorityPhase(self._phases)
-        if priority_phase is not None:
-            return self.getBarrierByPhase(priority_phase)
-        return None
-    
-    def changeBarrier(self, barrier: Barrier):
-        """Change to the next `Barrier` in the barrier cycle instance"""
-        self._active_barrier = barrier
-        self.LOG.debug(f'Crossed to {barrier.getTag()}')
-    
-    def endCycle(self, early: bool) -> None:
-        """End phasing for this control cycle iteration"""
-        self._cycle_count += 1
-        self._cycle_pool = set(self._phases)
-        for barrier in self._barriers:
-            barrier.cycle_count = 0
-        self.LOG.debug(f'Ended cycle {self._cycle_count}'
-                       f'{" (early)" if early else ""}')
-    
-    @lru_cache(maxsize=8)
-    def getPhaseById(self, i: int) -> Phase:
-        for ph in self._phases:
-            if ph.id == i:
-                return ph
-        raise RuntimeError(f'Failed to find phase {i}')
-    
-    @lru_cache(maxsize=12)
-    def getLoadSwitchById(self, i: int) -> LoadSwitch:
-        for ls in self._load_switches:
-            if ls.id == i:
-                return ls
-        raise RuntimeError(f'Failed to find load switch {i}')
-    
-    def getActivePhases(self) -> List[Phase]:
-        return [ph for ph in self._phases if ph.active]
     
     def _sortCallsKeyFunc(self, left: Call, right: Call) -> int:
         """
@@ -499,12 +430,81 @@ class Controller:
         
         ocs = len(calls)
         if ocs >= 1:
-            self.LOG.sorting(f'Call sorting 1st place {calls[0].getTag()}')
+            logger.sorting(f'Call sorting 1st place {calls[0].getTag()}')
         if ocs >= 2:
-            self.LOG.sorting(f'Call sorting 2nd place {calls[0].getTag()}, '
+            logger.sorting(f'Call sorting 2nd place {calls[0].getTag()}, '
                              f'{calls[1].getTag()}')
         
         return calls
+    
+    def filterCallsByPhases(self, calls: Iterable[Call], phases: Iterable[Phase]) -> List[Call]:
+        return [c for c in calls if c.target in phases]
+    
+    def getPriorityPhase(self, phases: List[Phase]) -> Optional[Phase]:
+        """
+        Get the ranks of the given iterable of `Phase` instances by
+        associated `Call` priority, returning the top choice.
+
+        :param phases: a list of Phase instances
+        :return: top choice Phase or None if list was empty
+        """
+        if len(phases) > 0:
+            phase_calls = self.rankCalls(self.filterCallsByPhases(self._calls, phases))
+            if len(phase_calls) > 0:
+                return phase_calls[0].target
+        return None
+    
+    def getBarrierByPhase(self, phase: Phase) -> Barrier:
+        """Get `Barrier` instance by associated `Phase` instance"""
+        assert isinstance(phase, Phase)
+        for b in self._barriers:
+            if phase.id in b.phases:
+                return b
+        
+        raise RuntimeError(f'Failed to get barrier by {phase.getTag()}')
+    
+    def placeAllCall(self, ped_service=False):
+        """Place calls on all phases"""
+        for phase in self._phases:
+            self.placeCall(phase, ped_service=ped_service)
+    
+    def getPriorityBarrier(self) -> Optional[Barrier]:
+        """
+        Get the barrier with the most priority phase, if there is one.
+        """
+        priority_phase = self.getPriorityPhase(self._phases)
+        if priority_phase is not None:
+            return self.getBarrierByPhase(priority_phase)
+        return None
+    
+    def changeBarrier(self, barrier: Barrier):
+        """Change to the next `Barrier` in the barrier cycle instance"""
+        self._active_barrier = barrier
+        logger.debug(f'Crossed to {barrier.getTag()}')
+    
+    def endCycle(self, early: bool) -> None:
+        """End phasing for this control cycle iteration"""
+        self._cycle_count += 1
+        self._cycle_pool = set(self._phases)
+        for barrier in self._barriers:
+            barrier.cycle_count = 0
+        logger.debug(f'Ended cycle {self._cycle_count}'
+                       f'{" (early)" if early else ""}')
+    
+    def getPhaseById(self, i: int) -> Phase:
+        for ph in self._phases:
+            if ph.id == i:
+                return ph
+        raise RuntimeError(f'Failed to find phase {i}')
+    
+    def getLoadSwitchById(self, i: int) -> LoadSwitch:
+        for ls in self._load_switches:
+            if ls.id == i:
+                return ls
+        raise RuntimeError(f'Failed to find load switch {i}')
+    
+    def getActivePhases(self) -> List[Phase]:
+        return [ph for ph in self._phases if ph.active]
     
     def getAssociatedCall(self, phase: Phase) -> Optional[Call]:
         for call in self._calls:
@@ -544,7 +544,7 @@ class Controller:
                 if call.target == target:
                     call.duplicates += 1
                     self._call_counter += 1
-                    self.LOG.debug(f'Adding to existing call {call.getTag()} '
+                    logger.debug(f'Adding to existing call {call.getTag()} '
                                    f'({target.getTag()}), now {call.duplicates}'
                                    f'{input_text}')
                     return True
@@ -553,7 +553,7 @@ class Controller:
                 
                 self._calls.append(call)
                 self._call_counter += 1
-                self.LOG.debug(f'Call {call.getTag()} '
+                logger.debug(f'Call {call.getTag()} '
                                f'{target.getTag()}{input_text}')
                 return True
         return False
@@ -568,7 +568,7 @@ class Controller:
             postfix += ' (system)'
         
         if phase.state in PHASE_GO_STATES:
-            self.LOG.debug(f'Detection on {phase.getTag()}{postfix}')
+            logger.debug(f'Detection on {phase.getTag()}{postfix}')
             if phase.extend_active:
                 phase.reduce()
         else:
@@ -590,7 +590,7 @@ class Controller:
         
         previous_state = self._op_mode
         self._op_mode = new_state
-        self.LOG.info(f'Operation state is now {new_state.name} '
+        logger.info(f'Operation state is now {new_state.name} '
                       f'(was {previous_state.name})')
     
     def getPhasesWithCalls(self, barrier: Optional[Barrier] = None) -> FrozenSet[Phase]:
@@ -610,6 +610,77 @@ class Controller:
             phases.add(phase)
         
         return frozenset(phases)
+    
+    def serveCall(self, call: Call):
+        self.servePhase(call.target, ped_service=call.ped_service)
+        self._calls.remove(call)
+        
+    def servePhase(self, phase: Phase, ped_service: bool):
+        if self._active_barrier is None:
+            self.changeBarrier(self.getBarrierByPhase(phase))
+            logger.debug(f'Active barrier set serving phase {phase.getTag()}')
+        else:
+            self._active_barrier.cycle_count += 1
+    
+        logger.debug(f'Serving phase {phase.getTag()}')
+        phase.activate(ped_service)
+    
+    def busHealthCheck(self):
+        """Ensure bus thread is still running, if enabled"""
+        if self.bus_enabled:
+            if not self._bus.ready:
+                logger.error('Bus not running')
+                self.shutdown()
+    
+    def handleInputs(self, bf: bitarray):
+        """Check on the contents of bus data container for changes"""
+        
+        if self._last_input_bitfield is None or bf != self._last_input_bitfield:
+            for slot, inp in self._inputs.items():
+                if inp.action == InputAction.NOTHING:
+                    continue
+                
+                try:
+                    state = bf[slot - 1]
+                    
+                    inp.last_state = inp.state
+                    inp.state = state
+                    
+                    if inp.activated():
+                        if inp.action == InputAction.CALL:
+                            for target in inp.targets:
+                                self.placeCall(target, input_slot=slot)
+                        elif inp.action == InputAction.DETECT:
+                            for target in inp.targets:
+                                self.detection(target, input_slot=slot)
+                        else:
+                            raise NotImplementedError()
+                except IndexError:
+                    logger.fine('Discarding signal for unused input slot '
+                                  f'{slot}')
+        
+        self._last_input_bitfield = bf
+    
+    def handleBusFrame(self):
+        frame = self._bus.get()
+        
+        if frame is not None:
+            size = len(frame.data)
+            if size >= 3:
+                type_number = frame.data[2]
+                try:
+                    ft = FrameType(type_number)
+                except ValueError:
+                    ft = FrameType.UNKNOWN
+                
+                if ft == FrameType.INPUTS:
+                    bitfield = bitarray()
+                    bitfield.frombytes(frame.data[3:])
+                    self.handleInputs(bitfield)
+    
+    def updateBusOutputs(self, lss: List[LoadSwitch]):
+        osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self._transfer)
+        self._bus.sendFrame(osf)
     
     def handleRingAndBarrier(self,
                              phase_pool: FrozenSet[Phase],
@@ -637,100 +708,25 @@ class Controller:
                 self.endCycle(False)
             else:
                 next_barrier = next(self._barrier_pool)
-    
+                
                 # if available phases have no calls, prematurely end cycle as
                 # it will cause deadlock otherwise
                 with_calls = self.getPhasesWithCalls(barrier=self._active_barrier)
                 no_calls = phase_pool - with_calls
-    
+                
                 if len(available_phases - no_calls) == 0:
-                    self.LOG.debug(f'{self._active_barrier.getTag()} had calls '
-                                   'on only unavailable phases')
+                    if self._active_barrier is not None:
+                        logger.debug(f'{self._active_barrier.getTag()} had calls '
+                                       'on only unavailable phases')
                     next_barrier = self.getPriorityBarrier()
+                    logger.debug(f'{next_barrier.getTag()} priority')
                     self.endCycle(True)
                 
                 if barriers_exhausted:
-                    self.LOG.debug(f'Barriers exhausted')
+                    logger.debug(f'Barriers exhausted')
                     self._active_barrier = None
                 else:
                     self.changeBarrier(next_barrier)
-    
-    def serveCall(self, call: Call):
-        self.servePhase(call.target, ped_service=call.ped_service)
-        self._calls.remove(call)
-        
-    def servePhase(self, phase: Phase, ped_service: bool):
-        if self._active_barrier is None:
-            self.changeBarrier(self.getBarrierByPhase(phase))
-            self.LOG.debug(f'Active barrier set serving phase {phase.getTag()}')
-        else:
-            self._active_barrier.cycle_count += 1
-    
-        self.LOG.debug(f'Serving phase {phase.getTag()}')
-        phase.activate(ped_service)
-    
-    def busHealthCheck(self):
-        """Ensure bus thread is still running, if enabled"""
-        if self.bus_enabled:
-            if not self._bus.ready:
-                self.LOG.error('Bus not running')
-                self.shutdown()
-    
-    def handleInputs(self, bf: bitarray):
-        """Check on the contents of bus data container for changes"""
-        
-        if self._last_input_bitfield is None or bf != self._last_input_bitfield:
-            for slot, inp in self._inputs.items():
-                if inp.action == InputAction.NOTHING:
-                    continue
-                
-                try:
-                    state = bf[slot - 1]
-                    
-                    inp.last_state = inp.state
-                    inp.state = state
-                    
-                    if inp.activated():
-                        if inp.action == InputAction.CALL:
-                            for target in inp.targets:
-                                self.placeCall(target, input_slot=slot)
-                        elif inp.action == InputAction.DETECT:
-                            for target in inp.targets:
-                                self.detection(target, input_slot=slot)
-                        else:
-                            raise NotImplementedError()
-                except IndexError:
-                    self.LOG.fine('Discarding signal for unused input slot '
-                                  f'{slot}')
-        
-        self._last_input_bitfield = bf
-    
-    def handleBusFrame(self):
-        frame = self._bus.get()
-        
-        if frame is not None:
-            size = len(frame.data)
-            if size >= 3:
-                type_number = frame.data[2]
-                try:
-                    ft = FrameType(type_number)
-                except ValueError:
-                    ft = FrameType.UNKNOWN
-                
-                if ft == FrameType.INPUTS:
-                    bitfield = bitarray()
-                    bitfield.frombytes(frame.data[3:])
-                    self.handleInputs(bitfield)
-    
-    def updateBusOutputs(self, lss: List[LoadSwitch]):
-        osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self._transfer)
-        self._bus.sendFrame(osf)
-    
-    def getCurrentPhasePool(self) -> FrozenSet[Phase]:
-        if self._active_barrier is not None:
-            return frozenset(self.getBarrierPhases(self._active_barrier))
-        else:
-            return frozenset(self._phases)
     
     def canPhaseRun(self,
                     phase: Phase,
@@ -761,6 +757,12 @@ class Controller:
             return ranked[0][0]
         return None
     
+    def getCurrentPhasePool(self) -> FrozenSet[Phase]:
+        if self._active_barrier is not None:
+            return frozenset(self.getBarrierPhases(self._active_barrier))
+        else:
+            return frozenset(self._phases)
+    
     def tick(self):
         """Polled once every 100ms"""
         
@@ -769,47 +771,46 @@ class Controller:
         
         if not self.time_freeze:
             if self._op_mode == OperationMode.NORMAL:
-                call_count = len(self._calls)
                 active = self.getActivePhases()
                 active_count = len(active)
                 phase_pool = self.getCurrentPhasePool()
+                concurrent_phases = len(self._rings)
                 
-                if call_count:
-                    if active_count < len(self._rings):
+                if len(self._calls):
+                    if not active_count:
+                        available_phases = self.getAvailablePhases(phase_pool, active)
+                        available_calls = self.filterCallsByPhases(self._calls, available_phases)
+                        self.handleRingAndBarrier(phase_pool, available_phases, available_calls)
+                    
+                    if active_count < concurrent_phases:
                         for call in self._calls:
                             if self.canPhaseRun(call.target, phase_pool):
                                 self.serveCall(call)
                                 break
-                    if not active_count:
-                        available_phases = self.getAvailablePhases(phase_pool)
-                        available_calls = self.filterCallsByPhases(self._calls, available_phases)
-                        
-                        self.handleRingAndBarrier(phase_pool, available_phases, available_calls)
                 else:
-                    if active_count:
+                    if not active_count:
+                        count = 0
                         for ip in self._idle_phases:
                             if not ip.active:
                                 if self.canPhaseRun(ip, phase_pool):
-                                    logging.debug(f'{ip.getTag()} idler')
+                                    logger.debug(f'{ip.getTag()} idler')
                                     self.detection(ip, system=True)
-                                    break
-                    else:
-                        stale = self.getStaleStopPhase(self._idle_phases)
-                        if stale:
-                            logging.debug(f'{stale.getTag()} stale')
-                            self.detection(stale, system=True)
+                                    count += 1
+                            if count >= concurrent_phases:
+                                break
                 
                 for phase in self._phases:
-                    phase_conflict = False
+                    conflicting_demand = False
                     
                     for call in self._calls:
                         if call.target != phase and self.checkPhaseConflict(phase, call.target):
-                            phase_conflict = True
+                            conflicting_demand = True
                             break
                     
                     idle_override = self._idle_phases and (phase not in self._idle_phases) or not phase.ped_service
                     
-                    if phase.tick(self.flasher, phase_conflict, idle_override):
+                    if phase.tick(self.flasher,
+                                  conflicting_demand or idle_override):
                         if phase.state in PHASE_STOP_STATES:
                             if phase in self._cycle_pool:
                                 self._cycle_pool.remove(phase)
@@ -818,7 +819,7 @@ class Controller:
                     call.tick()
             elif self._op_mode == OperationMode.CET:
                 for ph in self._phases:
-                    ph.tick(self._flasher)
+                    ph.tick(self._flasher, True)
                 
                 if self._cet_counter > self.INCREMENT:
                     self._cet_counter -= self.INCREMENT
@@ -844,11 +845,7 @@ class Controller:
             
             self._monitor.broadcastControlUpdate(self._phases, pmd, self._load_switches)
         
-        field_text = ''
-        for ls in self._load_switches:
-            ft = utils.formatFields(ls.a, ls.b, ls.c)
-            field_text += f'{ls.id:02d}{ft} '
-        self.LOG.fine(field_text)
+        logger.fine(buildFieldMessage(self._load_switches))
     
     def halfSecond(self):
         """Polled once every 500ms"""
@@ -875,13 +872,13 @@ class Controller:
         """Begin control loop"""
         self._running = True
         
-        self.LOG.info(f'Controller is named "{self._name}"')
+        logger.info(f'Controller is named "{self._name}"')
         
         # noinspection PyUnreachableCode
         if __debug__:
-            self.LOG.warning('Controller in DEBUG ENVIRONMENT!')
+            logger.warning('Controller in DEBUG ENVIRONMENT!')
         
-        self.LOG.debug('CET delay set to 3s')
+        logger.debug('CET delay set to 3s')
         
         if self._running:
             if self.monitor_enabled:
@@ -891,9 +888,10 @@ class Controller:
                 self._bus.start()
                 
                 while not self._bus.ready:
-                    self.LOG.info(f'Waiting on bus...')
+                    logger.info(f'Waiting on bus...')
+                    time.sleep(self.INCREMENT)
                 
-                self.LOG.info(f'Bus ready')
+                logger.info(f'Bus ready')
             
             self.setOperationState(self._op_mode)
             self.transfer()
@@ -907,13 +905,13 @@ class Controller:
         self._running = False
         
         if self.bus_enabled:
-            self.LOG.info('Stopping bus')
+            logger.info('Stopping bus')
             self._bus.shutdown()
             self._bus.join(timeout=1)
         
         if self.monitor_enabled:
-            self.LOG.info('Stopping network monitor')
+            logger.info('Stopping network monitor')
             self._monitor.shutdown()
             self._monitor.join(timeout=1)
         
-        self.LOG.info('Shutdown complete')
+        logger.info('Shutdown complete')

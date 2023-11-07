@@ -14,7 +14,7 @@
 
 import time
 import serial
-import logging
+from loguru import logger
 from atsc import hdlc, timing
 from serial import SerialException
 from typing import Dict, List, Optional
@@ -24,7 +24,6 @@ from collections import defaultdict
 
 
 class Bus(Thread):
-    LOG = logging.getLogger('atsc.bus')
     CRC_POLY = 0x11021
     CRC_INIT = 0xFFFF
     CRC_REVERSE = True
@@ -92,7 +91,7 @@ class Bus(Thread):
             except ValueError:
                 ft = FrameType.UNKNOWN
             
-            self.LOG.bus('Received frame type '
+            logger.bus('Received frame type '
                          f'{ft.name} from '
                          f'{da} ({size}B)')
             
@@ -109,7 +108,7 @@ class Bus(Thread):
         except serial.SerialTimeoutException:
             pass
         except SerialException as e:
-            self.LOG.bus(f'Serial error: {str(e)}')
+            logger.bus(f'Serial error: {str(e)}')
             self.shutdown()
     
     def _read(self):
@@ -128,7 +127,7 @@ class Bus(Thread):
                                 frame, error = self._hdlc.decode(drydock)
                                 
                                 if error is not None:
-                                    self.LOG.bus(f'Framing error {error.name}')
+                                    logger.bus(f'Framing error {error.name}')
                                 else:
                                     self._stats[0]['rx_bytes'] += len(drydock)
                                     self._updateStatsRx(frame)
@@ -142,7 +141,7 @@ class Bus(Thread):
         except serial.SerialTimeoutException:
             pass
         except SerialException as e:
-            self.LOG.bus(f'Serial error: {str(e)}')
+            logger.bus(f'Serial error: {str(e)}')
             self.shutdown()
     
     def run(self):
@@ -153,15 +152,15 @@ class Bus(Thread):
                                          write_timeout=self.LOCK_TIMEOUT)
             self._running = True
         except ValueError as e:
-            self.LOG.error('Invalid settings configured for serial bus '
+            logger.error('Invalid settings configured for serial bus '
                            f'({self._formatParameterText()}): '
                            f'{str(e)}')
         except SerialException as e:
-            self.LOG.bus(f'Serial error: {str(e)}')
+            logger.bus(f'Serial error: {str(e)}')
             self.shutdown()
         
         if self._running:
-            self.LOG.bus(f'Serial bus started ({self._formatParameterText()})')
+            logger.bus(f'Serial bus started ({self._formatParameterText()})')
             while self._running:
                 time.sleep(0.1)
                 if self._serial is not None:
@@ -176,7 +175,7 @@ class Bus(Thread):
             self._write(data)
             self._tx_lock.release()
         else:
-            self.LOG.bus('Failed to acquire transmit lock within timeout')
+            logger.bus('Failed to acquire transmit lock within timeout')
     
     def sendFrame(self, f: GenericFrame):
         if self._tx_lock.acquire(timeout=self.LOCK_TIMEOUT):
@@ -187,11 +186,11 @@ class Bus(Thread):
             ft = f.type
             self._stats[addr]['tx_frames'][ft][0] += 1
             self._stats[addr]['tx_frames'][ft][1] = timing.millis()
-            self.LOG.bus(f'Sent frame type {f.type.name} to {addr} ({len(payload)}B)')
+            logger.bus(f'Sent frame type {f.type.name} to {addr} ({len(payload)}B)')
             
             self._tx_lock.release()
         else:
-            self.LOG.bus('Failed to acquire transmit lock within timeout (with frame)')
+            logger.bus('Failed to acquire transmit lock within timeout (with frame)')
     
     def get(self) -> Optional[hdlc.Frame]:
         if self._rx_lock.acquire(timeout=self.LOCK_TIMEOUT):
@@ -200,11 +199,11 @@ class Bus(Thread):
             self._rx_lock.release()
             return rv
         else:
-            self.LOG.bus('Failed to acquire receive lock within timeout')
+            logger.bus('Failed to acquire receive lock within timeout')
     
     def shutdown(self):
         if self._running:
             self._running = False
             if self._serial is not None and self._serial.is_open:
                 self._serial.close()
-            self.LOG.bus('Bus shutdown')
+            logger.bus('Bus shutdown')

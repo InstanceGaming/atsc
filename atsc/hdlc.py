@@ -15,8 +15,8 @@
 import enum
 import crcmod
 from typing import Tuple, Optional
-from atsc.utils import prettyByteSize
-from atsc.utils import prettyBinaryLiteral as PBL
+
+from jacob.text import format_byte_size, format_binary_literal
 
 
 HDLC_FLAG = 0x7E
@@ -56,8 +56,8 @@ class Frame:
         return self._crc == other.crc
     
     def __repr__(self):
-        return f'<Frame {PBL(self._data)} CRC{self._crc:05d} ' \
-               f'{prettyByteSize(len(self._data))}>'
+        return f'<Frame {format_binary_literal(self._data)} CRC{self._crc:05d} ' \
+               f'{format_byte_size(len(self._data))}>'
 
 
 class HDLCContext:

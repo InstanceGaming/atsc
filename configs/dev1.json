@@ -3,7 +3,7 @@
   "init": {
     "mode": "normal",
     "cet-delay": 6,
-    "recall-all": true
+    "recall-all": false
   },
   "device": {
     "name": "ATSC Development Intersection",
@@ -26,7 +26,7 @@
     "response-attempts": 5
   },
   "random-actuation": {
-    "delay": 30,
+    "delay": 5,
     "min": 1,
     "max": 80,
     "enabled": true
@@ -59,11 +59,11 @@
     {
       "number": 2,
       "timing": {
-        "go": 31.0,
-        "max-go": 46.0,
+        "go": 28.0,
+        "max-go": 38.0,
         "caution": 5.0,
         "extend": 3.0,
-        "pclr": 20.0,
+        "pclr": 16.0,
         "walk": 3.0
       },
       "flash-mode": "yellow",
@@ -109,11 +109,11 @@
     {
       "number": 6,
       "timing": {
-        "go": 31.0,
-        "max-go": 46.0,
+        "go": 28.0,
+        "max-go": 38.0,
         "caution": 5.0,
         "extend": 3.0,
-        "pclr": 20.0,
+        "pclr": 16.0,
         "walk": 3.0
       },
       "flash-mode": "yellow",
@@ -176,6 +176,7 @@
     "max-age": 600,
     "weights": {
       "system": 600,
+      "active-barrier": 0,
       "duplicate-factor": 2
     }
   },

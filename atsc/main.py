@@ -13,12 +13,17 @@
 #  limitations under the License.
 
 import os
-import logging
+import loguru
 import argparse
-from atsc import utils, timing, finelog, configfile
+from atsc import timing, configfile
+from typing import TextIO, Optional
+from pathlib import Path
 from datetime import datetime as dt
 from threading import main_thread
+from jacob.logging import CustomLevel, setup_logger
 from atsc.controller import Controller
+from jacob.filesystem import fix_path, fix_paths
+from jacob.datetime.formatting import format_dhms
 
 
 VERSION = '2.0.1'
@@ -26,138 +31,136 @@ PID_FILE = 'atsc.pid'
 WELCOME_MSG = f'Actuated Traffic Signal Controller v{VERSION} by Jacob Jewett'
 CONFIG_SCHEMA_CHECK = True
 CONFIG_LOGIC_CHECK = True
+CUSTOM_LOG_LEVELS = {
+    CustomLevel(1, 'bus'),
+    CustomLevel(2, 'sorting'),
+    CustomLevel(3, 'fine')
+}
 
-LOG = logging.getLogger('atsc')
-utils.configureLogger(LOG)
+logger = loguru.logger
 
 
 def get_cli_args():
     parser = argparse.ArgumentParser(description=WELCOME_MSG)
     parser.add_argument('--pid',
                         dest='pid_path',
-                        default=[PID_FILE],
-                        nargs=1,
-                        metavar='FILENAME',
-                        help='Path to PID file. Default ' + PID_FILE)
-    parser.add_argument('--no-pid',
-                        action='store_true',
-                        dest='pid_disable',
-                        help='For development only. Disable use of PID file.')
-    parser.add_argument('-v', dest='verbosity', action='count', default=0, help='Increase verbosity the '
-                                                                                'more this flag is defined.')
+                        help='PID file path.')
+    parser.add_argument('-l', '--levels',
+                        dest='log_levels',
+                        default='debug;stderr=error;file=warning',
+                        help='Specify logging levels.')
+    parser.add_argument('-L', '--log',
+                        dest='log_file',
+                        help='Specify log file.')
     parser.add_argument(dest='config_paths',
                         nargs='+',
                         metavar='FILENAMES',
                         help='Path to one or more ATSC config files. Their '
                              'contents will be merged.')
-    return parser.parse_args()
+    return vars(parser.parse_args())
 
 
-def generate_pid(filepath, disabled):
+def generate_pid(path: Optional[Path]) -> Optional[TextIO]:
     pid = os.getpid()
-    path = os.path.abspath(filepath)
     file = None
     
-    if disabled:
-        LOG.info(f'PID {pid} (file disabled)')
+    if path is None:
+        logger.info(f'PID {pid} (file disabled)')
     else:
         try:
             file = open(path, 'x')
         except FileExistsError:
-            LOG.error(f'Already running ({path})')
+            logger.error(f'Already running ({path})')
             exit(4)
         except OSError as e:
-            LOG.error(f'Could not create PID file at {path}: {str(e)}')
+            logger.error(f'Could not create PID file at {path}: {str(e)}')
             exit(5)
         
         file.write(str(pid))
         file.flush()
         
-        LOG.info(f'PID {pid} ({path})')
+        logger.info(f'PID {pid} ({path})')
     
     return file
 
 
-def cleanup_pid(file, disabled):
-    if not disabled:
-        pid_path = os.path.realpath(file.name)
-        if not file.closed:
-            file.close()
+def cleanup_pid(path: Optional[Path], pid_file: Optional[TextIO]):
+    if path is not None:
         try:
-            os.remove(pid_path)
+            if not pid_file.closed:
+                pid_file.close()
+            os.remove(path)
         except OSError as e:
-            LOG.error(f'Could not remove PID file at {pid_path}: {str(e)}')
+            logger.error(f'Could not remove PID file at {path}: {str(e)}')
             exit(6)
         
-        LOG.info(f'Removed PID file at {pid_path}')
+        logger.info(f'Removed PID file at {path}')
 
 
 def run():
     cla = get_cli_args()
+    log_file = fix_path(cla.get('log_file'))
     
-    pid_path = cla.pid_path[0]
-    pid_disable = cla.pid_disable
-    config_paths = cla.config_paths
-    verbosity = cla.verbosity
+    levels_notation = cla['log_levels']
+    try:
+        logger = setup_logger(levels_notation,
+                              custom_levels=CUSTOM_LOG_LEVELS,
+                              log_file=log_file)
+        loguru.logger = logger
+    except ValueError:
+        print(f'Malformed logging level specification "{levels_notation}"')
+        return 5
     
-    if verbosity == 0:
-        LOG.setLevel(logging.INFO)
-    elif verbosity == 1:
-        LOG.setLevel(finelog.CustomLogLevels.VERBOSE)
-    elif verbosity == 2:
-        LOG.setLevel(finelog.CustomLogLevels.FINE)
-    elif verbosity == 3:
-        LOG.setLevel(finelog.CustomLogLevels.BUS)
-    elif verbosity >= 4:
-        LOG.setLevel(finelog.CustomLogLevels.SORTING)
+    pid_path = fix_path(cla.get('pid_path'))
+    config_paths = fix_paths(cla['config_paths'])
     
-    LOG.info(WELCOME_MSG)
-    LOG.info(f'Logging level {LOG.level}')
+    logger.info(WELCOME_MSG)
+    logger.info(f'Logging levels {levels_notation}')
     
     config_schema_path = configfile.get_config_schema_path()
     
     if not os.path.exists(config_schema_path):
-        LOG.fatal(f'Configuration file schema not found at '
-                  f'"{config_schema_path}", exiting; '
-                  f'this is a developer issue, NOT a user issue!')
-        exit(100)
+        logger.critical(f'Configuration file schema not found at '
+                        f'"{config_schema_path}", exiting; this '
+                        f'is a developer issue, NOT a user issue!')
+        return 100
     
     schema_validator = configfile.ConfigValidator(config_schema_path)
     
-    pid = generate_pid(pid_path, pid_disable)
+    pid_file = generate_pid(pid_path)
     
     config = None
     try:
         for cp in config_paths:
             cp = os.path.abspath(cp)
-            LOG.info(f'Configuration ingest from "{cp}"')
+            logger.info(f'Configuration ingest from "{cp}"')
         
         if CONFIG_SCHEMA_CHECK:
-            LOG.debug('Running static validation analysis...')
+            logger.debug('Running static validation analysis...')
             config = schema_validator.load(config_paths)
     except configfile.ConfigError as e:
-        LOG.error('Failed to load configuration file(s): '
-                  f'{e.generic_error.name}')
+        logger.error('Failed to load configuration file(s): '
+                     f'{e.generic_error.name}')
         if len(e.details) > 0:
-            LOG.debug('Details:')
+            logger.debug('Details:')
             for k, v in e.details.items():
-                LOG.debug(f'- {k} = {v}')
-        exit(10)
+                logger.debug(f'- {k} = {v}')
+        return 10
     
     if CONFIG_LOGIC_CHECK:
-        LOG.debug('Running dynamic validation analysis...')
+        logger.debug('Running dynamic validation analysis...')
         complaint = configfile.validate_config_dynamic(config, schema_validator.version)
         
         if complaint:
-            LOG.error('Configuration failed dynamic inspection tests: '
-                      f'{complaint}')
-            exit(11)
+            logger.error('Configuration failed dynamic inspection tests: '
+                         f'{complaint}')
+            return 11
         else:
-            LOG.debug('Dynamic validation analysis passed')
+            logger.debug('Dynamic validation analysis passed')
     
     run_timer = timing.SecondTimer(0)
     
-    LOG.info(dt.now().strftime('Started at %b %d %Y %I:%M %p'))
+    logger.info(dt.now().strftime('Started at %b %d %Y %I:%M %p'))
     
     controller = Controller(config)
     try:
@@ -165,15 +168,15 @@ def run():
     except KeyboardInterrupt:
         controller.shutdown()
     
-    ed, eh, em, es = utils.dhmsText(run_timer.getDelta())
-    LOG.info(f'Runtime of {ed} days, {eh} hours, {em} minutes and {es} seconds')
+    ed, eh, em, es = format_dhms(run_timer.getDelta())
+    logger.info(f'Runtime of {ed} days, {eh} hours, {em} minutes and {es} seconds')
     
-    cleanup_pid(pid, pid_disable)
+    cleanup_pid(pid_path, pid_file)
 
 
 if __name__ == '__main__':
     main_thread().name = 'Main'
-    run()
+    exit(run())
 else:
     print('This file must be ran directly.')
     exit(1)
