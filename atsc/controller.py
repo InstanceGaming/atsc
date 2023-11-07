@@ -26,10 +26,6 @@ from atsc.ringbarrier import Ring, Barrier
 
 class RandomActuation:
     
-    @property
-    def enabled(self):
-        return self._enabled
-    
     def __init__(self, configuration_node: dict, phase_id_pool: List[int]
                  ):
         self._enabled = configuration_node['enabled']
@@ -134,8 +130,7 @@ class Controller:
         # total cycle counter
         self._cycle_count = 1
         
-        # cycle tracking window
-        self._cycle_window: List[Phase] = []
+        self._cycle_pool: Set[Phase] = set(self._phases)
         
         # 500ms timer counter (0-4)
         # don't try and use an actual timer here,
@@ -307,7 +302,7 @@ class Controller:
                 self.LOG.info(f'Using IP address {host}')
                 
                 monitor_port = monitor_node['port']
-                return network.Monitor(self, host, monitor_port)
+                return network.Monitor(host, monitor_port)
             else:
                 self.LOG.info('Network monitor disabled')
         
@@ -435,7 +430,7 @@ class Controller:
     def endCycle(self, early: bool) -> None:
         """End phasing for this control cycle iteration"""
         self._cycle_count += 1
-        self._cycle_window = []
+        self._cycle_pool = set(self._phases)
         for barrier in self._barriers:
             barrier.cycle_count = 0
         self.LOG.debug(f'Ended cycle {self._cycle_count}'
@@ -616,23 +611,19 @@ class Controller:
         
         return frozenset(phases)
     
-    def allPhasesInactive(self) -> bool:
-        for ph in self._phases:
-            if ph.active:
-                return False
-        return True
-    
     def handleRingAndBarrier(self,
                              phase_pool: FrozenSet[Phase],
                              available_phases: FrozenSet[Phase],
                              available_calls: List[Call]):
+        assert len(self._calls)
+        
         # no available phases for barrier
         c1 = len(available_phases) == 0
         
         # there are no available calls
         c2 = len(available_calls) == 0
         
-        if (c1 or c2) and len(self._calls):
+        if (c1 or c2):
             barriers_exhausted = False
             
             if self._active_barrier is not None:
@@ -642,13 +633,13 @@ class Controller:
                         barriers_exhausted = False
                         break
             
-            if len(self._cycle_window) == len(self._phases):
+            if not len(self._cycle_pool):
                 self.endCycle(False)
             else:
                 next_barrier = next(self._barrier_pool)
     
-                # if only available phase has no calls, prematurely
-                # end cycle as it will cause deadlock otherwise
+                # if available phases have no calls, prematurely end cycle as
+                # it will cause deadlock otherwise
                 with_calls = self.getPhasesWithCalls(barrier=self._active_barrier)
                 no_calls = phase_pool - with_calls
     
@@ -752,7 +743,7 @@ class Controller:
         if phase not in pool:
             return False
         
-        if self._cycle_window and phase == self._cycle_window[0]:
+        if phase not in self._cycle_pool:
             return False
         
         for other in self._phases:
@@ -789,23 +780,24 @@ class Controller:
                             if self.canPhaseRun(call.target, phase_pool):
                                 self.serveCall(call)
                                 break
+                    if not active_count:
+                        available_phases = self.getAvailablePhases(phase_pool)
+                        available_calls = self.filterCallsByPhases(self._calls, available_phases)
+                        
+                        self.handleRingAndBarrier(phase_pool, available_phases, available_calls)
                 else:
                     if active_count:
                         for ip in self._idle_phases:
                             if not ip.active:
                                 if self.canPhaseRun(ip, phase_pool):
+                                    logging.debug(f'{ip.getTag()} idler')
                                     self.detection(ip, system=True)
                                     break
                     else:
                         stale = self.getStaleStopPhase(self._idle_phases)
                         if stale:
+                            logging.debug(f'{stale.getTag()} stale')
                             self.detection(stale, system=True)
-                
-                if self.allPhasesInactive():
-                    available_phases = self.getAvailablePhases(phase_pool)
-                    available_calls = self.filterCallsByPhases(self._calls, available_phases)
-                    
-                    self.handleRingAndBarrier(phase_pool, available_phases, available_calls)
                 
                 for phase in self._phases:
                     phase_conflict = False
@@ -818,8 +810,9 @@ class Controller:
                     idle_override = self._idle_phases and (phase not in self._idle_phases) or not phase.ped_service
                     
                     if phase.tick(self.flasher, phase_conflict, idle_override):
-                        if phase.state == PhaseState.STOP:
-                            self._cycle_window.insert(0, phase)
+                        if phase.state in PHASE_STOP_STATES:
+                            if phase in self._cycle_pool:
+                                self._cycle_pool.remove(phase)
                 
                 for call in self._calls:
                     call.tick()

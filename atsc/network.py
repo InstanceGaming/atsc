@@ -25,18 +25,13 @@ class Monitor(Thread):
     LOG = logging.getLogger('atsc.net')
     
     @property
-    def running(self):
-        return self._running
-    
-    @property
     def client_count(self):
         return len(self._clients)
     
-    def __init__(self, controller, host, port):
+    def __init__(self, host, port):
         Thread.__init__(self)
         self.name = 'NetMonitor'
         self.daemon = True
-        self._controller = controller
         
         self._running = False
         self._clients = []
@@ -153,12 +148,7 @@ class MonitorClient:
         self._sock = connection
         self._index = index
         self._stopped = False
-        self._ignoring = False
-        self._last_data = None
         self._total_sent = 0
-        
-        self._ip = ip
-        self._port = port
         
         self.LOG.info('M{0:02d} at {1}:{2}'.format(index, ip, port))
     

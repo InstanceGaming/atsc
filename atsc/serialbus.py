@@ -33,10 +33,6 @@ class Bus(Thread):
     LOCK_TIMEOUT = 0.05
     
     @property
-    def hdlc_context(self):
-        return self._hdlc
-    
-    @property
     def stats(self):
         return self._stats.copy()
     

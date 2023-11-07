@@ -97,7 +97,7 @@ class PhaseState(IntEnum):
     MAX_GO = 32
 
 
-PHASE_REST_STATES = (PhaseState.STOP, PhaseState.GO, PhaseState.WALK)
+PHASE_STOP_STATES = (PhaseState.STOP, PhaseState.MIN_STOP)
 
 PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
                       PhaseState.RCLR,
@@ -113,14 +113,12 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.PCLR,
                    PhaseState.WALK)
 
-PHASE_PARTNER_START_STATES = (PhaseState.EXTEND,
-                              PhaseState.GO,
-                              PhaseState.WALK)
-
 
 class Phase(IdentifiableBase):
-    FYA_LOCAL = -1
-    FYA_PED = -2
+    
+    @property
+    def resting(self):
+        return self._resting
     
     @property
     def ped_service(self) -> bool:
