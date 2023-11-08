@@ -121,10 +121,6 @@ class Phase(IdentifiableBase):
         return self._resting
     
     @property
-    def ped_service(self) -> bool:
-        return self._pls is not None and self._ped_service
-    
-    @property
     def extend_enabled(self):
         return self._timing[PhaseState.EXTEND] > 0.0
     
@@ -135,6 +131,10 @@ class Phase(IdentifiableBase):
     @property
     def flash_mode(self) -> FlashMode:
         return self._flash_mode
+    
+    @property
+    def ready(self):
+        return self._state == PhaseState.STOP
     
     @property
     def active(self) -> bool:
@@ -160,10 +160,6 @@ class Phase(IdentifiableBase):
     def ped_ls(self) -> Optional[LoadSwitch]:
         return self._pls
     
-    @property
-    def max_time(self):
-        return self._elapsed
-    
     def _validate_timing(self):
         if self.active:
             raise RuntimeError('Cannot changing timing map while active')
@@ -187,14 +183,15 @@ class Phase(IdentifiableBase):
         self._timing = timing
         self._flash_mode = flash_mode
         
+        self._resting: bool = False
         self._state: PhaseState = PhaseState.STOP
         
         self._time_lower: float = 0.0
         self._time_upper: float = 0.0
         self._elapsed: float = 0.0
         
-        self._ped_service: bool = True
-        self._resting: bool = False
+        self.demand: bool = False
+        self.ped_service: bool = True
         
         self._vls = veh_ls
         self._pls = ped_ls
@@ -202,7 +199,7 @@ class Phase(IdentifiableBase):
     
     def getNextState(self, ped_service: bool) -> PhaseState:
         if self._state == PhaseState.STOP:
-            if ped_service:
+            if self.ped_ls is not None and ped_service:
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
@@ -242,7 +239,7 @@ class Phase(IdentifiableBase):
         if next_state == PhaseState.GO:
             go_time = self._timing[PhaseState.GO]
             
-            if self.ped_service:
+            if self.ped_ls is not None and self.ped_service:
                 walk_time = self._timing[PhaseState.WALK]
                 go_time -= walk_time
                 go_time -= self._timing[PhaseState.PCLR]
@@ -255,20 +252,17 @@ class Phase(IdentifiableBase):
         self._state = next_state
         self._elapsed = 0.0
     
-    def reduce(self):
+    def gap_reset(self):
         if self.extend_active:
             self._time_lower = 0.0
-        else:
-            raise RuntimeError('Cannot reduce, not extending')
     
-    def activate(self, ped_service: bool):
+    def activate(self):
         if self.active:
             raise RuntimeError('Cannot activate active phase')
         
         if self.state == PhaseState.MIN_STOP:
             raise RuntimeError('Cannot activate phase during MIN_STOP interval')
         
-        self._ped_service = ped_service
         self.update()
     
     def tick(self,
@@ -367,40 +361,6 @@ class Phase(IdentifiableBase):
     def __repr__(self):
         return f'<{self.getTag()} {self.state.name} {self.time_upper: 05.1f}' \
                f' {self.time_lower: 05.1f}>'
-
-
-class Call(IdentifiableBase):
-    
-    @property
-    def target(self) -> Phase:
-        return self._target
-    
-    @property
-    def ped_service(self):
-        return self._ped_service
-    
-    @property
-    def age(self) -> float:
-        return self._age
-    
-    def __init__(self, id_: int, increment: float, target: Phase, ped_service=False):
-        super().__init__(id_)
-        self._target = target
-        self._age: float = 0.0
-        self._increment = increment
-        self._ped_service = ped_service
-        self.duplicates: int = 0
-    
-    def tick(self):
-        self._age += self._increment
-    
-    def __lt__(self, other):
-        if isinstance(other, Call):
-            return self._age < other.age
-        return False
-    
-    def __repr__(self):
-        return f'<Call #{self._id:02d} A{self._age:0>5.2f}>'
 
 
 class InputAction(IntEnum):
