@@ -31,4 +31,4 @@ class Barrier(IdentifiableBase):
     def __init__(self, id_: int, phases: List[int]):
         super().__init__(id_)
         self._phases = phases
-        self.cycle_count = 0
+        self.phases_served = 0

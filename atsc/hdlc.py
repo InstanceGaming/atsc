@@ -15,7 +15,6 @@
 import enum
 import crcmod
 from typing import Tuple, Optional
-
 from jacob.text import format_byte_size, format_binary_literal
 
 

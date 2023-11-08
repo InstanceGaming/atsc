@@ -14,8 +14,8 @@
 
 import time
 import serial
-from loguru import logger
 from atsc import hdlc, timing
+from loguru import logger
 from serial import SerialException
 from typing import Dict, List, Optional
 from threading import Lock, Thread

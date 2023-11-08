@@ -13,10 +13,8 @@
 #  limitations under the License.
 import time
 import socket
-
-from loguru import logger
-
 import atsc.proto.controller_pb2 as pb
+from loguru import logger
 from typing import Dict, List, Tuple, Optional
 from atsc.core import Phase, LoadSwitch
 from threading import Thread

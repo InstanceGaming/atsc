@@ -28,7 +28,7 @@
   "random-actuation": {
     "delay": 5,
     "min": 1,
-    "max": 80,
+    "max": 5,
     "enabled": true
   },
   "default-timing": {
