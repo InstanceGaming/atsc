@@ -114,6 +114,9 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.WALK)
 
 
+PHASE_PARTNER_START_STATES = (PhaseState.STOP, PhaseState.GO, PhaseState.WALK)
+
+
 class Phase(IdentifiableBase):
     
     @property
@@ -160,6 +163,10 @@ class Phase(IdentifiableBase):
     def ped_ls(self) -> Optional[LoadSwitch]:
         return self._pls
     
+    @property
+    def secondary(self):
+        return self.ped_ls is None
+    
     def _validate_timing(self):
         if self.active:
             raise RuntimeError('Cannot changing timing map while active')
@@ -190,7 +197,6 @@ class Phase(IdentifiableBase):
         self._time_upper: float = 0.0
         self._elapsed: float = 0.0
         
-        self.demand: bool = False
         self.ped_service: bool = True
         
         self._vls = veh_ls
@@ -265,9 +271,7 @@ class Phase(IdentifiableBase):
         
         self.update()
     
-    def tick(self,
-             flasher: bool,
-             rest_inhibit: bool) -> bool:
+    def tick(self, flasher: bool, rest_inhibit: bool) -> bool:
         changed = False
         self._resting = False
         

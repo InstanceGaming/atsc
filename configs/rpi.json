@@ -32,7 +32,7 @@
     "enabled": true
   },
   "default-timing": {
-    "min-stop": 1.0,
+    "min-stop": 2.0,
     "rclr": 1.0,
     "go": 19.5,
     "max-go": 22.0,
