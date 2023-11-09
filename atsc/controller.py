@@ -412,7 +412,7 @@ class Controller:
 
         :param barrier: optionally omit phases not belonging to specific barrier
         """
-        pool = barrier.phases if barrier else self._phases
+        pool = self.getBarrierPhases(barrier) if barrier else self._phases
         return [phase for phase in pool if self.checkPhaseDemand(phase)]
     
     def handleInputs(self, bf: bitarray):
@@ -579,19 +579,18 @@ class Controller:
                                 self._cycle_pool.remove(phase)
                 
                 if not active_count:
-                    demand_phases = self.getPhasesWithDemand(barrier=self._active_barrier)
-                    
                     if not len(self._cycle_pool):
                         self.endCycle(False)
                         self.setBarrier(next(self._barrier_pool))
                     else:
                         ready_phases = {p for p in self._cycle_pool if p.ready}
-                        available = ready_phases - set(demand_phases)
+                        barrier_demand = self.getPhasesWithDemand(barrier=self._active_barrier)
+                        available = ready_phases - set(barrier_demand)
                         if not len(available):
                             self.endCycle(True)
                             self.setBarrier(None)
                     
-                    if not len(demand_phases):
+                    if not len(self.getPhasesWithDemand()):
                         available_idlers = [phase for phase in self._idle_phases if phase in self._cycle_pool]
                         for phase in available_idlers:
                             if self.canPhaseRun(phase,
