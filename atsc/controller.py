@@ -579,7 +579,7 @@ class Controller:
                                 self._cycle_pool.remove(phase)
                 
                 if not active_count:
-                    demand_phases = self.getPhasesWithDemand()
+                    demand_phases = self.getPhasesWithDemand(barrier=self._active_barrier)
                     
                     if not len(self._cycle_pool):
                         self.endCycle(False)
