@@ -13,22 +13,19 @@
 #  limitations under the License.
 
 from typing import List
-from atsc.core import IdentifiableBase, FrozenIdentifiableBase
-from dataclasses import dataclass
+from atsc.core import IdentifiableBase
 
 
-@dataclass(frozen=True)
-class Ring(FrozenIdentifiableBase):
-    phases: List[int]
+class Ring(IdentifiableBase):
+    
+    def __init__(self, id_: int, phases: List[int]):
+        super().__init__(id_)
+        self.phases: List[int] = phases
 
 
 class Barrier(IdentifiableBase):
     
-    @property
-    def phases(self):
-        return self._phases
-
     def __init__(self, id_: int, phases: List[int]):
         super().__init__(id_)
-        self._phases = phases
-        self.phases_served = 0
+        self.phases: List[int] = phases
+        self.serve_count: int = 0

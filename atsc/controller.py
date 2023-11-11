@@ -16,9 +16,8 @@ import random
 from atsc.core import *
 from atsc import network, serialbus
 from loguru import logger
-from typing import Set, FrozenSet
+from typing import Iterable
 from bitarray import bitarray
-from itertools import cycle
 from atsc.utils import buildFieldMessage
 from atsc.frames import FrameType, DeviceAddress, OutputStateFrame
 from atsc.ringbarrier import Ring, Barrier
@@ -56,103 +55,72 @@ class RandomActuation:
 class Controller:
     INCREMENT = 0.1
     
-    @property
-    def bus_enabled(self):
-        """Is the serial bus enabled"""
-        return self._bus is not None
-    
-    @property
-    def monitor_enabled(self):
-        """Is the network monitor enabled"""
-        return self._monitor is not None
-    
-    @property
-    def time_freeze(self):
-        """If the controller is currently freezing time"""
-        return self._time_freeze
-    
-    @property
-    def name(self):
-        """Name of the controller"""
-        return self._name
-    
-    @property
-    def flasher(self):
-        """1Hz square wave reference"""
-        return self._flasher
-    
     def __init__(self, config: dict):
         # controller name (arbitrary)
-        self._name = config['device']['name']
+        self.name = config['device']['name']
         
         # should place calls on all phases when started?
-        self._recall_all = config['init']['recall-all']
+        self.recall_all = config['init']['recall-all']
         
         # 1Hz square wave reference clock
-        self._flasher = True
+        self.flasher = True
         
         # loop enable flag
-        self._running = False
+        self.running = False
         
         # local flash transfer relay status
-        self._transfer = False
+        self.transferred = False
         
         # operation functionality of the controller
-        self._op_mode: OperationMode = text_to_enum(OperationMode, config['init']['mode'])
+        self.mode: OperationMode = text_to_enum(OperationMode, config['init']['mode'])
         
         # there are two trigger sources for time freeze: system, input
         # see self.time_freeze for a scalar state
-        self._time_freeze: bool = False
+        self.freeze: bool = False
         
-        self._load_switches: List[LoadSwitch] = [LoadSwitch(1), LoadSwitch(2), LoadSwitch(3), LoadSwitch(4),
-                                                 LoadSwitch(5), LoadSwitch(6), LoadSwitch(7), LoadSwitch(8),
-                                                 LoadSwitch(9), LoadSwitch(10), LoadSwitch(11), LoadSwitch(12)]
+        self.load_switches: List[LoadSwitch] = [LoadSwitch(1), LoadSwitch(2), LoadSwitch(3), LoadSwitch(4),
+                                                LoadSwitch(5), LoadSwitch(6), LoadSwitch(7), LoadSwitch(8),
+                                                LoadSwitch(9), LoadSwitch(10), LoadSwitch(11), LoadSwitch(12)]
         
         default_timing = self.getDefaultTiming(config['default-timing'])
-        self._phases: List[Phase] = self.getPhases(config['phases'], default_timing)
-        self._idle_phases: List[Phase] = self.getIdlePhases(config['idle-phases'])
-        self._phase_queue: List[Phase] = []
+        self.phases: List[Phase] = self.getPhases(config['phases'], default_timing)
+        self.idle_phases: List[Phase] = self.getIdlePhases(config['idle-phases'])
+        self.phase_pool: List[Phase] = self.phases.copy()
+        self.phase_queue: List[Phase] = []
         
-        self._rings: List[Ring] = self.getRings(config['rings'])
-        self._barriers: List[Barrier] = self.getBarriers(config['barriers'])
+        self.rings: List[Ring] = self.getRings(config['rings'])
+        self.barriers: List[Barrier] = self.getBarriers(config['barriers'])
+        self.barrier: Optional[Barrier] = None
         
-        # cycle instance of barriers
-        self._barrier_pool: cycle = cycle(self._barriers)
-        
-        # current barrier
-        self._active_barrier: Optional[Barrier] = None
-        
-        # total cycle counter
-        self._cycle_count = 0
-        
-        self._cycle_pool: Set[Phase] = set(self._phases)
+        self.cycle_count = 0
+        self.phase_count = 0
         
         # 500ms timer counter (0-4)
         # don't try and use an actual timer here,
         # that always results in erratic ped signal
         # countdowns in the least.
-        self._half_counter: int = 0
+        self.half_counter: int = 0
         
         # control entrance transition timer
         yellow_time = default_timing[PhaseState.CAUTION]
-        self._cet_time: int = config['init']['cet-delay'] + yellow_time
-        self._cet_counter: float = self._cet_time
+        self.cet_time: int = config['init']['cet-delay'] + yellow_time
+        self.cet_counter: float = self.cet_time
         
         # inputs data structure instances
-        self._inputs: Dict[int, Input] = self.getInputs(config.get('inputs'))
+        self.inputs: Dict[int, Input] = self.getInputs(config.get('inputs'))
         # the last input bitfield received from the serial bus used in
         # comparison to the latest for change detection
-        self._last_input_bitfield: Optional[bitarray] = bitarray()
+        self.last_input_bitfield: Optional[bitarray] = bitarray()
         
         # communications
-        self._bus: Optional[serialbus.Bus] = self.getBus(config['bus'])
-        self._monitor: Optional[network.Monitor] = self.getNetworkMonitor(config['network'])
-        if self._monitor is not None:
-            self._monitor.setControlInfo(self.name, self._phases, self.getPhaseLoadSwitchIndexMapping())
+        self.bus: Optional[serialbus.Bus] = self.getBus(config['bus'])
+        self.monitor: Optional[network.Monitor] = self.getNetworkMonitor(config['network'])
+        if self.monitor is not None:
+            self.monitor.setControlInfo(self.name, self.phases, self.getPhaseLoadSwitchIndexMapping())
         
         # for software demo and testing purposes
-        self._random_actuation: RandomActuation = RandomActuation(config['random-actuation'],
-                                                                  [ph.id for ph in self._phases])
+        self.actuator: RandomActuation = RandomActuation(config['random-actuation'],
+                                                         [ph.id for ph in self.phases])
     
     def getDefaultTiming(self, configuration_node: Dict[str, float]) -> Dict[PhaseState, float]:
         timing = {}
@@ -210,7 +178,7 @@ class Controller:
     def getPhaseLoadSwitchIndexMapping(self) -> Dict[Phase, List[int]]:
         mapping = {}
         
-        for ph in self._phases:
+        for ph in self.phases:
             indices = [ph.veh_ls.id - 1]
             if ph.ped_ls is not None:
                 indices.append(ph.ped_ls.id - 1)
@@ -246,7 +214,7 @@ class Controller:
                 
                 targets = []
                 for target_index in targets_node:
-                    target = self._phases[target_index - 1]
+                    target = self.phases[target_index - 1]
                     targets.append(target)
                 
                 inputs.update({
@@ -305,7 +273,7 @@ class Controller:
     def getRingByPhase(self, phase: Phase) -> Ring:
         """Find a `Phase` instance by one of it's associated
                 `Channel` instances"""
-        for ring in self._rings:
+        for ring in self.rings:
             if phase.id in ring.phases:
                 return ring
         
@@ -314,30 +282,30 @@ class Controller:
     def getBarrierByPhase(self, phase: Phase) -> Barrier:
         """Get `Barrier` instance by associated `Phase` instance"""
         assert isinstance(phase, Phase)
-        for b in self._barriers:
+        for b in self.barriers:
             if phase.id in b.phases:
                 return b
         
         raise RuntimeError(f'Failed to get barrier by {phase.getTag()}')
     
     def getPhaseById(self, i: int) -> Phase:
-        for ph in self._phases:
+        for ph in self.phases:
             if ph.id == i:
                 return ph
         raise RuntimeError(f'Failed to find phase {i}')
     
     def getLoadSwitchById(self, i: int) -> LoadSwitch:
-        for ls in self._load_switches:
+        for ls in self.load_switches:
             if ls.id == i:
                 return ls
         raise RuntimeError(f'Failed to find load switch {i}')
     
     def getActivePhases(self) -> List[Phase]:
-        return [ph for ph in self._phases if ph.active]
+        return [ph for ph in self.phases if ph.active]
     
     def getActivePhaseCount(self) -> int:
         count = 0
-        for phase in self._phases:
+        for phase in self.phases:
             if phase.active:
                 count += 1
         return count
@@ -359,13 +327,13 @@ class Controller:
         if system:
             input_text += ' (system)'
         
-        if not self.checkPhaseDemand(phase):
+        if phase not in self.phase_queue:
             logger.debug(f'Demand for {phase.getTag()}{input_text}')
-            self._phase_queue.append(phase)
+            self.phase_queue.append(phase)
     
     def placeAllCall(self):
         """Place calls on all phases"""
-        for phase in self._phases:
+        for phase in self.phases:
             self.placeCall(phase, system=True)
     
     def detection(self, phase: Phase, input_slot=None, system=False):
@@ -387,39 +355,30 @@ class Controller:
     def setOperationState(self, new_state: OperationMode):
         """Set controller state for a given `OperationMode`"""
         if new_state == OperationMode.CET:
-            for ph in self._phases:
+            for ph in self.phases:
                 if ph.flash_mode == FlashMode.YELLOW:
                     ph.update(force_state=PhaseState.CAUTION)
             
-            self._cet_counter = self._cet_time
+            self.cet_counter = self.cet_time
         elif new_state == OperationMode.NORMAL:
-            for ph in self._phases:
+            for ph in self.phases:
                 ph.update(force_state=PhaseState.STOP)
-            if self._recall_all:
+            
+            self.setBarrier(None)
+            
+            if self.recall_all:
                 self.placeAllCall()
         
-        previous_state = self._op_mode
-        self._op_mode = new_state
+        previous_state = self.mode
+        self.mode = new_state
         logger.info(f'Operation state is now {new_state.name} '
                       f'(was {previous_state.name})')
-    
-    def checkPhaseDemand(self, phase: Phase) -> bool:
-        return phase in self._phase_queue
-    
-    def getPhasesWithDemand(self, barrier: Optional[Barrier] = None) -> List[Phase]:
-        """
-        Get phases that have at least one call.
-
-        :param barrier: optionally omit phases not belonging to specific barrier
-        """
-        pool = self.getBarrierPhases(barrier) if barrier else self._phases
-        return [phase for phase in pool if self.checkPhaseDemand(phase)]
     
     def handleInputs(self, bf: bitarray):
         """Check on the contents of bus data container for changes"""
         
-        if self._last_input_bitfield is None or bf != self._last_input_bitfield:
-            for slot, inp in self._inputs.items():
+        if self.last_input_bitfield is None or bf != self.last_input_bitfield:
+            for slot, inp in self.inputs.items():
                 if inp.action == InputAction.NOTHING:
                     continue
                 
@@ -442,25 +401,27 @@ class Controller:
                     logger.fine('Discarding signal for unused input slot '
                                   f'{slot}')
         
-        self._last_input_bitfield = bf
-    
-    def endCycle(self, early: bool) -> None:
-        """End phasing for this control cycle iteration"""
-        self._cycle_count += 1
-        self._cycle_pool = set(self._phases)
-        
-        for barrier in self._barriers:
-            barrier.phases_served = 0
-        
-        logger.debug(f'Ended cycle {self._cycle_count}{" (early)" if early else ""}')
+        self.last_input_bitfield = bf
     
     def setBarrier(self, b: Optional[Barrier]):
-        if b != self._active_barrier:
-            self._active_barrier = b
+        if b != self.barrier:
             if b is not None:
                 logger.debug(f'Crossed to {b.getTag()}')
             else:
                 logger.debug(f'Free barrier')
+            
+            self.barrier = b
+    
+    def endCycle(self, early: bool) -> None:
+        """End phasing for this control cycle iteration"""
+        self.cycle_count += 1
+        self.phase_pool = self.phases.copy()
+        
+        for barrier in self.barriers:
+            barrier.serve_count = 0
+        
+        self.setBarrier(None)
+        logger.debug(f'Ended cycle {self.cycle_count}{" (early)" if early else ""}')
     
     def checkPhaseConflict(self, a: Phase, b: Phase) -> bool:
         """
@@ -487,7 +448,7 @@ class Controller:
     
     def canPhaseRun(self,
                     phase: Phase,
-                    pool: FrozenSet[Phase],
+                    pool: Iterable[Phase],
                     as_partner: bool) -> bool:
         if not phase.ready:
             return False
@@ -498,7 +459,7 @@ class Controller:
         if phase not in pool:
             return False
         
-        for other in self._phases:
+        for other in self.phases:
             if other == phase:
                 continue
             if other.active and self.checkPhaseConflict(phase, other):
@@ -506,14 +467,14 @@ class Controller:
             
         return True
     
-    def getCurrentPhasePool(self) -> FrozenSet[Phase]:
-        if self._active_barrier is not None:
-            return frozenset(self.getBarrierPhases(self._active_barrier))
+    def getCurrentPhasePool(self) -> List[Phase]:
+        if self.barrier is not None:
+            return self.getBarrierPhases(self.barrier)
         else:
-            return frozenset(self._cycle_pool)
+            return self.phase_pool
     
     def handleBusFrame(self):
-        frame = self._bus.get()
+        frame = self.bus.get()
         
         if frame is not None:
             size = len(frame.data)
@@ -530,107 +491,145 @@ class Controller:
                     self.handleInputs(bitfield)
     
     def updateBusOutputs(self, lss: List[LoadSwitch]):
-        osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self._transfer)
-        self._bus.sendFrame(osf)
+        osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self.transferred)
+        self.bus.sendFrame(osf)
     
     def servePhase(self, phase: Phase):
-        if self._active_barrier is not None:
-            self._active_barrier.phases_served += 1
-        
         logger.debug(f'Serving phase {phase.getTag()}')
-        self._phase_queue.remove(phase)
+        self.phase_queue.remove(phase)
         phase.activate()
+        
+    def getSoloPartner(self, phase: Phase) -> Optional[Phase]:
+        if self.barrier is not None:
+            pool = self.getBarrierPhases(self.barrier)
+        else:
+            pool = self.phase_pool
+        
+        for candidate in pool:
+            if candidate == phase:
+                continue
+            if candidate.ready:
+                if not self.checkPhaseConflict(phase, candidate):
+                    return candidate
+        return None
     
     def tick(self):
         """Polled once every 100ms"""
         
-        if self.bus_enabled:
+        if self.bus is not None:
             self.handleBusFrame()
         
-        if not self.time_freeze:
-            if self._op_mode == OperationMode.NORMAL:
-                concurrent_phases = len(self._rings)
+        if not self.freeze:
+            if self.mode == OperationMode.NORMAL:
+                concurrent_phases = len(self.rings)
                 phase_pool = self.getCurrentPhasePool()
                 active_count = self.getActivePhaseCount()
                 
-                for phase in self._phase_queue:
-                    if self.canPhaseRun(phase, phase_pool, active_count > 0):
-                        self.servePhase(phase)
+                if not active_count:
+                    if not len(self.phase_pool):
+                        self.endCycle(False)
+                    else:
+                        ready_phases = {p for p in self.phase_pool if p.ready}
+                        if self.phase_count:
+                            if self.barrier is None:
+                                exhausted = all([b.serve_count == 0 for b in self.barriers])
+                                if exhausted:
+                                    logger.verbose('Barriers exhausted')
+                                    self.endCycle(True)
+                            else:
+                                barrier_phases = self.getBarrierPhases(self.barrier)
+                                available = ready_phases.intersection(barrier_phases)
+                                has_demand = available.intersection(self.phase_queue)
+                                if not len(has_demand):
+                                    logger.verbose('Untenable demand for current barrier')
+                                    self.setBarrier(None)
                         
-                        if active_count >= concurrent_phases:
-                            break
-                        else:
-                            phase_pool = self.getCurrentPhasePool()
-                            active_count = self.getActivePhaseCount()
+                        if not len(self.phase_queue) and len(self.idle_phases):
+                            idler_count = 0
+                            for idle_phase in self.idle_phases:
+                                if self.canPhaseRun(idle_phase, phase_pool, False):
+                                    logger.debug(f'Idle recall {idle_phase.getTag()}')
+                                    self.detection(idle_phase, system=True)
+                                    idler_count += 1
+                                    
+                                    if idler_count >= concurrent_phases:
+                                        break
+                            else:
+                                logger.verbose('Could not serve any idle phases')
+                                self.endCycle(True)
+                                self.setBarrier(None)
                 
-                for phase in self._phases:
+                for phase in self.phase_queue:
+                    if self.canPhaseRun(phase, phase_pool, active_count > 0):
+                        barrier = self.getBarrierByPhase(phase)
+                        if self.barrier is None:
+                            self.setBarrier(barrier)
+                        
+                        alone = not active_count and len(self.phase_queue) == 1
+                        self.servePhase(phase)
+                        barrier.serve_count += 1
+                        
+                        phase_pool = self.getCurrentPhasePool()
+                        active_count = self.getActivePhaseCount()
+                        
+                        if alone:
+                            partner = self.getSoloPartner(phase)
+                            if partner is not None:
+                                logger.debug('Partner recall {}', partner.getTag())
+                                self.detection(partner, system=True)
+                        
+                        if alone or active_count >= concurrent_phases:
+                            break
+                
+                for phase in self.phases:
                     conflicting_demand = False
                     
-                    for other_phase in self._phases:
+                    for other_phase in self.phases:
                         if phase != other_phase and self.checkPhaseConflict(phase, other_phase):
                             conflicting_demand = True
                             break
                     
-                    idle_override = self._idle_phases and (phase not in self._idle_phases) or phase.secondary
+                    idle_override = self.idle_phases and (phase not in self.idle_phases) or phase.secondary
                     
                     if phase.tick(self.flasher, conflicting_demand or idle_override):
                         if phase.state in PHASE_STOP_STATES:
-                            if phase in self._cycle_pool:
-                                self._cycle_pool.remove(phase)
+                            if phase in self.phase_pool:
+                                self.phase_count += 1
+                                self.phase_pool.remove(phase)
+                                logger.debug('{} terminated', phase.getTag())
+            
+            elif self.mode == OperationMode.CET:
+                for ph in self.phases:
+                    ph.tick(self.flasher, True)
                 
-                if not active_count:
-                    if not len(self._cycle_pool):
-                        self.endCycle(False)
-                        self.setBarrier(next(self._barrier_pool))
-                    else:
-                        ready_phases = {p for p in self._cycle_pool if p.ready}
-                        barrier_demand = self.getPhasesWithDemand(barrier=self._active_barrier)
-                        available = ready_phases - set(barrier_demand)
-                        if not len(available):
-                            self.endCycle(True)
-                            self.setBarrier(None)
-                    
-                    if not len(self.getPhasesWithDemand()):
-                        available_idlers = [phase for phase in self._idle_phases if phase in self._cycle_pool]
-                        for phase in available_idlers:
-                            if self.canPhaseRun(phase,
-                                                phase_pool,
-                                                active_count > 0):
-                                logger.debug(f'{phase.getTag()} idler')
-                                self.detection(phase, system=True)
-                    
-            elif self._op_mode == OperationMode.CET:
-                for ph in self._phases:
-                    ph.tick(self._flasher, True)
-                
-                if self._cet_counter > self.INCREMENT:
-                    self._cet_counter -= self.INCREMENT
+                if self.cet_counter > self.INCREMENT:
+                    self.cet_counter -= self.INCREMENT
                 else:
                     self.setOperationState(OperationMode.NORMAL)
             
-            if self._half_counter == 4:
-                self._half_counter = 0
+            if self.half_counter == 4:
+                self.half_counter = 0
                 self.halfSecond()
             else:
-                self._half_counter += 1
+                self.half_counter += 1
         
-        if self.bus_enabled:
-            self.updateBusOutputs(self._load_switches)
+        if self.bus is not None:
+            self.updateBusOutputs(self.load_switches)
         
-        if self.monitor_enabled:
+        if self.monitor is not None:
             pmd = []
             
-            for _ in self._phases:
+            for _ in self.phases:
                 pmd.append((0, 0))
             
-            self._monitor.broadcastControlUpdate(self._phases, pmd, self._load_switches)
+            self.monitor.broadcastControlUpdate(self.phases, pmd, self.load_switches)
         
-        logger.fields(buildFieldMessage(self._load_switches))
+        logger.fields(buildFieldMessage(self.load_switches))
     
     def busHealthCheck(self):
         """Ensure bus thread is still running, if enabled"""
-        if self.bus_enabled:
-            if not self._bus.ready:
+        if self.bus is not None:
+            if not self.bus.ready:
                 logger.error('Bus not running')
                 self.shutdown()
     
@@ -638,38 +637,38 @@ class Controller:
         """Polled once every 500ms"""
         self.busHealthCheck()
         
-        self._flasher = not self._flasher
+        self.flasher = not self.flasher
         
-        if not self.time_freeze:
-            if self._flasher:
+        if not self.freeze:
+            if self.flasher:
                 self.second()
     
     def second(self):
         """Polled once every 1000ms"""
-        if self.monitor_enabled:
-            self._monitor.clean()
+        if self.monitor is not None:
+            self.monitor.clean()
         
-        if not self.time_freeze:
-            if self._op_mode == OperationMode.NORMAL:
-                choice = self._random_actuation.poll()
+        if not self.freeze:
+            if self.mode == OperationMode.NORMAL:
+                choice = self.actuator.poll()
                 if choice is not None:
                     self.detection(self.getPhaseById(choice), system=True)
     
     def transfer(self):
         """Set the controllers flash transfer relays flag"""
         logger.info('Transferred')
-        self._transfer = True
+        self.transferred = True
     
     def untransfer(self):
         """Unset the controllers flash transfer relays flag"""
         logger.info('Untransfered')
-        self._transfer = False
+        self.transferred = False
     
     def run(self):
         """Begin control loop"""
-        self._running = True
+        self.running = True
         
-        logger.info(f'Controller is named "{self._name}"')
+        logger.info(f'Controller is named "{self.name}"')
         
         # noinspection PyUnreachableCode
         if __debug__:
@@ -677,20 +676,20 @@ class Controller:
         
         logger.debug('CET delay set to 3s')
         
-        if self._running:
-            if self.monitor_enabled:
-                self._monitor.start()
+        if self.running:
+            if self.monitor is not None:
+                self.monitor.start()
             
-            if self.bus_enabled:
-                self._bus.start()
+            if self.bus is not None:
+                self.bus.start()
                 
-                while not self._bus.ready:
+                while not self.bus.ready:
                     logger.info(f'Waiting on bus...')
                     time.sleep(self.INCREMENT)
                 
                 logger.info(f'Bus ready')
             
-            self.setOperationState(self._op_mode)
+            self.setOperationState(self.mode)
             self.transfer()
             while True:
                 self.tick()
@@ -699,16 +698,16 @@ class Controller:
     def shutdown(self):
         """Run termination tasks to stop control loop"""
         self.untransfer()
-        self._running = False
+        self.running = False
         
-        if self.bus_enabled:
+        if self.bus is not None:
             logger.info('Stopping bus')
-            self._bus.shutdown()
-            self._bus.join(timeout=1)
+            self.bus.shutdown()
+            self.bus.join(timeout=1)
         
-        if self.monitor_enabled:
+        if self.monitor is not None:
             logger.info('Stopping network monitor')
-            self._monitor.shutdown()
-            self._monitor.join(timeout=1)
+            self.monitor.shutdown()
+            self.monitor.join(timeout=1)
         
         logger.info('Shutdown complete')

@@ -35,6 +35,7 @@ CUSTOM_LOG_LEVELS = {
     CustomLevel(1, 'bus'),
     CustomLevel(2, 'sorting'),
     CustomLevel(3, 'fields'),
+    CustomLevel(8, 'verbose'),
     CustomLevel(10, 'debug'),
     CustomLevel(20, 'info'),
     CustomLevel(30, 'warning'),
