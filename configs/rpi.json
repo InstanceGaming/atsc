@@ -27,12 +27,12 @@
   },
   "random-actuation": {
     "delay": 90,
-    "min": 5,
-    "max": 100,
+    "min": 1,
+    "max": 90,
     "enabled": true
   },
   "default-timing": {
-    "min-stop": 1.0,
+    "min-stop": 2.0,
     "rclr": 1.0,
     "go": 19.5,
     "max-go": 22.0,

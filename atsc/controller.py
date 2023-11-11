@@ -252,7 +252,7 @@ class Controller:
                         host = auto_ip
                     except Exception as e:
                         logger.warning(f'Failed to get address of network '
-                                         f'interface: {str(e)}')
+                                       f'interface: {str(e)}')
                 elif if_name == 'any':
                     host = '0.0.0.0'
                 
@@ -323,7 +323,7 @@ class Controller:
         
         if input_slot is not None:
             input_text = f' (input #{input_slot})'
-            
+        
         if system:
             input_text += ' (system)'
         
@@ -372,7 +372,7 @@ class Controller:
         previous_state = self.mode
         self.mode = new_state
         logger.info(f'Operation state is now {new_state.name} '
-                      f'(was {previous_state.name})')
+                    f'(was {previous_state.name})')
     
     def handleInputs(self, bf: bitarray):
         """Check on the contents of bus data container for changes"""
@@ -399,18 +399,17 @@ class Controller:
                             raise NotImplementedError()
                 except IndexError:
                     logger.fine('Discarding signal for unused input slot '
-                                  f'{slot}')
+                                f'{slot}')
         
         self.last_input_bitfield = bf
     
     def setBarrier(self, b: Optional[Barrier]):
-        if b != self.barrier:
-            if b is not None:
-                logger.debug(f'Crossed to {b.getTag()}')
-            else:
-                logger.debug(f'Free barrier')
-            
-            self.barrier = b
+        if b is not None:
+            logger.debug(f'Crossed to {b.getTag()}')
+        else:
+            logger.debug(f'Free barrier')
+        
+        self.barrier = b
     
     def endCycle(self, early: bool) -> None:
         """End phasing for this control cycle iteration"""
@@ -464,7 +463,7 @@ class Controller:
                 continue
             if other.active and self.checkPhaseConflict(phase, other):
                 return False
-            
+        
         return True
     
     def getCurrentPhasePool(self) -> List[Phase]:
@@ -498,7 +497,7 @@ class Controller:
         logger.debug(f'Serving phase {phase.getTag()}')
         self.phase_queue.remove(phase)
         phase.activate()
-        
+    
     def getSoloPartner(self, phase: Phase) -> Optional[Phase]:
         if self.barrier is not None:
             pool = self.getBarrierPhases(self.barrier)
@@ -529,20 +528,14 @@ class Controller:
                     if not len(self.phase_pool):
                         self.endCycle(False)
                     else:
-                        ready_phases = {p for p in self.phase_pool if p.ready}
-                        if self.phase_count:
-                            if self.barrier is None:
-                                exhausted = all([b.serve_count == 0 for b in self.barriers])
-                                if exhausted:
-                                    logger.verbose('Barriers exhausted')
-                                    self.endCycle(True)
-                            else:
-                                barrier_phases = self.getBarrierPhases(self.barrier)
-                                available = ready_phases.intersection(barrier_phases)
-                                has_demand = available.intersection(self.phase_queue)
-                                if not len(has_demand):
-                                    logger.verbose('Untenable demand for current barrier')
-                                    self.setBarrier(None)
+                        if self.barrier is not None:
+                            ready_phases = {p for p in self.phase_pool if p.ready}
+                            barrier_phases = self.getBarrierPhases(self.barrier)
+                            available = ready_phases.intersection(barrier_phases)
+                            has_demand = available.intersection(self.phase_queue)
+                            if not len(has_demand):
+                                logger.verbose('Untenable demand for current barrier')
+                                self.setBarrier(None)
                         
                         if not len(self.phase_queue) and len(self.idle_phases):
                             idler_count = 0
@@ -555,14 +548,16 @@ class Controller:
                                     if idler_count >= concurrent_phases:
                                         break
                             else:
-                                logger.verbose('Could not serve any idle phases')
+                                logger.verbose('Could not recall any phases for idle')
                                 self.endCycle(True)
-                                self.setBarrier(None)
                 
                 for phase in self.phase_queue:
                     if self.canPhaseRun(phase, phase_pool, active_count > 0):
                         barrier = self.getBarrierByPhase(phase)
                         if self.barrier is None:
+                            logger.debug('{} demand from {}',
+                                         barrier.getTag(),
+                                         phase.getTag())
                             self.setBarrier(barrier)
                         
                         alone = not active_count and len(self.phase_queue) == 1
@@ -584,8 +579,8 @@ class Controller:
                 for phase in self.phases:
                     conflicting_demand = False
                     
-                    for other_phase in self.phases:
-                        if phase != other_phase and self.checkPhaseConflict(phase, other_phase):
+                    for queued in self.phase_queue:
+                        if queued != phase and self.checkPhaseConflict(phase, queued):
                             conflicting_demand = True
                             break
                     
