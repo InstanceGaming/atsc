@@ -15,6 +15,10 @@ from enum import IntEnum
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
+from jacob.text import csl
+
+from atsc.logic import EdgeTrigger
+
 
 class IdentifiableBase:
     
@@ -112,7 +116,6 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.GO,
                    PhaseState.PCLR,
                    PhaseState.WALK)
-
 
 PHASE_PARTNER_START_STATES = (PhaseState.STOP, PhaseState.GO, PhaseState.WALK)
 
@@ -367,6 +370,40 @@ class Phase(IdentifiableBase):
                f' {self.time_lower: 05.1f}>'
 
 
+class Call:
+    
+    @property
+    def phase_tags_list(self):
+        return csl([phase.getTag() for phase in self.phases])
+    
+    def __init__(self,
+                 phases: List[Phase],
+                 active_count: int,
+                 queue_size: int):
+        self.phases = phases
+        self.active_count = active_count
+        self.queue_size = queue_size
+        self.age = 0.0
+    
+    def __contains__(self, item):
+        if isinstance(item, Phase):
+            return item in self.phases
+        else:
+            raise NotImplementedError()
+    
+    def __eq__(self, other):
+        if isinstance(other, Call):
+            if set(self.phases).intersection(other.phases):
+                return True
+            else:
+                return False
+        else:
+            return NotImplementedError()
+    
+    def __repr__(self):
+        return f'<Call {self.phase_tags_list} {self.active_count} {self.queue_size} {self.age}>'
+
+
 class InputAction(IntEnum):
     NOTHING = 0
     CALL = 1
@@ -385,39 +422,39 @@ class InputAction(IntEnum):
 
 
 class InputActivation(IntEnum):
+    OFF = 0
     LOW = 1
     HIGH = 2
     RISING = 3
     FALLING = 4
 
 
-@dataclass
 class Input:
-    trigger: InputActivation
-    action: InputAction
-    targets: List[Phase]
     
-    # update states and changed together
-    state: bool = False
-    last_state: bool = False
-    changed: bool = False
+    def __init__(self,
+                 trigger: InputActivation,
+                 action: InputAction,
+                 targets: List[Phase],
+                 state: bool = False):
+        self.trigger = trigger
+        self.action = action
+        self.targets = targets
+        self.state = state
+        self.rising = EdgeTrigger(True)
+        self.falling = EdgeTrigger(False)
     
     def activated(self) -> bool:
-        if self.trigger == InputActivation.LOW:
-            if not self.state and not self.last_state:
-                return True
-        elif self.trigger == InputActivation.HIGH:
-            if self.state and self.last_state:
-                return True
-        elif self.trigger == InputActivation.RISING:
-            if self.state and not self.last_state:
-                return True
-        elif self.trigger == InputActivation.FALLING:
-            if not self.state and self.last_state:
-                return True
+        if self.trigger.RISING:
+            return self.rising.poll(self.state)
+        elif self.trigger.FALLING:
+            return self.falling.poll(self.state)
+        else:
+            if self.trigger.HIGH:
+                return self.state
+            elif self.trigger.LOW:
+                return not self.state
         return False
     
     def __repr__(self):
         return f'<Input {self.trigger.name} {self.action.name} ' \
-               f'{"ACTIVE" if self.state else "INACTIVE"}' \
-               f'{" CHANGED" if self.changed else ""}>'
+               f'{"ACTIVE" if self.state else "INACTIVE"}'

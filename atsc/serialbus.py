@@ -14,7 +14,8 @@
 
 import time
 import serial
-from atsc import hdlc, timing
+from atsc import hdlc
+from atsc.utils import millis
 from loguru import logger
 from serial import SerialException
 from typing import Dict, List, Optional
@@ -96,7 +97,7 @@ class Bus(Thread):
                          f'{da} ({size}B)')
             
             self._stats[addr]['rx_frames'][ft][0] += 1
-            self._stats[addr]['rx_frames'][ft][1] = timing.millis()
+            self._stats[addr]['rx_frames'][ft][1] = millis()
     
     def _formatParameterText(self):
         return f'port={self._port}, baud={self._baud}'
@@ -185,7 +186,7 @@ class Bus(Thread):
             addr = f.address
             ft = f.type
             self._stats[addr]['tx_frames'][ft][0] += 1
-            self._stats[addr]['tx_frames'][ft][1] = timing.millis()
+            self._stats[addr]['tx_frames'][ft][1] = millis()
             logger.bus(f'Sent frame type {f.type.name} to {addr} ({len(payload)}B)')
             
             self._tx_lock.release()

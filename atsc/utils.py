@@ -11,6 +11,19 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from time import perf_counter_ns
+
+
+def micros() -> int:
+    return perf_counter_ns() // 1000
+
+
+def millis() -> int:
+    return perf_counter_ns() // 1000000
+
+
+def seconds() -> int:
+    return millis() // 1000
 
 
 def formatFields(a, b, c, colored=False):

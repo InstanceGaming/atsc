@@ -15,7 +15,7 @@
 import os
 import loguru
 import argparse
-from atsc import timing, configfile
+from atsc import configfile
 from typing import TextIO, Optional
 from pathlib import Path
 from datetime import datetime as dt
@@ -24,6 +24,7 @@ from jacob.logging import CustomLevel, setup_logger
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.formatting import format_dhms
+from atsc.utils import seconds
 
 
 VERSION = '2.0.1'
@@ -163,8 +164,7 @@ def run():
         else:
             logger.debug('Dynamic validation analysis passed')
     
-    run_timer = timing.SecondTimer(0)
-    
+    start_marker = seconds()
     logger.info(dt.now().strftime('Started at %b %d %Y %I:%M %p'))
     
     controller = Controller(config)
@@ -173,7 +173,8 @@ def run():
     except KeyboardInterrupt:
         controller.shutdown()
     
-    ed, eh, em, es = format_dhms(run_timer.getDelta())
+    run_delta = seconds() - start_marker
+    ed, eh, em, es = format_dhms(run_delta)
     logger.info(f'Runtime of {ed} days, {eh} hours, {em} minutes and {es} seconds')
     
     cleanup_pid(pid_path, pid_file)
