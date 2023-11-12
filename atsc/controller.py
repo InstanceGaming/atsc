@@ -68,6 +68,8 @@ class Controller:
         self.cycle_count = 0
         self.phase_count = 0
         
+        self.serve_timer = logic.Timer(5, step=-1)
+        
         # 500ms timer elapsed (0-4)
         # don't try and use an actual timer here,
         # that always results in erratic ped signal
@@ -98,7 +100,7 @@ class Controller:
         self.random_min = random_config['min']
         self.random_max = random_config['max']
         self.randomizer = random.Random()
-        self.random_timer = logic.Timer(random_delay)
+        self.random_timer = logic.Timer(random_delay, step=-1)
     
     def getDefaultTiming(self, configuration_node: Dict[str, float]) -> Dict[PhaseState, float]:
         timing = {}
@@ -442,6 +444,7 @@ class Controller:
     
     def servePhase(self, phase: Phase):
         logger.debug(f'Serving phase {phase.getTag()}')
+        self.serve_timer.reset()
         phase.activate()
     
     def getPhasePartner(self,
@@ -532,6 +535,7 @@ class Controller:
                         if not len(has_demand):
                             logger.debug('{} exhausted', self.barrier.getTag())
                             self.setBarrier(None)
+                            self.endCycle(True)
                 
                 satisfied = []
                 for call in self.calls:
@@ -570,8 +574,6 @@ class Controller:
                         satisfied.append(call)
                 
                 for call in satisfied:
-                    logger.debug('Satisfying call for {}',
-                                 csl([phase.getTag() for phase in call.phases]))
                     self.calls.remove(call)
                 
                 for phase in self.phases:
@@ -640,10 +642,19 @@ class Controller:
             self.monitor.clean()
             
         if self.mode == OperationMode.NORMAL:
+            call_count = len(self.calls)
+            serve_timer_time = call_count and not self.getActivePhaseCount()
+            if self.serve_timer.poll(serve_timer_time):
+                logger.warning('has not served phase within timeout with {} '
+                               'pending calls', call_count)
+                if __debug__:
+                    breakpoint()
+                self.serve_timer.reset()
+            
             if self.random_timer.poll(self.random_enabled):
-                self.random_timer.reset()
                 phases = []
-                first_phase = self.randomizer.choice(self.phases)
+                uncalled = list(set(self.phases).difference(self.getAllCallPhases()))
+                first_phase = self.randomizer.choice(uncalled)
                 phases.append(first_phase)
                 choose_two = round(self.randomizer.random())
                 if choose_two:
@@ -659,6 +670,7 @@ class Controller:
                 
                 self.detection(phases, 'random actuation')
                 self.random_timer.delay = next_delay
+                self.random_timer.reset()
                 
     def transfer(self):
         """Set the controllers flash transfer relays flag"""

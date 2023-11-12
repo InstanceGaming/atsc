@@ -37,7 +37,7 @@
     "go": 19.5,
     "max-go": 22.0,
     "caution": 3.0,
-    "extend": 2.5,
+    "extend": 3.0,
     "pclr": 10.0,
     "walk": 3.0
   },
@@ -59,10 +59,10 @@
     {
       "number": 2,
       "timing": {
-        "go": 28.0,
-        "max-go": 38.0,
+        "go": 29.0,
+        "max-go": 39.0,
         "caution": 5.0,
-        "extend": 3.0,
+        "extend": 5.0,
         "pclr": 16.0,
         "walk": 3.0
       },
@@ -109,10 +109,10 @@
     {
       "number": 6,
       "timing": {
-        "go": 28.0,
-        "max-go": 38.0,
+        "go": 29.0,
+        "max-go": 39.0,
         "caution": 5.0,
-        "extend": 3.0,
+        "extend": 5.0,
         "pclr": 16.0,
         "walk": 3.0
       },

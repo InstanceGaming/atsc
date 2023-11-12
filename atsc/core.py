@@ -285,13 +285,15 @@ class Phase(IdentifiableBase):
                     return True
         
         if self.extend_active:
-            if self._time_lower >= self._timing[PhaseState.EXTEND]:
+            if self._time_lower >= self._time_upper:
                 if rest_inhibit:
                     self.update()
                     changed = True
                 else:
                     self._resting = True
             else:
+                if self._time_upper > self._increment:
+                    self._time_upper -= self._increment
                 self._time_lower += self._increment
         else:
             if self._state != PhaseState.STOP:
