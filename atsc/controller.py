@@ -477,7 +477,7 @@ class Controller:
         
         self.barrier = b
     
-    def endCycle(self, early: bool) -> None:
+    def endCycle(self, note: Optional[str] = None) -> None:
         """End phasing for this control cycle iteration"""
         self.cycle_count += 1
         self.phase_pool = self.phases.copy()
@@ -486,8 +486,8 @@ class Controller:
             barrier.serve_count = 0
         
         self.setBarrier(None)
-        early_text = post_pend('early', early)
-        logger.debug(f'Ended cycle {self.cycle_count}{early_text}')
+        note_text = post_pend(note, note)
+        logger.debug(f'Ended cycle {self.cycle_count}{note_text}')
         
     def getServableIdlePhases(self):
         if len(self.idle_phases):
@@ -521,26 +521,34 @@ class Controller:
                         self.placeCall(idle_phases, 'idle')
                     else:
                         if not active_count:
-                            self.endCycle(True)
+                            self.endCycle('idle demand')
                 
                 if not active_count:
                     if not len(self.phase_pool):
-                        self.endCycle(False)
+                        self.endCycle()
                     
+                    ready_phases = {p for p in self.phase_pool if p.ready}
+                    called_phases = self.getAllCallPhases()
                     if self.barrier is not None:
-                        ready_phases = {p for p in self.phase_pool if p.ready}
                         barrier_phases = self.getBarrierPhases(self.barrier)
-                        available = ready_phases.intersection(barrier_phases)
-                        has_demand = available.intersection(self.getAllCallPhases())
-                        if not len(has_demand):
-                            logger.debug('{} exhausted', self.barrier.getTag())
+                        ready_barrier = ready_phases.intersection(barrier_phases)
+                        available = ready_barrier.intersection(called_phases)
+                        logger.verbose('available phases within barrier {}',
+                                       csl([phase.getTag() for phase in available]))
+                        if not len(available):
                             self.setBarrier(None)
-                            self.endCycle(True)
+                            self.endCycle('barrier exhausted')
+                    else:
+                        available = ready_phases.intersection(called_phases)
+                        logger.verbose('available phases {}',
+                                       csl([phase.getTag() for phase in available]))
+                        if not len(available):
+                            self.endCycle('free transition')
                 
                 satisfied = []
                 for call in self.calls:
                     if len(call.phases) == 1:
-                        alone = not call.active_count and call.queue_size == 1
+                        alone = not call.active_count
                         if alone:
                             solo = call.phases[0]
                             partner = self.getPhasePartner(solo)
