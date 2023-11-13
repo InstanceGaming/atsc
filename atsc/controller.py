@@ -521,7 +521,7 @@ class Controller:
                         self.placeCall(idle_phases, 'idle')
                     else:
                         if not active_count:
-                            self.endCycle('idle demand')
+                            self.endCycle('Idle demand')
                 
                 if not active_count:
                     if not len(self.phase_pool):
@@ -533,29 +533,27 @@ class Controller:
                         barrier_phases = self.getBarrierPhases(self.barrier)
                         ready_barrier = ready_phases.intersection(barrier_phases)
                         available = ready_barrier.intersection(called_phases)
-                        logger.verbose('available phases within barrier {}',
+                        logger.verbose('Available phases within barrier {}',
                                        csl([phase.getTag() for phase in available]))
                         if not len(available):
                             self.setBarrier(None)
-                            self.endCycle('barrier exhausted')
+                            self.endCycle('Barrier exhausted')
                     else:
                         available = ready_phases.intersection(called_phases)
-                        logger.verbose('available phases {}',
+                        logger.verbose('Available phases {}',
                                        csl([phase.getTag() for phase in available]))
                         if not len(available):
-                            self.endCycle('free transition')
+                            self.endCycle('Free transition')
                 
                 satisfied = []
                 for call in self.calls:
                     if len(call.phases) == 1:
-                        alone = not call.active_count
-                        if alone:
-                            solo = call.phases[0]
-                            partner = self.getPhasePartner(solo)
-                            if partner is not None:
-                                logger.debug(f'Inserting partner {partner.getTag()} '
-                                             f'to serve with {solo.getTag()}')
-                                call.phases.append(partner)
+                        solo = call.phases[0]
+                        partner = self.getPhasePartner(solo)
+                        if partner is not None:
+                            logger.debug(f'Inserting partner {partner.getTag()} '
+                                         f'to serve with {solo.getTag()}')
+                            call.phases.append(partner)
                     
                     phase_pool = self.getCurrentPhasePool()
                     serve_count = 0
