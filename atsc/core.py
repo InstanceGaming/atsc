@@ -255,7 +255,7 @@ class Phase(IdentifiableBase):
             
             go_time -= self._timing[PhaseState.CAUTION]
             
-            assert go_time > 1.0
+            assert go_time >= 1.0
             self._time_lower = go_time
         
         self._state = next_state
