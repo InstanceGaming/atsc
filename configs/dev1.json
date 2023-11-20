@@ -47,9 +47,9 @@
       "number": 1,
       "timing": {
         "go": 9.0,
-        "max-go": 22.0,
+        "max-go": 28.0,
         "caution": 5.0,
-        "extend": 10.0
+        "extend": 15.0
       },
       "flash-mode": "yellow",
       "load-switches": {
@@ -59,10 +59,10 @@
     {
       "number": 2,
       "timing": {
-        "go": 29.0,
-        "max-go": 44.0,
+        "go": 30.0,
+        "max-go": 60.0,
         "caution": 5.0,
-        "extend": 18.0,
+        "extend": 40.0,
         "pclr": 16.0,
         "walk": 3.0
       },
@@ -97,9 +97,9 @@
       "number": 5,
       "timing": {
         "go": 9.0,
-        "max-go": 22.0,
+        "max-go": 28.0,
         "caution": 5.0,
-        "extend": 10.0
+        "extend": 15.0
       },
       "flash-mode": "yellow",
       "load-switches": {
@@ -109,10 +109,10 @@
     {
       "number": 6,
       "timing": {
-        "go": 29.0,
-        "max-go": 44.0,
+        "go": 30.0,
+        "max-go": 60.0,
         "caution": 5.0,
-        "extend": 18.0,
+        "extend": 40.0,
         "pclr": 16.0,
         "walk": 3.0
       },
