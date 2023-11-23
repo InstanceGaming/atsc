@@ -11,13 +11,16 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import sys
+from atsc import logic
 from enum import IntEnum
+from loguru import logger
 from typing import Dict, List, Optional
-from dataclasses import dataclass
-
-from jacob.text import csl
-
 from atsc.logic import EdgeTrigger
+from jacob.text import csl
+from dataclasses import dataclass
+from jacob.datetime.timing import millis
+from jacob.datetime.formatting import format_ms
 
 
 class IdentifiableBase:
@@ -103,6 +106,8 @@ class PhaseState(IntEnum):
 
 PHASE_STOP_STATES = (PhaseState.STOP, PhaseState.MIN_STOP)
 
+PHASE_RIGID_STATES = (PhaseState.MIN_STOP, PhaseState.CAUTION, PhaseState.PCLR)
+
 PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
                       PhaseState.RCLR,
                       PhaseState.CAUTION,
@@ -121,10 +126,6 @@ PHASE_PARTNER_START_STATES = (PhaseState.STOP, PhaseState.GO, PhaseState.WALK)
 
 
 class Phase(IdentifiableBase):
-    
-    @property
-    def resting(self):
-        return self._resting
     
     @property
     def extend_enabled(self):
@@ -151,12 +152,16 @@ class Phase(IdentifiableBase):
         return self._state
     
     @property
-    def time_upper(self):
-        return self._time_upper
+    def setpoint(self) -> float:
+        return self._timer.trigger
+    
+    @setpoint.setter
+    def setpoint(self, value):
+        self._timer.trigger = value if value > 0 else 0.0
     
     @property
-    def time_lower(self):
-        return self._time_lower
+    def elapsed(self) -> float:
+        return float(self._timer.elapsed)
     
     @property
     def veh_ls(self) -> LoadSwitch:
@@ -189,19 +194,13 @@ class Phase(IdentifiableBase):
                  ped_ls: Optional[LoadSwitch],
                  flash_mode: FlashMode = FlashMode.RED):
         super().__init__(id_)
+        self.ped_service: bool = True
+        self._marker = millis()
         self._increment = time_increment
         self._timing = timing
         self._flash_mode = flash_mode
-        
-        self._resting: bool = False
         self._state: PhaseState = PhaseState.STOP
-        
-        self._time_lower: float = 0.0
-        self._time_upper: float = 0.0
-        self._elapsed: float = 0.0
-        
-        self.ped_service: bool = True
-        
+        self._timer: logic.Timer = logic.Timer(sys.maxsize, step=time_increment)
         self._vls = veh_ls
         self._pls = ped_ls
         self._validate_timing()
@@ -231,39 +230,10 @@ class Phase(IdentifiableBase):
             return PhaseState.PCLR
         else:
             raise NotImplementedError()
-    
-    def update(self, force_state: Optional[PhaseState] = None):
-        if force_state is not None:
-            next_state = force_state
-        else:
-            next_state = self.getNextState(self.ped_service)
-        tv = self._timing.get(next_state, 0.0)
-        
-        if tv > self._increment:
-            tv -= self._increment
-        
-        self._time_upper = round(tv, 1)
-        self._time_lower = round(tv, 1)
-        
-        if next_state == PhaseState.GO:
-            go_time = self._timing[PhaseState.GO]
-            
-            if self.ped_ls is not None and self.ped_service:
-                walk_time = self._timing[PhaseState.WALK]
-                go_time -= walk_time
-                go_time -= self._timing[PhaseState.PCLR]
-            
-            go_time -= self._timing[PhaseState.CAUTION]
-            
-            assert go_time >= 1.0
-            self._time_lower = go_time
-        
-        self._state = next_state
-        self._elapsed = 0.0
-    
+
     def gap_reset(self):
         if self.extend_active:
-            self._time_lower = 0.0
+            self._timer.reset()
     
     def activate(self):
         if self.active:
@@ -272,59 +242,9 @@ class Phase(IdentifiableBase):
         if self.state == PhaseState.MIN_STOP:
             raise RuntimeError('Cannot activate phase during MIN_STOP interval')
         
-        self.update()
-    
-    def tick(self, flasher: bool, rest_inhibit: bool) -> bool:
-        changed = False
-        self._resting = False
+        assert self.change()
         
-        if self._state in PHASE_GO_STATES:
-            if self._elapsed > self._timing[PhaseState.MAX_GO]:
-                if rest_inhibit:
-                    self.update()
-                    return True
-        
-        if self.extend_active:
-            if self._time_lower >= self._time_upper:
-                if rest_inhibit:
-                    self.update()
-                    changed = True
-                else:
-                    self._resting = True
-            else:
-                if self._time_upper > self._increment:
-                    self._time_upper -= self._increment
-                self._time_lower += self._increment
-        else:
-            if self._state != PhaseState.STOP:
-                if self._time_lower > 0:
-                    self._time_lower -= self._increment
-                    if self._time_lower < 0:
-                        self._time_lower = 0
-                else:
-                    if self._state == PhaseState.WALK:
-                        if rest_inhibit:
-                            if flasher:
-                                self.update()
-                                changed = True
-                        else:
-                            self._resting = True
-                    else:
-                        if self._state == PhaseState.GO:
-                            if rest_inhibit:
-                                self.update()
-                                changed = True
-                            else:
-                                self._resting = True
-                        else:
-                            self.update()
-                            changed = True
-            else:
-                self._resting = True
-        
-        self._time_lower = round(self._time_lower, 1)
-        self._elapsed += self._increment
-        
+    def update_field(self, flasher: bool):
         pa = False
         pb = False
         pc = False
@@ -364,12 +284,66 @@ class Phase(IdentifiableBase):
             self._pls.a = pa
             self._pls.b = pb
             self._pls.c = pc
+    
+    def change(self, force_state: Optional[PhaseState] = None) -> bool:
+        next_state = force_state if force_state is not None else self.getNextState(self.ped_service)
+        
+        if next_state != self._state:
+            if not self.ready:
+                delta = millis() - self._marker
+                logger.verbose('{} {} {}',
+                               self.getTag(),
+                               self._state.name,
+                               format_ms(delta))
+            
+            self._timer.reset()
+            
+            if next_state == PhaseState.GO:
+                setpoint = self._timing[PhaseState.GO]
+                setpoint -= self._timing[PhaseState.CAUTION]
+                
+                if self.ped_ls is not None and self.ped_service:
+                    walk_time = self._timing[PhaseState.WALK]
+                    pclr_time = self._timing[PhaseState.PCLR]
+                    setpoint -= (walk_time + pclr_time)
+            else:
+                setpoint = self._timing.get(next_state, 0.0)
+            
+            if next_state in PHASE_TIMED_STATES:
+                assert setpoint >= 1.0
+            self._state = next_state
+            self.setpoint = round(setpoint, 1)
+            self._marker = millis()
+            return True
+        else:
+            return False
+    
+    def tick(self, flasher: bool, rest_inhibit: bool) -> bool:
+        self.update_field(flasher)
+        changed = False
+        
+        if self._timer.poll(True):
+            if not self.ready:
+                if (self._state in PHASE_RIGID_STATES) or rest_inhibit:
+                    walking = self._state == PhaseState.WALK
+                    if not walking or (walking and flasher):
+                        changed = self.change()
+        else:
+            if not self.ready:
+                if self.extend_active:
+                    self.setpoint -= self._increment
+                    
+        if not self.ready:
+            if self._state in PHASE_GO_STATES:
+                if self.elapsed > self._timing[PhaseState.MAX_GO]:
+                    if rest_inhibit:
+                        changed = self.change()
         
         return changed
     
     def __repr__(self):
-        return f'<{self.getTag()} {self.state.name} {self.time_upper: 05.1f}' \
-               f' {self.time_lower: 05.1f}>'
+        return (f'<{self.getTag()} {self.state.name} '
+                f'{round(self.elapsed, 1)} of {round(self.setpoint, 1)}>')
 
 
 class Call:

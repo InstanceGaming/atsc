@@ -13,13 +13,13 @@
 #  limitations under the License.
 import time
 import random
-from jacob.text import post_pend
 from atsc.core import *
-from atsc import network, serialbus, logic
+from atsc import logic, network, serialbus
 from loguru import logger
 from typing import Iterable
 from bitarray import bitarray
 from atsc.utils import buildFieldMessage
+from jacob.text import post_pend
 from atsc.frames import FrameType, DeviceAddress, OutputStateFrame
 from atsc.ringbarrier import Ring, Barrier
 from jacob.enumerations import text_to_enum
@@ -422,12 +422,12 @@ class Controller:
         if new_state == OperationMode.CET:
             for ph in self.phases:
                 if ph.flash_mode == FlashMode.YELLOW:
-                    ph.update(force_state=PhaseState.CAUTION)
+                    ph.change(force_state=PhaseState.CAUTION)
             
             self.cet_counter = self.cet_time
         elif new_state == OperationMode.NORMAL:
             for ph in self.phases:
-                ph.update(force_state=PhaseState.STOP)
+                ph.change(force_state=PhaseState.STOP)
             
             self.setBarrier(None)
             
@@ -596,11 +596,10 @@ class Controller:
                     idle_override = self.idle_phases and (phase not in self.idle_phases) or phase.secondary
                     
                     if phase.tick(self.flasher, conflicting_demand or idle_override):
-                        if phase.state in PHASE_STOP_STATES:
-                            if phase in self.phase_pool:
-                                self.phase_count += 1
-                                self.phase_pool.remove(phase)
-                                logger.debug('{} terminated', phase.getTag())
+                        if phase.ready:
+                            self.phase_pool.remove(phase)
+                            self.phase_count += 1
+                            logger.debug('{} terminated', phase.getTag())
             elif self.mode == OperationMode.CET:
                 for ph in self.phases:
                     ph.tick(self.flasher, True)
@@ -675,7 +674,7 @@ class Controller:
                              next_delay)
                 
                 self.detection(phases, 'random actuation')
-                self.random_timer.delay = next_delay
+                self.random_timer.trigger = next_delay
                 self.random_timer.reset()
                 
     def transfer(self):
@@ -698,7 +697,7 @@ class Controller:
         if __debug__:
             logger.warning('Controller in DEBUG ENVIRONMENT!')
         
-        logger.debug('CET delay set to 3s')
+        logger.debug('CET trigger set to 3s')
         
         if self.running:
             if self.monitor is not None:

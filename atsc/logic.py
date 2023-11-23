@@ -73,17 +73,17 @@ class Timer(LogicBase):
     
     @property
     def initial(self):
-        return self.delay if self.countdown else 0
+        return self.trigger if self.countdown else 0
     
     @property
     def delta(self):
         return self.initial - self.elapsed
     
-    def __init__(self, delay, step=1):
+    def __init__(self, trigger, step=1):
         super().__init__()
         assert step
         self.step = step
-        self.delay = delay
+        self.trigger = trigger
         self.latch = Latch(False)
         self.elapsed = self.initial
     
@@ -95,6 +95,6 @@ class Timer(LogicBase):
         if not self.latch.poll(signal, not signal):
             self.reset()
         else:
-            self.q = abs(self.delta) >= self.delay
+            self.q = abs(self.delta) >= self.trigger
             self.elapsed += self.step
         return self.q

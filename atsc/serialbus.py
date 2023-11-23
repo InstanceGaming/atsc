@@ -15,13 +15,13 @@
 import time
 import serial
 from atsc import hdlc
-from atsc.utils import millis
 from loguru import logger
 from serial import SerialException
 from typing import Dict, List, Optional
 from threading import Lock, Thread
 from atsc.frames import FrameType, GenericFrame, DeviceAddress
 from collections import defaultdict
+from jacob.datetime.timing import millis
 
 
 class Bus(Thread):

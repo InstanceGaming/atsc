@@ -23,8 +23,8 @@ from threading import main_thread
 from jacob.logging import CustomLevel, setup_logger
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
+from jacob.datetime.timing import seconds
 from jacob.datetime.formatting import format_dhms
-from atsc.utils import seconds
 
 
 VERSION = '2.0.1'
