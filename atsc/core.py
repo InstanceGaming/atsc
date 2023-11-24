@@ -11,13 +11,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import sys
 from atsc import logic
 from enum import IntEnum
 from loguru import logger
 from typing import Dict, List, Optional
 from atsc.logic import EdgeTrigger
 from jacob.text import csl
+from collections import Counter
 from dataclasses import dataclass
 from jacob.datetime.timing import millis
 from jacob.datetime.formatting import format_ms
@@ -195,12 +195,17 @@ class Phase(IdentifiableBase):
                  flash_mode: FlashMode = FlashMode.RED):
         super().__init__(id_)
         self.ped_service: bool = True
+        self.stats = Counter({
+            'detections': 0,
+            'vehicle_service': 0,
+            'ped_service': 0
+        })
         self._marker = millis()
         self._increment = time_increment
         self._timing = timing
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
-        self._timer: logic.Timer = logic.Timer(sys.maxsize, step=time_increment)
+        self._timer: logic.Timer = logic.Timer(0, step=time_increment)
         self._vls = veh_ls
         self._pls = ped_ls
         self._validate_timing()
@@ -242,7 +247,8 @@ class Phase(IdentifiableBase):
         if self.state == PhaseState.MIN_STOP:
             raise RuntimeError('Cannot activate phase during MIN_STOP interval')
         
-        assert self.change()
+        changed = self.change()
+        assert changed
         
     def update_field(self, flasher: bool):
         pa = False
@@ -306,8 +312,13 @@ class Phase(IdentifiableBase):
                     walk_time = self._timing[PhaseState.WALK]
                     pclr_time = self._timing[PhaseState.PCLR]
                     setpoint -= (walk_time + pclr_time)
+                
+                self.stats['vehicle_service'] += 1
             else:
                 setpoint = self._timing.get(next_state, 0.0)
+                
+                if next_state == PhaseState.WALK:
+                    self.stats['ped_service'] += 1
             
             if next_state in PHASE_TIMED_STATES:
                 assert setpoint >= 1.0

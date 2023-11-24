@@ -15,7 +15,7 @@ import time
 import socket
 import atsc.proto.controller_pb2 as pb
 from loguru import logger
-from typing import Dict, List, Tuple, Optional
+from typing import List, Tuple, Optional
 from atsc.core import Phase, LoadSwitch
 from threading import Thread
 from jacob.text import format_byte_size
@@ -35,34 +35,35 @@ class Monitor(Thread):
     def client_count(self):
         return len(self._clients)
     
-    def __init__(self, host, port):
+    def __init__(self, host, port, name: str, phases: List[Phase]):
         Thread.__init__(self)
         self.name = 'NetMonitor'
         self.daemon = True
+        self.net_name = name
+        self.phases = phases
         
         self._running = False
         self._clients = []
         self._host = host
         self._port = port
-        self._control_info: Optional[pb.ControlInfo] = None
+        self._control_info: Optional[pb.ControlInfo] = self.buildControlInfo()
         
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
-    def setControlInfo(self, name: str, phases: List[Phase], phase_ls_map: Dict[Phase, List[int]]):
+    def buildControlInfo(self):
         control_pb = pb.ControlInfo()
         control_pb.version = 1
-        control_pb.name = name
+        control_pb.name = self.net_name
         
-        for ph in phases:
-            ls_map = phase_ls_map[ph]
+        for ph in self.phases:
             phase_pb = control_pb.phases.add()
             phase_pb.flash_mode = ph.flash_mode.value
             phase_pb.fya_setting = 0
-            phase_pb.vehicle_ls = ls_map[0]
-            if len(ls_map) > 1:
-                phase_pb.ped_ls = ls_map[1]
+            phase_pb.vehicle_ls = ph.veh_ls.id
+            if ph.ped_ls is not None:
+                phase_pb.ped_ls = ph.ped_ls.id
         
-        self._control_info = control_pb
+        return control_pb
     
     def run(self):
         try:
@@ -98,7 +99,7 @@ class Monitor(Thread):
                 for c in remove:
                     self._clients.remove(c)
                 
-                logger.debug('Removed %d dead client threads' % len(remove))
+                logger.net('Removed %d dead client threads' % len(remove))
     
     def _prefix(self, raw_data: bytes) -> bytes:
         length = len(raw_data)
@@ -110,20 +111,20 @@ class Monitor(Thread):
             for c in self._clients:
                 c.send(self._prefix(data))
     
-    def broadcastControlUpdate(self, ps: List[Phase], pmd: List[Tuple[int, int]], lss: List[LoadSwitch]):
+    def broadcastControlUpdate(self, phases: List[Phase], lss: List[LoadSwitch]):
         if self.client_count > 0:
             control_pb = pb.ControlUpdate()
             
-            for ph, pm in zip(ps, pmd):
+            for ph in phases:
                 phase_pb = control_pb.phase.add()
                 phase_pb.status = 0
                 phase_pb.ped_service = ph.ped_service
                 phase_pb.state = ph.state.value
-                phase_pb.time_upper = ph.time_upper
-                phase_pb.time_lower = ph.time_lower
-                phase_pb.detections = pm[0]
-                phase_pb.vehicle_calls = pm[1]
-                phase_pb.ped_calls = 0
+                phase_pb.time_upper = ph.setpoint
+                phase_pb.time_lower = ph.elapsed
+                phase_pb.detections = ph.stats['detections']
+                phase_pb.vehicle_calls = ph.stats['vehicle_service']
+                phase_pb.ped_calls = ph.stats['ped_service']
             
             for ls in lss:
                 ls_pb = control_pb.ls.add()
@@ -156,30 +157,30 @@ class MonitorClient:
         self._stopped = False
         self._total_sent = 0
         
-        logger.info('M{0:02d} at {1}:{2}'.format(index, ip, port))
+        logger.net('M{0:02d} at {1}:{2}'.format(index, ip, port))
     
     def send(self, data: bytes):
         if len(data) > 0:
             try:
                 self._sock.sendall(data)
                 size = len(data)
-                logger.fine(f'M{self._index:02d} transmitted '
+                logger.net(f'M{self._index:02d} transmitted '
                               f'{format_byte_size(size)}')
                 self._total_sent += size
             except OSError as e:
-                logger.debug('M{:02d} {}'.format(self._index, str(e)))
+                logger.net('M{:02d} {}'.format(self._index, str(e)))
                 self.stop()
     
     def stop(self):
         if not self._stopped:
-            logger.info(f'M{self._index:02d} transmitted a total of '
+            logger.net(f'M{self._index:02d} transmitted a total of '
                           f'{format_byte_size(self._total_sent)}')
             
             if self._sock is not None:
                 try:
                     self._sock.close()
                 except OSError as e:
-                    logger.debug('M{:02d} (closing): {}'.format(self._index, str(e)))
+                    logger.net('M{:02d} (closing): {}'.format(self._index, str(e)))
             
             self._stopped = True
-            logger.info('M{:02d} stopped'.format(self._index))
+            logger.net('M{:02d} stopped'.format(self._index))

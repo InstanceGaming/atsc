@@ -1,12 +1,17 @@
+from abc import ABC, abstractmethod
 
 
-class LogicBase:
+class LogicBase(ABC):
     
     def __init__(self):
         self.q = False
         
     def __bool__(self):
         return self.q
+    
+    @abstractmethod
+    def poll(self, *args, **kwargs):
+        pass
 
 
 class EdgeTrigger(LogicBase):
@@ -66,7 +71,7 @@ class Latch(LogicBase):
 
 
 class Timer(LogicBase):
-
+    
     @property
     def countdown(self):
         return self.step < 0
@@ -84,7 +89,6 @@ class Timer(LogicBase):
         assert step
         self.step = step
         self.trigger = trigger
-        self.latch = Latch(False)
         self.elapsed = self.initial
     
     def reset(self):
@@ -92,9 +96,9 @@ class Timer(LogicBase):
         self.elapsed = self.initial
     
     def poll(self, signal: bool) -> bool:
-        if not self.latch.poll(signal, not signal):
-            self.reset()
-        else:
+        if signal:
             self.q = abs(self.delta) >= self.trigger
             self.elapsed += self.step
+        else:
+            self.reset()
         return self.q

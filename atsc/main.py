@@ -34,7 +34,7 @@ CONFIG_SCHEMA_CHECK = True
 CONFIG_LOGIC_CHECK = True
 CUSTOM_LOG_LEVELS = {
     CustomLevel(1, 'bus'),
-    CustomLevel(2, 'sorting'),
+    CustomLevel(2, 'net'),
     CustomLevel(3, 'fields'),
     CustomLevel(8, 'verbose'),
     CustomLevel(10, 'debug'),
@@ -53,7 +53,7 @@ def get_cli_args():
                         help='PID file path.')
     parser.add_argument('-l', '--levels',
                         dest='log_levels',
-                        default='debug;stderr=error;file=warning',
+                        default='debug,error;stderr=error;file=warning',
                         help='Specify logging levels.')
     parser.add_argument('-L', '--log',
                         dest='log_file',
@@ -109,10 +109,9 @@ def run():
     
     levels_notation = cla['log_levels']
     try:
-        logger = setup_logger(levels_notation,
-                              custom_levels=CUSTOM_LOG_LEVELS,
-                              log_file=log_file)
-        loguru.logger = logger
+        loguru.logger = setup_logger(levels_notation,
+                                     custom_levels=CUSTOM_LOG_LEVELS,
+                                     log_file=log_file)
     except ValueError as e:
         print(f'Malformed logging level specification "{levels_notation}":', e)
         return 5
