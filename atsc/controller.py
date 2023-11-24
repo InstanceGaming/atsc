@@ -14,7 +14,6 @@
 import time
 import random
 from typing import Iterable
-
 from atsc.core import *
 from atsc import logic, network, serialbus
 from loguru import logger
@@ -465,16 +464,10 @@ class Controller:
         logger.debug(f'Serving phase {phase.getTag()}')
         self.serve_timer.reset()
         phase.activate()
-    
-    def getPhasePartner(self,
-                        phase: Phase,
-                        barrier: Optional[Barrier] = None) -> Optional[Phase]:
-        if self.barrier is not None:
-            pool = self.getBarrierPhases(barrier or self.barrier)
-        else:
-            pool = self.phase_pool
         
-        for candidate in pool:
+    def getPhasePartner(self, phase: Phase) -> Optional[Phase]:
+        ready_pool = {p for p in self.phase_pool if p.ready}
+        for candidate in self.filterPhases(ready_pool, barrier=self.barrier):
             if candidate == phase:
                 continue
             if candidate.ready:
@@ -501,9 +494,6 @@ class Controller:
         self.cycle_count += 1
         self.phase_pool = self.phases.copy()
         
-        for barrier in self.barriers:
-            barrier.serve_count = 0
-        
         self.setBarrier(None)
         note_text = post_pend(note, note)
         logger.debug(f'Ended cycle {self.cycle_count}{note_text}')
@@ -524,7 +514,6 @@ class Controller:
     
     def tick(self):
         """Polled once every 100ms"""
-        
         if self.bus is not None:
             self.handleBusFrame()
         
@@ -581,7 +570,6 @@ class Controller:
                                 self.setBarrier(barrier)
                             
                             self.servePhase(phase)
-                            barrier.serve_count += 1
                             serve_count += 1
                             
                             active_count = self.getActivePhaseCount()
@@ -671,8 +659,7 @@ class Controller:
                 phases.append(first_phase)
                 choose_two = round(self.randomizer.random())
                 if choose_two:
-                    second_phase = self.getPhasePartner(first_phase,
-                                                        self.getBarrierByPhase(first_phase))
+                    second_phase = self.getPhasePartner(first_phase)
                     if second_phase is not None:
                         phases.append(second_phase)
                 

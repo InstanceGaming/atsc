@@ -59,8 +59,8 @@
     {
       "number": 2,
       "timing": {
-        "go": 26.0,
-        "max-go": 45.0,
+        "go": 24.0,
+        "max-go": 48.0,
         "caution": 5.0,
         "extend": 20.0,
         "pclr": 16.0,
@@ -75,9 +75,8 @@
     {
       "number": 3,
       "timing": {
-        "go": 8.0,
+        "go": 6.0,
         "max-go": 25.0,
-        "caution": 5.0,
         "extend": 6.0
       },
       "flash-mode": "red",
@@ -109,8 +108,8 @@
     {
       "number": 6,
       "timing": {
-        "go": 26.0,
-        "max-go": 45.0,
+        "go": 24.0,
+        "max-go": 48.0,
         "caution": 5.0,
         "extend": 20.0,
         "pclr": 16.0,
@@ -125,9 +124,8 @@
     {
       "number": 7,
       "timing": {
-        "go": 8.0,
+        "go": 6.0,
         "max-go": 25.0,
-        "caution": 5.0,
         "extend": 6.0
       },
       "flash-mode": "red",
