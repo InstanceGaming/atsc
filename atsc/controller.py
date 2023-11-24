@@ -294,7 +294,7 @@ class Controller:
     
     def placeAllCall(self):
         """Place calls on all phases"""
-        self.placeCall(self.phases, 'all call')
+        self.placeCall(self.phases.copy(), 'all call')
     
     def detection(self, phases: List[Phase], note: Optional[str] = None):
         note_text = post_pend(note, note)
@@ -349,10 +349,6 @@ class Controller:
         :param b: Other Phase to compare
         :return: True if conflict
         """
-        if a == b:
-            raise RuntimeError('Conflict check on the same phase object')
-        
-        # verify Phase b is not in the same ring
         if b.id in self.getRingByPhase(a).phases:
             return True
         
@@ -361,6 +357,12 @@ class Controller:
         
         # future: consider FYA-enabled phases conflicts for a non-FYA phase
         
+        return False
+    
+    def checkCallConflict(self, phase: Phase, call: Call) -> bool:
+        for call_phase in call.phases:
+            if self.checkPhaseConflict(phase, call_phase):
+                return True
         return False
     
     def canPhaseRun(self,
@@ -549,7 +551,7 @@ class Controller:
                         else:
                             self.endCycle('free transition')
                 
-                satisfied = []
+                now_serving = set()
                 for call in self.calls:
                     if len(call.phases) == 1:
                         solo = call.phases[0]
@@ -559,7 +561,6 @@ class Controller:
                                          f'to serve with {solo.getTag()}')
                             call.phases.append(partner)
                     
-                    serve_count = 0
                     for phase in call.phases:
                         if self.canPhaseRun(phase, active_count > 0):
                             barrier = self.getBarrierByPhase(phase)
@@ -570,18 +571,24 @@ class Controller:
                                 self.setBarrier(barrier)
                             
                             self.servePhase(phase)
-                            serve_count += 1
+                            now_serving.add(phase)
                             
                             active_count = self.getActivePhaseCount()
-                            
                             if active_count >= concurrent_rings:
                                 break
-                    
-                    if serve_count:
-                        satisfied.append(call)
                 
-                for call in satisfied:
-                    self.calls.remove(call)
+                for phase in now_serving:
+                    empty_calls = []
+                    for call in self.calls:
+                        try:
+                            call.phases.remove(phase)
+                        except ValueError:
+                            pass
+                        if not len(call.phases):
+                            empty_calls.append(call)
+                            
+                    for empty_call in empty_calls:
+                        self.calls.remove(empty_call)
                 
                 for phase in self.phases:
                     conflicting_demand = False
@@ -595,7 +602,6 @@ class Controller:
                             break
                     
                     idle_override = self.idle_phases and (phase not in self.idle_phases) or phase.secondary
-                    
                     if phase.tick(self.flasher, conflicting_demand or idle_override):
                         if phase.ready:
                             self.phase_pool.remove(phase)
