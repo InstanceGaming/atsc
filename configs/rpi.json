@@ -32,7 +32,6 @@
     "enabled": true
   },
   "default-timing": {
-    "min-stop": 1.0,
     "rclr": 1.0,
     "go": 17.0,
     "max-go": 26.0,
@@ -41,7 +40,10 @@
     "pclr": 10.0,
     "walk": 3.0
   },
-  "idle-phases": [6, 2, 1, 5],
+  "idling": {
+    "serve-delay": 2.0,
+    "phases": [6, 2, 1, 5]
+  },
   "phases": [
     {
       "number": 1,

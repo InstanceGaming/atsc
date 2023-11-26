@@ -94,7 +94,6 @@ class LoadSwitch(IdentifiableBase):
 
 class PhaseState(IntEnum):
     STOP = 0
-    MIN_STOP = 2
     RCLR = 4
     CAUTION = 6
     EXTEND = 8
@@ -104,12 +103,9 @@ class PhaseState(IntEnum):
     MAX_GO = 32
 
 
-PHASE_STOP_STATES = (PhaseState.STOP, PhaseState.MIN_STOP)
+PHASE_RIGID_STATES = (PhaseState.CAUTION, PhaseState.PCLR)
 
-PHASE_RIGID_STATES = (PhaseState.MIN_STOP, PhaseState.CAUTION, PhaseState.PCLR)
-
-PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
-                      PhaseState.RCLR,
+PHASE_TIMED_STATES = (PhaseState.RCLR,
                       PhaseState.CAUTION,
                       PhaseState.EXTEND,
                       PhaseState.GO,
@@ -122,14 +118,16 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.PCLR,
                    PhaseState.WALK)
 
-PHASE_PARTNER_START_STATES = (PhaseState.STOP, PhaseState.GO, PhaseState.WALK)
-
 
 class Phase(IdentifiableBase):
     
     @property
     def extend_enabled(self):
-        return self._timing[PhaseState.EXTEND] > 0.0
+        return self._timing[PhaseState.EXTEND] > 0.0 and not self.extend_inhibit
+    
+    @property
+    def default_extend(self):
+        return self._timing[PhaseState.EXTEND] / 2.0
     
     @property
     def extend_active(self):
@@ -140,12 +138,8 @@ class Phase(IdentifiableBase):
         return self._flash_mode
     
     @property
-    def ready(self):
-        return self._state == PhaseState.STOP
-    
-    @property
     def active(self) -> bool:
-        return self._state.value > 2
+        return self._state != PhaseState.STOP
     
     @property
     def state(self) -> PhaseState:
@@ -157,7 +151,7 @@ class Phase(IdentifiableBase):
     
     @setpoint.setter
     def setpoint(self, value):
-        self._timer.trigger = value if value > 0 else 0.0
+        self._timer.trigger = value if value > 0.0 else 0.0
     
     @property
     def elapsed(self) -> float:
@@ -195,6 +189,7 @@ class Phase(IdentifiableBase):
                  flash_mode: FlashMode = FlashMode.RED):
         super().__init__(id_)
         self.ped_service: bool = True
+        self.extend_inhibit = False
         self.stats = Counter({
             'detections': 0,
             'vehicle_service': 0,
@@ -216,10 +211,8 @@ class Phase(IdentifiableBase):
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
-        elif self._state == PhaseState.MIN_STOP:
-            return PhaseState.STOP
         elif self._state == PhaseState.RCLR:
-            return PhaseState.MIN_STOP
+            return PhaseState.STOP
         elif self._state == PhaseState.CAUTION:
             return PhaseState.RCLR
         elif self._state == PhaseState.EXTEND:
@@ -244,9 +237,6 @@ class Phase(IdentifiableBase):
         if self.active:
             raise RuntimeError('Cannot activate active phase')
         
-        if self.state == PhaseState.MIN_STOP:
-            raise RuntimeError('Cannot activate phase during MIN_STOP interval')
-        
         changed = self.change()
         assert changed
         
@@ -255,7 +245,7 @@ class Phase(IdentifiableBase):
         pb = False
         pc = False
         
-        if self._state == PhaseState.STOP or self.state == PhaseState.MIN_STOP or self._state == PhaseState.RCLR:
+        if self._state == PhaseState.STOP or self._state == PhaseState.RCLR:
             self._vls.a = True
             self._vls.b = False
             self._vls.c = False
@@ -295,7 +285,7 @@ class Phase(IdentifiableBase):
         next_state = force_state if force_state is not None else self.getNextState(self.ped_service)
         
         if next_state != self._state:
-            if not self.ready:
+            if not self.active:
                 delta = millis() - self._marker
                 logger.verbose('{} {} {}',
                                self.getTag(),
@@ -303,6 +293,9 @@ class Phase(IdentifiableBase):
                                format_ms(delta))
             
             self._timer.reset()
+            
+            if next_state == PhaseState.STOP:
+                self.extend_inhibit = False
             
             if next_state == PhaseState.GO:
                 setpoint = self._timing[PhaseState.GO]
@@ -334,21 +327,25 @@ class Phase(IdentifiableBase):
         changed = False
         
         if self._timer.poll(True):
-            if not self.ready:
+            if self.active:
                 if (self._state in PHASE_RIGID_STATES) or rest_inhibit:
                     walking = self._state == PhaseState.WALK
                     if not walking or (walking and flasher):
+                        if walking:
+                            walk_time = self._timing[PhaseState.WALK]
+                            self.extend_inhibit = self.elapsed - walk_time > self.default_extend
+                            
+                            if self.extend_inhibit:
+                                logger.debug('{} extend inhibited', self.getTag())
                         changed = self.change()
         else:
-            if not self.ready:
-                if self.extend_active:
-                    self.setpoint -= self._increment
-                    
-        if not self.ready:
-            if self._state in PHASE_GO_STATES:
-                if self.elapsed > self._timing[PhaseState.MAX_GO]:
-                    if rest_inhibit:
-                        changed = self.change()
+            if self.extend_active:
+                self.setpoint -= self._increment
+                
+        if self._state in PHASE_GO_STATES:
+            if self.elapsed > self._timing[PhaseState.MAX_GO]:
+                if rest_inhibit:
+                    changed = self.change()
         
         return changed
     
@@ -363,13 +360,8 @@ class Call:
     def phase_tags_list(self):
         return csl([phase.getTag() for phase in self.phases])
     
-    def __init__(self,
-                 phases: List[Phase],
-                 active_count: int,
-                 queue_size: int):
+    def __init__(self, phases: List[Phase]):
         self.phases = phases
-        self.active_count = active_count
-        self.queue_size = queue_size
         self.age = 0.0
     
     def __contains__(self, item):
@@ -388,7 +380,7 @@ class Call:
             return NotImplementedError()
     
     def __repr__(self):
-        return f'<Call {self.phase_tags_list} {self.active_count} {self.queue_size} {self.age}>'
+        return f'<Call {self.phase_tags_list} {self.age}>'
 
 
 class InputAction(IntEnum):

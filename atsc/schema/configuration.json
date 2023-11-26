@@ -13,7 +13,7 @@
     "network",
     "init",
     "phases",
-    "idle-phases",
+    "idling",
     "rings",
     "barriers",
     "calls",
@@ -151,7 +151,6 @@
     "default-timing": {
       "type": "object",
       "required": [
-        "min-stop",
         "rclr",
         "caution",
         "extend",
@@ -161,7 +160,7 @@
         "max-go"
       ],
       "properties": {
-        "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
+        "^rclr|caution|extend|go|pclr|walk|max-go$": {
           "type": "integer",
           "minimum": 0,
           "maximum": 999
@@ -203,7 +202,7 @@
           "timing": {
             "type": "object",
             "properties": {
-              "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
+              "^rclr|caution|extend|go|pclr|walk|max-go$": {
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 999
@@ -232,14 +231,21 @@
         }
       }
     },
-    "idle-phases": {
-      "type": "array",
-      "minItems": 0,
-      "maxItems": 8,
-      "items": {
-        "type": "integer",
-        "minimum": 1,
-        "uniqueItems": true
+    "idling": {
+      "type": "object",
+      "required": [
+        "serve-delay",
+        "phases"
+      ],
+      "properties": {
+        "serve-delay": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "phases": {
+          "type": "array",
+          "uniqueItems": true
+        }
       }
     },
     "random-actuation": {

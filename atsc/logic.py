@@ -35,11 +35,12 @@ class EdgeTrigger(LogicBase):
         """
         if (self.polarity and (not self.previous and signal) or
                 not self.polarity and (self.previous and not signal)):
-            self.previous = signal
+            
             self.q = True
         else:
             self.q = False
         
+        self.previous = signal
         return self.q
 
 
