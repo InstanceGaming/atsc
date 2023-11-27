@@ -372,6 +372,10 @@ class Controller:
         if phase.active:
             return False
         
+        min_stop = phase.timing[PhaseState.MIN_STOP]
+        if min_stop > 0.0 and phase.elapsed < min_stop:
+            return False
+        
         if phase not in self.getAvailablePhases():
             return False
         
@@ -481,7 +485,7 @@ class Controller:
                 continue
             if candidate.state in PHASE_GO_STATES:
                 break
-            if not self.checkPhaseConflict(phase, candidate):
+            if self.canPhaseRun(candidate):
                 return candidate
         return None
     
@@ -500,13 +504,19 @@ class Controller:
             logger.debug(f'Free barrier')
         
         self.barrier = b
+        
+    def resetPhasePool(self):
+        self.phase_pool = self.phases.copy()
     
     def endCycle(self, note: Optional[str] = None) -> None:
         """End phasing for this control cycle iteration"""
-        self.cycle_count += 1
-        self.phase_pool = self.phases.copy()
+        self.resetPhasePool()
         
-        self.setBarrier(None)
+        active_count = len(self.getActivePhases(self.phases))
+        if not active_count:
+            self.cycle_count += 1
+            self.setBarrier(None)
+        
         note_text = post_pend(note, note)
         logger.debug(f'Ended cycle {self.cycle_count}{note_text}')
     
@@ -546,21 +556,19 @@ class Controller:
                             self.idle_timer.reset()
                             logger.debug('{} terminated', phase.getTag())
                 
-                active_phases = self.getActivePhases(self.phases)
-                if len(self.calls):
-                    if not len(active_phases):
-                        if not len(self.phase_pool):
-                            self.endCycle('complete')
+                if not len(self.phase_pool):
+                    self.endCycle('complete')
+                else:
+                    called_phases = self.getCalledPhases()
+                    called_pool = set(self.phase_pool).intersection(called_phases)
+                    available = self.filterPhases(called_pool, barrier=self.barrier)
+                    if not len(available):
+                        if self.barrier:
+                            self.setBarrier(None)
                         else:
-                            called_phases = self.getCalledPhases()
-                            called_pool = set(self.phase_pool).intersection(called_phases)
-                            available = self.filterPhases(called_pool, barrier=self.barrier)
-                            if not len(available):
-                                if self.barrier:
-                                    self.setBarrier(None)
-                                else:
-                                    self.endCycle('force')
+                            self.resetPhasePool()
                 
+                active_phases = self.getActivePhases(self.phases)
                 now_serving = []
                 for call in self.calls:
                     for phase in call.phases:
@@ -570,7 +578,7 @@ class Controller:
                             active_phases = self.getActivePhases(self.phases)
                             if len(active_phases) >= concurrent_phases:
                                 break
-                                
+                
                 if len(active_phases) == 1:
                     solo = active_phases[0]
                     partner = self.getPhasePartner(self.phase_pool, solo)
@@ -591,8 +599,7 @@ class Controller:
                 for call in [c for c in self.calls if not len(c.phases)]:
                     self.calls.remove(call)
                 
-                idle_delay = self.idle_timer.poll(self.idling)
-                if self.idle_phases:
+                if self.idle_phases and self.idle_timer.poll(self.idling):
                     available = []
                     if active_phases == 1:
                         solo = active_phases[0]
@@ -607,6 +614,8 @@ class Controller:
                         logger.debug('Recall idle phases')
                         cutoff = available[:len(self.rings)]
                         self.placeCall(cutoff, 'idle')
+                    
+                    self.idle_timer.reset()
             elif self.mode == OperationMode.CET:
                 for ph in self.phases:
                     ph.tick(self.flasher, True)
@@ -651,10 +660,7 @@ class Controller:
         if self.mode == OperationMode.NORMAL:
             if self.random_timer.poll(self.random_enabled):
                 phases = []
-                pool = list(set(self.phases).difference(self.getCalledPhases()))
-                if not pool:
-                    pool = self.phases
-                first_phase = self.randomizer.choice(pool)
+                first_phase = self.randomizer.choice(self.phases)
                 phases.append(first_phase)
                 choose_two = round(self.randomizer.random())
                 if choose_two:

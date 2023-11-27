@@ -151,6 +151,7 @@
     "default-timing": {
       "type": "object",
       "required": [
+        "min-stop",
         "rclr",
         "caution",
         "extend",
@@ -160,8 +161,8 @@
         "max-go"
       ],
       "properties": {
-        "^rclr|caution|extend|go|pclr|walk|max-go$": {
-          "type": "integer",
+        "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
+          "type": "number",
           "minimum": 0,
           "maximum": 999
         }
@@ -202,8 +203,8 @@
           "timing": {
             "type": "object",
             "properties": {
-              "^rclr|caution|extend|go|pclr|walk|max-go$": {
-                "type": "integer",
+              "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
+                "type": "number",
                 "minimum": 0,
                 "maximum": 999
               }

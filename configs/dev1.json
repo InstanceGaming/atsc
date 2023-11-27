@@ -32,6 +32,7 @@
     "enabled": true
   },
   "default-timing": {
+    "min-stop": 1.0,
     "rclr": 1.0,
     "go": 16.0,
     "max-go": 26.0,
@@ -41,7 +42,7 @@
     "walk": 3.0
   },
   "idling": {
-    "serve-delay": 2.0,
+    "serve-delay": 1.2,
     "phases": [6, 2, 1, 5]
   },
   "phases": [
@@ -50,8 +51,7 @@
       "timing": {
         "go": 8.0,
         "max-go": 30.0,
-        "caution": 5.0,
-        "extend": 8.0
+        "caution": 5.0
       },
       "flash-mode": "yellow",
       "load-switches": {
@@ -99,8 +99,7 @@
       "timing": {
         "go": 8.0,
         "max-go": 30.0,
-        "caution": 5.0,
-        "extend": 8.0
+        "caution": 5.0
       },
       "flash-mode": "yellow",
       "load-switches": {

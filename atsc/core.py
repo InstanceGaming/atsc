@@ -19,8 +19,6 @@ from atsc.logic import EdgeTrigger
 from jacob.text import csl
 from collections import Counter
 from dataclasses import dataclass
-from jacob.datetime.timing import millis
-from jacob.datetime.formatting import format_ms
 
 
 class IdentifiableBase:
@@ -94,6 +92,7 @@ class LoadSwitch(IdentifiableBase):
 
 class PhaseState(IntEnum):
     STOP = 0
+    MIN_STOP = 2
     RCLR = 4
     CAUTION = 6
     EXTEND = 8
@@ -105,7 +104,8 @@ class PhaseState(IntEnum):
 
 PHASE_RIGID_STATES = (PhaseState.CAUTION, PhaseState.PCLR)
 
-PHASE_TIMED_STATES = (PhaseState.RCLR,
+PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
+                      PhaseState.RCLR,
                       PhaseState.CAUTION,
                       PhaseState.EXTEND,
                       PhaseState.GO,
@@ -123,11 +123,11 @@ class Phase(IdentifiableBase):
     
     @property
     def extend_enabled(self):
-        return self._timing[PhaseState.EXTEND] > 0.0 and not self.extend_inhibit
+        return self.timing[PhaseState.EXTEND] > 0.0 and not self.extend_inhibit
     
     @property
     def default_extend(self):
-        return self._timing[PhaseState.EXTEND] / 2.0
+        return self.timing[PhaseState.EXTEND] / 2.0
     
     @property
     def extend_active(self):
@@ -172,9 +172,9 @@ class Phase(IdentifiableBase):
     def _validate_timing(self):
         if self.active:
             raise RuntimeError('Cannot changing timing map while active')
-        if self._timing is None:
+        if self.timing is None:
             raise TypeError('Timing map cannot be None')
-        keys = self._timing.keys()
+        keys = self.timing.keys()
         if len(keys) != len(PHASE_TIMED_STATES):
             raise RuntimeError('Timing map mismatched size')
         elif PhaseState.STOP in keys:
@@ -195,9 +195,8 @@ class Phase(IdentifiableBase):
             'vehicle_service': 0,
             'ped_service': 0
         })
-        self._marker = millis()
+        self.timing = timing
         self._increment = time_increment
-        self._timing = timing
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
         self._timer: logic.Timer = logic.Timer(0, step=time_increment)
@@ -285,30 +284,23 @@ class Phase(IdentifiableBase):
         next_state = force_state if force_state is not None else self.getNextState(self.ped_service)
         
         if next_state != self._state:
-            if not self.active:
-                delta = millis() - self._marker
-                logger.verbose('{} {} {}',
-                               self.getTag(),
-                               self._state.name,
-                               format_ms(delta))
-            
             self._timer.reset()
             
             if next_state == PhaseState.STOP:
                 self.extend_inhibit = False
             
             if next_state == PhaseState.GO:
-                setpoint = self._timing[PhaseState.GO]
-                setpoint -= self._timing[PhaseState.CAUTION]
+                setpoint = self.timing[PhaseState.GO]
+                setpoint -= self.timing[PhaseState.CAUTION]
                 
                 if self.ped_ls is not None and self.ped_service:
-                    walk_time = self._timing[PhaseState.WALK]
-                    pclr_time = self._timing[PhaseState.PCLR]
+                    walk_time = self.timing[PhaseState.WALK]
+                    pclr_time = self.timing[PhaseState.PCLR]
                     setpoint -= (walk_time + pclr_time)
                 
                 self.stats['vehicle_service'] += 1
             else:
-                setpoint = self._timing.get(next_state, 0.0)
+                setpoint = self.timing.get(next_state, 0.0)
                 
                 if next_state == PhaseState.WALK:
                     self.stats['ped_service'] += 1
@@ -317,7 +309,6 @@ class Phase(IdentifiableBase):
                 assert setpoint >= 1.0
             self._state = next_state
             self.setpoint = round(setpoint, 1)
-            self._marker = millis()
             return True
         else:
             return False
@@ -332,7 +323,7 @@ class Phase(IdentifiableBase):
                     walking = self._state == PhaseState.WALK
                     if not walking or (walking and flasher):
                         if walking:
-                            walk_time = self._timing[PhaseState.WALK]
+                            walk_time = self.timing[PhaseState.WALK]
                             self.extend_inhibit = self.elapsed - walk_time > self.default_extend
                             
                             if self.extend_inhibit:
@@ -343,7 +334,7 @@ class Phase(IdentifiableBase):
                 self.setpoint -= self._increment
                 
         if self._state in PHASE_GO_STATES:
-            if self.elapsed > self._timing[PhaseState.MAX_GO]:
+            if self.elapsed > self.timing[PhaseState.MAX_GO]:
                 if rest_inhibit:
                     changed = self.change()
         
