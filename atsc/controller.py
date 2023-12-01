@@ -351,13 +351,12 @@ class Controller:
         :param b: Other Phase to compare
         :return: True if conflict
         """
-        assert a != b
-        
-        if b.id in self.getRingByPhase(a).phases:
-            return True
-        
-        if b.id not in self.getBarrierByPhase(a).phases:
-            return True
+        if a != b:
+            if b.id in self.getRingByPhase(a).phases:
+                return True
+            
+            if b.id not in self.getBarrierByPhase(a).phases:
+                return True
         
         # future: consider FYA-enabled phases conflicts for a non-FYA phase
         return False
