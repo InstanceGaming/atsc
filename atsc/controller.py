@@ -477,6 +477,9 @@ class Controller:
             self.setBarrier(barrier)
         
         self.phase_pool.remove(phase)
+        
+        # todo: differentiate between vehicle and ped service
+        
         phase.activate()
     
     def getPhasePartner(self, phases: List[Phase], phase: Phase) -> Optional[Phase]:
@@ -585,6 +588,10 @@ class Controller:
                     if partner is not None:
                         logger.debug(f'Supplementing {solo.getTag()} '
                                      f'with partner {partner.getTag()}')
+                        
+                        # todo: do not serve ped if supplementing when more than
+                        #  two phases were active at time of call placement
+                        
                         self.servePhase(partner)
                         now_serving.append(partner)
                         active_phases = self.getActivePhases(self.phases)

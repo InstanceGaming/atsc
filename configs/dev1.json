@@ -3,7 +3,7 @@
   "init": {
     "mode": "normal",
     "cet-delay": 6,
-    "recall-all": false
+    "recall-all": true
   },
   "device": {
     "name": "ATSC Development Intersection",

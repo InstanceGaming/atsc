@@ -15,10 +15,8 @@
 import os
 import enum
 import json
-import jsonschema
 from typing import List, Optional
 from pathlib import Path
-from jsonschema import SchemaError, ValidationError
 from collections import ChainMap
 
 
@@ -99,15 +97,15 @@ class ConfigValidator:
         
         final_data = dict(cm)
         
-        try:
-            jsonschema.validate(final_data, self._schema)
-        except SchemaError as e:
-            raise ConfigError(ErrorType.SCHEMA_INVALID, message=e.message)
-        except ValidationError as e:
-            raise ConfigError(ErrorType.INVALID_BY_SCHEMA,
-                              message=e.message,
-                              validator=e.validator_value,
-                              node_path=e.json_path)
+        # try:
+        #     jsonschema.validate(final_data, self._schema)
+        # except SchemaError as e:
+        #     raise ConfigError(ErrorType.SCHEMA_INVALID, message=e.message)
+        # except ValidationError as e:
+        #     raise ConfigError(ErrorType.INVALID_BY_SCHEMA,
+        #                       message=e.message,
+        #                       validator=e.validator_value,
+        #                       node_path=e.json_path)
         
         return final_data
 

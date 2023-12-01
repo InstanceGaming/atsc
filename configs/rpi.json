@@ -21,7 +21,7 @@
   },
   "bus": {
     "enabled": true,
-    "port": "/dev/serial0",
+    "port": "/dev/ttyAMA0",
     "baud": 115200,
     "response-attempts": 5
   },

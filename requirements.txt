@@ -1,7 +1,6 @@
 pyserial
 crcmod
 protobuf
-jsonschema
 netifaces
 bitarray
 loguru
