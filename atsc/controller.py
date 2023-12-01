@@ -393,8 +393,6 @@ class Controller:
                      pool: Iterable[Phase],
                      barrier: Optional[Barrier] = None,
                      ring: Optional[Ring] = None):
-        assert (barrier is not None) or (ring is not None)
-        
         barrier_phases = []
         if barrier is not None:
             barrier_phases = self.getBarrierPhases(barrier)
