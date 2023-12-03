@@ -85,20 +85,24 @@ class Timer(LogicBase):
     def delta(self):
         return self.initial - self.elapsed
     
-    def __init__(self, trigger, step=1):
+    def __init__(self,
+                 trigger,
+                 step=1,
+                 invert=False):
         super().__init__()
         assert step
+        self.invert = invert
         self.step = step
         self.trigger = trigger
         self.elapsed = self.initial
     
     def reset(self):
-        self.q = False
+        self.q = self.invert
         self.elapsed = self.initial
     
     def poll(self, signal: bool) -> bool:
         if signal:
-            self.q = abs(self.delta) >= self.trigger
+            self.q = abs(self.delta) >= (self.trigger - self.step)
             self.elapsed += self.step
         else:
             self.reset()

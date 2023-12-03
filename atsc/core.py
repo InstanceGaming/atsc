@@ -197,7 +197,9 @@ class Phase(IdentifiableBase):
         })
         self.timing = timing
         self.flasher = True
-        self.flash_timer = logic.Timer(0.5, step=time_increment)
+        self.flash_timer = logic.Timer(0.5,
+                                       step=time_increment,
+                                       invert=True)
         self._increment = time_increment
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
@@ -348,6 +350,20 @@ class Phase(IdentifiableBase):
     def __repr__(self):
         return (f'<{self.getTag()} {self.state.name} '
                 f'{round(self.elapsed, 1)} of {round(self.setpoint, 1)}>')
+
+
+class Ring(IdentifiableBase):
+    
+    def __init__(self, id_: int, phases: List[int]):
+        super().__init__(id_)
+        self.phases: List[int] = phases
+
+
+class Barrier(IdentifiableBase):
+    
+    def __init__(self, id_: int, phases: List[int]):
+        super().__init__(id_)
+        self.phases: List[int] = phases
 
 
 class Call:

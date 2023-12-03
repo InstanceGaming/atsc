@@ -21,7 +21,6 @@ from bitarray import bitarray
 from atsc.utils import buildFieldMessage
 from jacob.text import post_pend
 from atsc.frames import FrameType, DeviceAddress, OutputStateFrame
-from atsc.ringbarrier import Ring, Barrier
 from jacob.enumerations import text_to_enum
 
 
@@ -62,7 +61,7 @@ class Controller:
         self.barrier: Optional[Barrier] = None
         
         self.cycle_count = 0
-
+        
         self.idle_phases: List[Phase] = self.getIdlePhases(config['idling']['phases'])
         self.idle_serve_delay: float = config['idling']['serve-delay']
         self.idle_timer = logic.Timer(self.idle_serve_delay, step=self.INCREMENT)
@@ -364,7 +363,7 @@ class Controller:
         if min_stop > 0.0 and phase.elapsed < min_stop:
             return False
         
-        if phase not in self.getAvailablePhases():
+        if phase not in self.getAvailablePhases(self.phase_pool, barrier=self.barrier):
             return False
         
         for other in self.phases:
@@ -403,10 +402,20 @@ class Controller:
         
         return phases
     
-    def getAvailablePhases(self, ring: Optional[Ring] = None) -> List[Phase]:
-        return self.filterPhases(self.phase_pool,
-                                 barrier=self.barrier,
-                                 ring=ring)
+    def getAvailablePhases(self,
+                           pool: List[Phase],
+                           barrier: Optional[Barrier] = None,
+                           ring: Optional[Ring] = None,
+                           called: bool = False) -> List[Phase]:
+        filtered = self.filterPhases(pool,
+                                     barrier=barrier,
+                                     ring=ring)
+        
+        if called:
+            called = self.getCalledPhases()
+            filtered = set(filtered).intersection(called)
+        
+        return filtered
     
     def handleBusFrame(self):
         frame = self.bus.get()
@@ -432,7 +441,7 @@ class Controller:
             for ph in self.phases:
                 if ph.flash_mode == FlashMode.YELLOW:
                     ph.change(force_state=PhaseState.CAUTION)
-            
+        
         elif new_state == OperationMode.NORMAL:
             self.second_timer.reset()
             
@@ -493,7 +502,7 @@ class Controller:
             logger.debug(f'Free barrier')
         
         self.barrier = b
-        
+    
     def resetPhasePool(self):
         self.phase_pool = self.phases.copy()
     
@@ -523,6 +532,12 @@ class Controller:
         
         return []
     
+    def checkPhaseConflictingDemand(self, phase: Phase) -> bool:
+        for call in self.calls:
+            if self.checkCallConflict(phase, call):
+                return True
+        return False
+    
     def tick(self):
         """Polled once every 100ms"""
         if self.random_timer.poll(self.random_enabled):
@@ -551,12 +566,7 @@ class Controller:
             concurrent_phases = len(self.rings)
             
             for phase in self.phases:
-                conflicting_demand = False
-                for call in self.calls:
-                    if self.checkCallConflict(phase, call):
-                        conflicting_demand = True
-                        break
-                
+                conflicting_demand = self.checkPhaseConflictingDemand(phase)
                 idle_override = self.idle_phases and (phase not in self.idle_phases) or phase.secondary
                 if phase.tick(conflicting_demand or idle_override):
                     if not phase.active:
@@ -566,9 +576,9 @@ class Controller:
             if not len(self.phase_pool):
                 self.endCycle('complete')
             else:
-                called_phases = self.getCalledPhases()
-                called_pool = set(self.phase_pool).intersection(called_phases)
-                available = self.filterPhases(called_pool, barrier=self.barrier)
+                available = self.getAvailablePhases(self.phase_pool,
+                                                    barrier=self.barrier,
+                                                    called=True)
                 if not len(available):
                     if self.barrier:
                         self.setBarrier(None)
@@ -588,17 +598,18 @@ class Controller:
             
             if len(active_phases) == 1:
                 solo = active_phases[0]
-                partner = self.getPhasePartner(self.phase_pool, solo)
-                if partner is not None:
-                    logger.debug(f'Supplementing {solo.getTag()} '
-                                 f'with partner {partner.getTag()}')
-                    
-                    # todo: do not serve ped if supplementing when more than
-                    #  two phases were active at time of call placement
-                    
-                    self.servePhase(partner)
-                    now_serving.append(partner)
-                    active_phases = self.getActivePhases(self.phases)
+                if not self.checkPhaseConflictingDemand(solo):
+                    partner = self.getPhasePartner(self.phase_pool, solo)
+                    if partner is not None:
+                        logger.debug(f'Supplementing {solo.getTag()} '
+                                     f'with partner {partner.getTag()}')
+                        
+                        # todo: do not serve ped if supplementing when more than
+                        #  two phases were active at time of call placement
+                        
+                        self.servePhase(partner)
+                        now_serving.append(partner)
+                        active_phases = self.getActivePhases(self.phases)
             
             for phase in now_serving:
                 for call in self.calls:
@@ -633,7 +644,7 @@ class Controller:
             
             if self.cet_timer.poll(True):
                 self.setOperationState(OperationMode.NORMAL)
-            
+        
         if self.bus is not None:
             self.updateBusOutputs(self.load_switches)
         
@@ -650,7 +661,7 @@ class Controller:
             
             if self.monitor is not None:
                 self.monitor.clean()
-        
+    
     def transfer(self):
         """Set the controllers flash transfer relays flag"""
         logger.info('Transferred')
