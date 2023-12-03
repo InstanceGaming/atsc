@@ -7,9 +7,9 @@ StartLimitIntervalSec=80s
 Type=forking
 TimeoutSec=10
 
-WorkingDirectory=/home/pi/atsc/
-ExecStart=/home/pi/atsc/run_pi.sh
-PIDFile=/home/pi/atsc/atsc.pid
+WorkingDirectory=/home/atsc/atsc/
+ExecStart=/home/atsc/atsc/run_pi.sh
+PIDFile=/home/atsc/atsc/atsc.pid
 
 KillMode=mixed
 Restart=on-abnormal

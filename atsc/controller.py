@@ -496,8 +496,6 @@ class Controller:
         return phases
     
     def setBarrier(self, b: Optional[Barrier]):
-        assert not len(self.getActivePhases(self.phases))
-        
         if b is not None:
             logger.debug(f'{b.getTag()} active')
         else:
