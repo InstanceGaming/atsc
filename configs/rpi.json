@@ -1,14 +1,8 @@
 {
   "version": 3,
-  "random-actuation": {
-    "delay": 60,
-    "min": 1,
-    "max": 90,
-    "enabled": true
-  },
   "init": {
     "mode": "cet",
-    "cet-delay": 6,
+    "cet-delay": 0,
     "recall-all": true
   },
   "device": {
@@ -27,32 +21,63 @@
   },
   "bus": {
     "enabled": true,
-    "port": "/dev/serial0",
+    "port": "/dev/ttyAMA0",
     "baud": 115200,
     "response-attempts": 5
   },
+  "random-actuation": {
+    "delay": 90,
+    "min": 1,
+    "max": 90,
+    "enabled": true
+  },
+  "default-timing": {
+    "min-stop": 1.0,
+    "rclr": 1.0,
+    "go": 20.0,
+    "max-go": 30.0,
+    "caution": 6.0,
+    "extend": 6.0,
+    "pclr": 10.0,
+    "walk": 3.0
+  },
+  "idling": {
+    "serve-delay": 1.2,
+    "phases": [6, 2, 1, 5]
+  },
   "phases": [
     {
+      "number": 1,
       "timing": {
-        "extend": 3.0,
-        "go": 5.0
+        "go": 9.0,
+        "max-go": 30.0
       },
-      "flash-mode": "yellow",
+      "flash-mode": "red",
       "load-switches": {
         "vehicle": 1
       }
     },
     {
-      "flash-mode": "yellow",
+      "number": 2,
+      "timing": {
+        "go": 26.0,
+        "max-go": 48.0,
+        "extend": 20.0,
+        "pclr": 16.0,
+        "walk": 3.0
+      },
+      "flash-mode": "red",
       "load-switches": {
         "vehicle": 2,
         "ped": 5
       }
     },
     {
+      "number": 3,
       "timing": {
-        "extend": 3.0,
-        "go": 5.0
+        "go": 9.0,
+        "max-go": 25.0,
+        "extend": 6.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -60,13 +85,7 @@
       }
     },
     {
-      "timing":  {
-        "extend": 3.0,
-        "go": 15.0,
-        "pclr": 12.0,
-        "walk": 3.0,
-        "max-go": 30.0
-      },
+      "number": 4,
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 4,
@@ -74,26 +93,37 @@
       }
     },
     {
+      "number": 5,
       "timing": {
-        "extend": 3.0,
-        "go": 5.0
+        "go": 9.0,
+        "max-go": 30.0
       },
-      "flash-mode": "yellow",
+      "flash-mode": "red",
       "load-switches": {
         "vehicle": 7
       }
     },
     {
-      "flash-mode": "yellow",
+      "number": 6,
+      "timing": {
+        "go": 26.0,
+        "max-go": 48.0,
+        "extend": 20.0,
+        "pclr": 16.0,
+        "walk": 3.0
+      },
+      "flash-mode": "red",
       "load-switches": {
         "vehicle": 8,
         "ped": 11
       }
     },
     {
+      "number": 7,
       "timing": {
-        "extend": 3.0,
-        "go": 5.0
+        "go": 9.0,
+        "max-go": 25.0,
+        "extend": 6.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -101,13 +131,7 @@
       }
     },
     {
-      "timing":  {
-        "extend": 3.0,
-        "go": 15.0,
-        "pclr": 12.0,
-        "walk": 3.0,
-        "max-go": 30.0
-      },
+      "number": 8,
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 10,
@@ -115,7 +139,6 @@
       }
     }
   ],
-  "idle-phases": [6, 2, 1, 5],
   "rings": [
     [
       1,
@@ -148,18 +171,9 @@
     "max-age": 600,
     "weights": {
       "system": 600,
+      "active-barrier": 0,
       "duplicate-factor": 2
     }
-  },
-  "default-timing": {
-    "min-stop": 2.0,
-    "rclr": 1.0,
-    "caution": 4.0,
-    "extend": 5.0,
-    "go": 23.0,
-    "pclr": 20.0,
-    "walk": 3.0,
-    "max-go": 45.0
   },
   "inputs": [
     {
