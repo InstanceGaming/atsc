@@ -15,8 +15,9 @@ then
     fi
   fi
 
-  echo "Updating pip and installing pip-tools"
-  $INTERPRETER_PATH -m pip install pip-tools
+  echo "Installing packages"
+  $INTERPRETER_PATH -m pip install --upgrade pip
+  $INTERPRETER_PATH -m pip install -r requirements.txt
 
   if [ $? -ne 0 ];
   then
