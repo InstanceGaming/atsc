@@ -7,6 +7,7 @@ then
   then
     echo "Creating virtual environment"
 
+    $INTERPRETER -m ensurepip
     $INTERPRETER -m pip install python3-venv
     $INTERPRETER -m venv $ENV_DIR
 
