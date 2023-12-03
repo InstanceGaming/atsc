@@ -39,9 +39,6 @@ class Controller:
         # should place calls on all phases when started?
         self.recall_all = config['init']['recall-all']
         
-        # 1Hz square wave reference clock
-        self.flasher = True
-        
         # loop enable flag
         self.running = False
         
@@ -50,10 +47,6 @@ class Controller:
         
         # operation functionality of the controller
         self.mode: OperationMode = text_to_enum(OperationMode, config['init']['mode'])
-        
-        # there are two trigger sources for time freeze: system, input
-        # see self.time_freeze for a scalar state
-        self.freeze: bool = False
         
         self.load_switches: List[LoadSwitch] = [LoadSwitch(1), LoadSwitch(2), LoadSwitch(3), LoadSwitch(4),
                                                 LoadSwitch(5), LoadSwitch(6), LoadSwitch(7), LoadSwitch(8),
@@ -75,16 +68,12 @@ class Controller:
         self.idle_timer = logic.Timer(self.idle_serve_delay, step=self.INCREMENT)
         self.idle_rising = EdgeTrigger(True)
         
-        # 500ms timer elapsed (0-4)
-        # don't try and use an actual timer here,
-        # that always results in erratic ped signal
-        # countdowns in the least.
-        self.half_counter: int = 0
+        self.second_timer = logic.Timer(1.0, step=self.INCREMENT)
         
         # control entrance transition timer
         yellow_time = default_timing[PhaseState.CAUTION]
-        self.cet_time: int = config['init']['cet-delay'] + yellow_time
-        self.cet_counter: float = self.cet_time
+        self.cet_delay: float = max(yellow_time, config['init']['cet-delay'] - yellow_time)
+        self.cet_timer = logic.Timer(self.cet_delay, step=self.INCREMENT)
         
         # inputs data structure instances
         self.inputs: Dict[int, Input] = self.getInputs(config.get('inputs'))
@@ -103,7 +92,7 @@ class Controller:
         self.random_min = random_config['min']
         self.random_max = random_config['max']
         self.randomizer = random.Random()
-        self.random_timer = logic.Timer(random_delay, step=-1)
+        self.random_timer = logic.Timer(random_delay, step=self.INCREMENT)
     
     def getDefaultTiming(self, configuration_node: Dict[str, float]) -> Dict[PhaseState, float]:
         timing = {}
@@ -285,7 +274,7 @@ class Controller:
         assert phases
         note_text = post_pend(note, note)
         
-        exists = any([phase in self.calls for phase in phases])
+        exists = any([phase in call for call in self.calls for phase in phases])
         if not exists:
             call = Call(phases)
             logger.debug(f'Call placed for {call.phase_tags_list}{note_text}')
@@ -439,12 +428,14 @@ class Controller:
     def setOperationState(self, new_state: OperationMode):
         """Set controller state for a given `OperationMode`"""
         if new_state == OperationMode.CET:
+            self.cet_timer.reset()
             for ph in self.phases:
                 if ph.flash_mode == FlashMode.YELLOW:
                     ph.change(force_state=PhaseState.CAUTION)
             
-            self.cet_counter = self.cet_time
         elif new_state == OperationMode.NORMAL:
+            self.second_timer.reset()
+            
             for ph in self.phases:
                 ph.change(force_state=PhaseState.STOP)
             
@@ -534,105 +525,115 @@ class Controller:
     
     def tick(self):
         """Polled once every 100ms"""
+        if self.random_timer.poll(self.random_enabled):
+            phases = []
+            first_phase = self.randomizer.choice(self.phases)
+            phases.append(first_phase)
+            choose_two = round(self.randomizer.random())
+            if choose_two:
+                second_phase = self.getPhasePartner(self.phases, first_phase)
+                if second_phase is not None:
+                    phases.append(second_phase)
+            
+            next_delay = self.randomizer.randint(self.random_min, self.random_max)
+            logger.debug('Random actuation for {}, next in {}s',
+                         csl([phase.getTag() for phase in phases]),
+                         next_delay)
+            
+            self.detection(phases, 'random actuation')
+            self.random_timer.trigger = next_delay
+            self.random_timer.reset()
+        
         if self.bus is not None:
             self.handleBusFrame()
         
-        if not self.freeze:
-            if self.mode == OperationMode.NORMAL:
-                concurrent_phases = len(self.rings)
-                
-                for phase in self.phases:
-                    conflicting_demand = False
-                    for call in self.calls:
-                        if self.checkCallConflict(phase, call):
-                            conflicting_demand = True
-                            break
-                    
-                    idle_override = self.idle_phases and (phase not in self.idle_phases) or phase.secondary
-                    if phase.tick(self.flasher, conflicting_demand or idle_override):
-                        if not phase.active:
-                            self.idle_timer.reset()
-                            logger.debug('{} terminated', phase.getTag())
-                
-                if not len(self.phase_pool):
-                    self.endCycle('complete')
-                else:
-                    called_phases = self.getCalledPhases()
-                    called_pool = set(self.phase_pool).intersection(called_phases)
-                    available = self.filterPhases(called_pool, barrier=self.barrier)
-                    if not len(available):
-                        if self.barrier:
-                            self.setBarrier(None)
-                        else:
-                            self.resetPhasePool()
-                
-                active_phases = self.getActivePhases(self.phases)
-                now_serving = []
-                for call in self.calls:
-                    for phase in call.phases:
-                        if self.canPhaseRun(phase):
-                            self.servePhase(phase)
-                            now_serving.append(phase)
-                            active_phases = self.getActivePhases(self.phases)
-                            if len(active_phases) >= concurrent_phases:
-                                break
-                
-                if len(active_phases) == 1:
-                    solo = active_phases[0]
-                    partner = self.getPhasePartner(self.phase_pool, solo)
-                    if partner is not None:
-                        logger.debug(f'Supplementing {solo.getTag()} '
-                                     f'with partner {partner.getTag()}')
-                        
-                        # todo: do not serve ped if supplementing when more than
-                        #  two phases were active at time of call placement
-                        
-                        self.servePhase(partner)
-                        now_serving.append(partner)
-                        active_phases = self.getActivePhases(self.phases)
-                
-                for phase in now_serving:
-                    for call in self.calls:
-                        try:
-                            call.phases.remove(phase)
-                        except ValueError:
-                            pass
-                
-                for call in [c for c in self.calls if not len(c.phases)]:
-                    self.calls.remove(call)
-                
-                if self.idle_phases and self.idle_timer.poll(self.idling):
-                    available = []
-                    if active_phases == 1:
-                        solo = active_phases[0]
-                        partner = self.getPhasePartner(self.idle_phases, solo)
-                        if partner:
-                            available.append(partner)
-                    elif not active_phases:
-                        self.endCycle('idle')
-                        available.extend([phase for phase in self.idle_phases if self.canPhaseRun(phase)])
-                    
-                    if available:
-                        logger.debug('Recall idle phases')
-                        cutoff = available[:len(self.rings)]
-                        self.placeCall(cutoff, 'idle')
-                    
-                    self.idle_timer.reset()
-            elif self.mode == OperationMode.CET:
-                for ph in self.phases:
-                    ph.tick(self.flasher, True)
-                
-                if self.cet_counter > self.INCREMENT:
-                    self.cet_counter -= self.INCREMENT
-                else:
-                    self.setOperationState(OperationMode.NORMAL)
+        if self.mode == OperationMode.NORMAL:
+            concurrent_phases = len(self.rings)
             
-            if self.half_counter == 4:
-                self.half_counter = 0
-                self.halfSecond()
+            for phase in self.phases:
+                conflicting_demand = False
+                for call in self.calls:
+                    if self.checkCallConflict(phase, call):
+                        conflicting_demand = True
+                        break
+                
+                idle_override = self.idle_phases and (phase not in self.idle_phases) or phase.secondary
+                if phase.tick(conflicting_demand or idle_override):
+                    if not phase.active:
+                        self.idle_timer.reset()
+                        logger.debug('{} terminated', phase.getTag())
+            
+            if not len(self.phase_pool):
+                self.endCycle('complete')
             else:
-                self.half_counter += 1
-        
+                called_phases = self.getCalledPhases()
+                called_pool = set(self.phase_pool).intersection(called_phases)
+                available = self.filterPhases(called_pool, barrier=self.barrier)
+                if not len(available):
+                    if self.barrier:
+                        self.setBarrier(None)
+                    else:
+                        self.resetPhasePool()
+            
+            active_phases = self.getActivePhases(self.phases)
+            now_serving = []
+            for call in self.calls:
+                for phase in call.phases:
+                    if self.canPhaseRun(phase):
+                        self.servePhase(phase)
+                        now_serving.append(phase)
+                        active_phases = self.getActivePhases(self.phases)
+                        if len(active_phases) >= concurrent_phases:
+                            break
+            
+            if len(active_phases) == 1:
+                solo = active_phases[0]
+                partner = self.getPhasePartner(self.phase_pool, solo)
+                if partner is not None:
+                    logger.debug(f'Supplementing {solo.getTag()} '
+                                 f'with partner {partner.getTag()}')
+                    
+                    # todo: do not serve ped if supplementing when more than
+                    #  two phases were active at time of call placement
+                    
+                    self.servePhase(partner)
+                    now_serving.append(partner)
+                    active_phases = self.getActivePhases(self.phases)
+            
+            for phase in now_serving:
+                for call in self.calls:
+                    try:
+                        call.phases.remove(phase)
+                    except ValueError:
+                        pass
+            
+            for call in [c for c in self.calls if not len(c.phases)]:
+                self.calls.remove(call)
+            
+            if self.idle_phases and self.idle_timer.poll(self.idling):
+                available = []
+                if active_phases == 1:
+                    solo = active_phases[0]
+                    partner = self.getPhasePartner(self.idle_phases, solo)
+                    if partner:
+                        available.append(partner)
+                elif not active_phases:
+                    self.endCycle('idle')
+                    available.extend([phase for phase in self.idle_phases if self.canPhaseRun(phase)])
+                
+                if available:
+                    logger.debug('Recall idle phases')
+                    cutoff = available[:len(self.rings)]
+                    self.placeCall(cutoff, 'idle')
+                
+                self.idle_timer.reset()
+        elif self.mode == OperationMode.CET:
+            for ph in self.phases:
+                ph.tick(True)
+            
+            if self.cet_timer.poll(True):
+                self.setOperationState(OperationMode.NORMAL)
+            
         if self.bus is not None:
             self.updateBusOutputs(self.load_switches)
         
@@ -640,45 +641,16 @@ class Controller:
             self.monitor.broadcastControlUpdate(self.phases, self.load_switches)
         
         logger.fields(buildFieldMessage(self.load_switches))
-    
-    def halfSecond(self):
-        """Polled once every 500ms"""
-        if not self.freeze:
-            if not self.flasher:
-                self.second()
+        
+        if self.second_timer.poll(True):
+            if self.bus is not None:
+                if not self.bus.ready:
+                    logger.error('Bus not running')
+                    self.shutdown()
             
-            self.flasher = not self.flasher
-    
-    def second(self):
-        """Polled once every 1000ms"""
-        if self.bus is not None:
-            if not self.bus.ready:
-                logger.error('Bus not running')
-                self.shutdown()
+            if self.monitor is not None:
+                self.monitor.clean()
         
-        if self.monitor is not None:
-            self.monitor.clean()
-        
-        if self.mode == OperationMode.NORMAL:
-            if self.random_timer.poll(self.random_enabled):
-                phases = []
-                first_phase = self.randomizer.choice(self.phases)
-                phases.append(first_phase)
-                choose_two = round(self.randomizer.random())
-                if choose_two:
-                    second_phase = self.getPhasePartner(self.phases, first_phase)
-                    if second_phase is not None:
-                        phases.append(second_phase)
-                
-                next_delay = self.randomizer.randint(self.random_min, self.random_max)
-                logger.debug('Random actuation for {}, next in {}s',
-                             csl([phase.getTag() for phase in phases]),
-                             next_delay)
-                
-                self.detection(phases, 'random actuation')
-                self.random_timer.trigger = next_delay
-                self.random_timer.reset()
-    
     def transfer(self):
         """Set the controllers flash transfer relays flag"""
         logger.info('Transferred')

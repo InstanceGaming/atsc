@@ -196,6 +196,8 @@ class Phase(IdentifiableBase):
             'ped_service': 0
         })
         self.timing = timing
+        self.flasher = True
+        self.flash_timer = logic.Timer(0.5, step=time_increment)
         self._increment = time_increment
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
@@ -313,22 +315,25 @@ class Phase(IdentifiableBase):
         else:
             return False
     
-    def tick(self, flasher: bool, rest_inhibit: bool) -> bool:
-        self.update_field(flasher)
+    def tick(self, rest_inhibit: bool) -> bool:
+        if self.flash_timer.poll(self._state == PhaseState.PCLR):
+            self.flash_timer.reset()
+            self.flasher = not self.flasher
+        
+        self.update_field(self.flasher)
         changed = False
         
         if self._timer.poll(True):
             if self.active:
                 if (self._state in PHASE_RIGID_STATES) or rest_inhibit:
                     walking = self._state == PhaseState.WALK
-                    if not walking or (walking and flasher):
-                        if walking:
-                            walk_time = self.timing[PhaseState.WALK]
-                            self.extend_inhibit = self.elapsed - walk_time > self.default_extend
-                            
-                            if self.extend_inhibit:
-                                logger.debug('{} extend inhibited', self.getTag())
-                        changed = self.change()
+                    if walking:
+                        walk_time = self.timing[PhaseState.WALK]
+                        self.extend_inhibit = self.elapsed - walk_time > self.default_extend
+                        
+                        if self.extend_inhibit:
+                            logger.debug('{} extend inhibited', self.getTag())
+                    changed = self.change()
         else:
             if self.extend_active:
                 self.setpoint -= self._increment

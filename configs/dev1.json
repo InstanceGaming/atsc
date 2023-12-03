@@ -1,8 +1,8 @@
 {
   "version": 3,
   "init": {
-    "mode": "normal",
-    "cet-delay": 6,
+    "mode": "cet",
+    "cet-delay": 0,
     "recall-all": true
   },
   "device": {
@@ -26,7 +26,7 @@
     "response-attempts": 5
   },
   "random-actuation": {
-    "delay": 5,
+    "delay": 10,
     "min": 1,
     "max": 30,
     "enabled": true
@@ -52,7 +52,7 @@
         "go": 9.0,
         "max-go": 30.0
       },
-      "flash-mode": "yellow",
+      "flash-mode": "red",
       "load-switches": {
         "vehicle": 1
       }
@@ -66,7 +66,7 @@
         "pclr": 16.0,
         "walk": 3.0
       },
-      "flash-mode": "yellow",
+      "flash-mode": "red",
       "load-switches": {
         "vehicle": 2,
         "ped": 5
@@ -98,7 +98,7 @@
         "go": 9.0,
         "max-go": 30.0
       },
-      "flash-mode": "yellow",
+      "flash-mode": "red",
       "load-switches": {
         "vehicle": 7
       }
@@ -112,7 +112,7 @@
         "pclr": 16.0,
         "walk": 3.0
       },
-      "flash-mode": "yellow",
+      "flash-mode": "red",
       "load-switches": {
         "vehicle": 8,
         "ped": 11
