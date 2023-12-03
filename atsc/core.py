@@ -14,7 +14,7 @@
 from atsc import logic
 from enum import IntEnum
 from loguru import logger
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Iterable, Set
 from atsc.logic import EdgeTrigger
 from jacob.text import csl
 from collections import Counter
@@ -88,12 +88,11 @@ class LoadSwitch(IdentifiableBase):
         self.a = False
         self.b = False
         self.c = False
-
+    
 
 class PhaseState(IntEnum):
     STOP = 0
     MIN_STOP = 2
-    RCLR = 4
     CAUTION = 6
     EXTEND = 8
     GO = 10
@@ -105,7 +104,6 @@ class PhaseState(IntEnum):
 PHASE_RIGID_STATES = (PhaseState.CAUTION, PhaseState.PCLR)
 
 PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
-                      PhaseState.RCLR,
                       PhaseState.CAUTION,
                       PhaseState.EXTEND,
                       PhaseState.GO,
@@ -138,8 +136,8 @@ class Phase(IdentifiableBase):
         return self._flash_mode
     
     @property
-    def active(self) -> bool:
-        return self._state != PhaseState.STOP
+    def safe(self) -> bool:
+        return self._state == PhaseState.STOP
     
     @property
     def state(self) -> PhaseState:
@@ -170,7 +168,7 @@ class Phase(IdentifiableBase):
         return self.ped_ls is None
     
     def _validate_timing(self):
-        if self.active:
+        if not self.safe:
             raise RuntimeError('Cannot changing timing map while active')
         if self.timing is None:
             raise TypeError('Timing map cannot be None')
@@ -196,11 +194,8 @@ class Phase(IdentifiableBase):
             'ped_service': 0
         })
         self.timing = timing
-        self.flasher = True
-        self.flash_timer = logic.Timer(0.5,
-                                       step=time_increment,
-                                       invert=True)
-        self._increment = time_increment
+        self.flasher = logic.Flasher(time_increment)
+        self.increment = time_increment
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
         self._timer: logic.Timer = logic.Timer(0, step=time_increment)
@@ -214,10 +209,8 @@ class Phase(IdentifiableBase):
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
-        elif self._state == PhaseState.RCLR:
-            return PhaseState.STOP
         elif self._state == PhaseState.CAUTION:
-            return PhaseState.RCLR
+            return PhaseState.STOP
         elif self._state == PhaseState.EXTEND:
             return PhaseState.CAUTION
         elif self._state == PhaseState.GO:
@@ -236,19 +229,19 @@ class Phase(IdentifiableBase):
         if self.extend_active:
             self._timer.reset()
     
-    def activate(self):
-        if self.active:
+    def serve(self):
+        if not self.safe:
             raise RuntimeError('Cannot activate active phase')
         
         changed = self.change()
         assert changed
         
-    def update_field(self, flasher: bool):
+    def update_field(self):
         pa = False
         pb = False
         pc = False
         
-        if self._state == PhaseState.STOP or self._state == PhaseState.RCLR:
+        if self._state == PhaseState.STOP:
             self._vls.a = True
             self._vls.b = False
             self._vls.c = False
@@ -270,7 +263,7 @@ class Phase(IdentifiableBase):
             self._vls.a = False
             self._vls.b = False
             self._vls.c = True
-            pa = flasher
+            pa = self.flasher.bit
             pc = False
         elif self._state == PhaseState.WALK:
             self._vls.a = False
@@ -318,15 +311,13 @@ class Phase(IdentifiableBase):
             return False
     
     def tick(self, rest_inhibit: bool) -> bool:
-        if self.flash_timer.poll(self._state == PhaseState.PCLR):
-            self.flash_timer.reset()
-            self.flasher = not self.flasher
+        flashing = self._state == PhaseState.PCLR
+        self.flasher.poll(flashing)
         
-        self.update_field(self.flasher)
+        self.update_field()
         changed = False
-        
         if self._timer.poll(True):
-            if self.active:
+            if not self.safe:
                 if (self._state in PHASE_RIGID_STATES) or rest_inhibit:
                     walking = self._state == PhaseState.WALK
                     if walking:
@@ -338,7 +329,7 @@ class Phase(IdentifiableBase):
                     changed = self.change()
         else:
             if self.extend_active:
-                self.setpoint -= self._increment
+                self.setpoint -= self.increment
                 
         if self._state in PHASE_GO_STATES:
             if self.elapsed > self.timing[PhaseState.MAX_GO]:
@@ -352,18 +343,154 @@ class Phase(IdentifiableBase):
                 f'{round(self.elapsed, 1)} of {round(self.setpoint, 1)}>')
 
 
+class RingState(IntEnum):
+    INACTIVE = 0
+    ACTIVE = 1
+    RED_CLEARANCE = 2
+
+
 class Ring(IdentifiableBase):
     
-    def __init__(self, id_: int, phases: List[int]):
+    @property
+    def depth(self) -> int:
+        phase = self.active or self.last_phase
+        if phase is not None:
+            return self.getPosition(phase)
+        return 0
+    
+    @property
+    def end(self):
+        return self.depth >= len(self.phases)
+    
+    def __init__(self,
+                 id_: int,
+                 phases: List[Phase],
+                 red_clearance: float,
+                 time_increment: float):
         super().__init__(id_)
-        self.phases: List[int] = phases
+        self.phases = sorted(phases)
+        self.active: Optional[Phase] = None
+        self.last_phase: Optional[Phase] = None
+        self.state = RingState.INACTIVE
+        self.timer = logic.Timer(red_clearance, step=time_increment)
+        
+        self.reset()
+        
+    def getPosition(self, phase: Phase) -> int:
+        """
+        Get the left-to-right, 1-indexed position of this phase in the ring.
+        """
+        return self.phases.index(phase) + 1
+    
+    def serve(self, phase: Phase):
+        if self.state != RingState.INACTIVE:
+            raise RuntimeError(f'{self.getTag()} not ready for serving {phase.getTag()}')
+        
+        if self.end:
+            raise RuntimeError(f'{self.getTag()} at end, cannot serve {phase.getTag()}')
+        
+        self.state = RingState.ACTIVE
+        self.active = phase
+        phase.serve()
+    
+    def reset(self):
+        if self.active is not None:
+            raise RuntimeError(f'cannot reset {self.getTag()} while phase active')
+        self.last_phase = None
+        
+    def tick(self):
+        if self.active is not None:
+            if self.active.safe:
+                self.state = RingState.RED_CLEARANCE
+                self.last_phase = self.active
+                self.active = None
+        
+        clearing = self.state == RingState.RED_CLEARANCE
+        if self.timer.poll(clearing):
+            self.timer.reset()
+            self.state = RingState.INACTIVE
 
 
 class Barrier(IdentifiableBase):
+    UNIQUE_PHASES = set()
     
-    def __init__(self, id_: int, phases: List[int]):
+    @property
+    def active_rings(self):
+        results = []
+        for ring in self.rings:
+            if ring.state != RingState.INACTIVE:
+                results.append(ring)
+        return results
+    
+    @property
+    def active_phases(self):
+        results = []
+        for ring in self.rings:
+            if ring.active is not None:
+                results.append(ring.active)
+        return results
+    
+    @property
+    def depth(self):
+        """
+        Maximum depth of rings currently.
+        """
+        result = 0
+        for ring in self.rings:
+            result = max(result, ring.depth)
+        return result
+    
+    def __init__(self,
+                 id_: int,
+                 phases: Set[Phase],
+                 rings: List[Ring]):
         super().__init__(id_)
-        self.phases: List[int] = phases
+        
+        for phase in phases:
+            if phase in self.UNIQUE_PHASES:
+                raise RuntimeError(f'{phase.getTag()} already added to another barrier')
+            self.UNIQUE_PHASES.add(phase)
+        
+        self.phases = sorted(phases)
+        self.pool: List[Phase] = []
+        
+        self.rings = rings
+        
+        self.reset()
+        
+    def getRingByPhase(self, phase: Phase) -> Ring:
+        for ring in self.rings:
+            if phase in ring.phases:
+                return ring
+        raise RuntimeError(f'failed to find ring by phase {phase.getTag()}')
+    
+    def serve(self, phases: Iterable[Phase]) -> int:
+        count = 0
+        
+        for phase in phases:
+            if phase not in self.phases:
+                raise RuntimeError(f'{phase.getTag()} not in barrier {self.getTag()}')
+            
+            if phase in self.pool:
+                ring = self.getRingByPhase(phase)
+                
+                if ring.active is not None:
+                    if ring.active not in self.phases:
+                        raise RuntimeError(f'attempt to run {self.getTag()} {phase.getTag()} while '
+                                           f'{ring.getTag()} is serving within another barrier')
+                
+                if ring.state == RingState.INACTIVE:
+                    self.pool.remove(phase)
+                    ring.serve(phase)
+                    count += 1
+            
+            if count >= len(self.rings):
+                break
+        
+        return count
+    
+    def reset(self):
+        self.pool = self.phases.copy()
 
 
 class Call:

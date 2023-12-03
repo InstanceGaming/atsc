@@ -3,7 +3,7 @@
   "init": {
     "mode": "normal",
     "cet-delay": 0,
-    "recall-all": false
+    "recall-all": true
   },
   "device": {
     "name": "ATSC Development Intersection",
@@ -26,14 +26,13 @@
     "response-attempts": 5
   },
   "random-actuation": {
-    "delay": 5,
+    "delay": 30,
     "min": 1,
-    "max": 50,
+    "max": 60,
     "enabled": true
   },
   "default-timing": {
     "min-stop": 1.0,
-    "rclr": 1.0,
     "go": 20.0,
     "max-go": 30.0,
     "caution": 6.0,
