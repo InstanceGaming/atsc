@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from atsc.constants import TIME_INCREMENT
+
 
 class LogicBase(ABC):
     
@@ -87,7 +89,6 @@ class Timer(LogicBase):
     
     def __init__(self, trigger, step=1):
         super().__init__()
-        assert step
         self.step = step
         self.trigger = trigger
         self.elapsed = self.initial
@@ -115,9 +116,9 @@ class Flasher:
     def delay(self):
         return self.fps / 2
     
-    def __init__(self, step: float, fpm: float = 60.0):
+    def __init__(self, fpm: float = 60.0):
         self.fpm = fpm
-        self.timer = Timer(self.delay, step=step)
+        self.timer = Timer(self.delay, step=TIME_INCREMENT)
         self.bit = True
     
     def poll(self, signal: bool):

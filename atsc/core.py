@@ -15,6 +15,8 @@ from atsc import logic
 from enum import IntEnum
 from loguru import logger
 from typing import Dict, List, Optional, Iterable, Set
+
+from atsc.constants import TIME_INCREMENT
 from atsc.logic import EdgeTrigger
 from jacob.text import csl
 from collections import Counter
@@ -31,7 +33,7 @@ class IdentifiableBase:
         self._id = id_
     
     def __hash__(self) -> int:
-        return self._id
+        return self.id
     
     def __eq__(self, other) -> bool:
         if other is None:
@@ -180,7 +182,6 @@ class Phase(IdentifiableBase):
     
     def __init__(self,
                  id_: int,
-                 time_increment: float,
                  timing: Dict[PhaseState, float],
                  veh_ls: LoadSwitch,
                  ped_ls: Optional[LoadSwitch],
@@ -194,11 +195,10 @@ class Phase(IdentifiableBase):
             'ped_service': 0
         })
         self.timing = timing
-        self.flasher = logic.Flasher(time_increment)
-        self.increment = time_increment
+        self.flasher = logic.Flasher()
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
-        self._timer: logic.Timer = logic.Timer(0, step=time_increment)
+        self._timer: logic.Timer = logic.Timer(0, step=TIME_INCREMENT)
         self._vls = veh_ls
         self._pls = ped_ls
         self._validate_timing()
@@ -303,7 +303,8 @@ class Phase(IdentifiableBase):
                     self.stats['ped_service'] += 1
             
             if next_state in PHASE_TIMED_STATES:
-                assert setpoint >= 1.0
+                assert setpoint >= 0.0
+            
             self._state = next_state
             self.setpoint = round(setpoint, 1)
             return True
@@ -329,7 +330,7 @@ class Phase(IdentifiableBase):
                     changed = self.change()
         else:
             if self.extend_active:
-                self.setpoint -= self.increment
+                self.setpoint -= TIME_INCREMENT
                 
         if self._state in PHASE_GO_STATES:
             if self.elapsed > self.timing[PhaseState.MAX_GO]:
@@ -352,7 +353,13 @@ class RingState(IntEnum):
 class Ring(IdentifiableBase):
     
     @property
+    def safe(self):
+        return self.state == RingState.INACTIVE
+    
+    @property
     def depth(self) -> int:
+        if self.offset:
+            return self.offset
         phase = self.active or self.last_phase
         if phase is not None:
             return self.getPosition(phase)
@@ -362,19 +369,23 @@ class Ring(IdentifiableBase):
     def end(self):
         return self.depth >= len(self.phases)
     
+    @property
+    def unserved_phases(self):
+        return self.phases[(self.depth - 1):]
+    
     def __init__(self,
                  id_: int,
                  phases: List[Phase],
-                 red_clearance: float,
-                 time_increment: float):
+                 red_clearance: float):
         super().__init__(id_)
+        self.offset: int = 0
         self.phases = sorted(phases)
         self.active: Optional[Phase] = None
         self.last_phase: Optional[Phase] = None
         self.state = RingState.INACTIVE
-        self.timer = logic.Timer(red_clearance, step=time_increment)
+        self.timer = logic.Timer(red_clearance, step=TIME_INCREMENT)
         
-        self.reset()
+        self.cycle()
         
     def getPosition(self, phase: Phase) -> int:
         """
@@ -383,21 +394,26 @@ class Ring(IdentifiableBase):
         return self.phases.index(phase) + 1
     
     def serve(self, phase: Phase):
-        if self.state != RingState.INACTIVE:
+        if not self.safe:
             raise RuntimeError(f'{self.getTag()} not ready for serving {phase.getTag()}')
         
         if self.end:
             raise RuntimeError(f'{self.getTag()} at end, cannot serve {phase.getTag()}')
         
+        self.offset: int = 0
         self.state = RingState.ACTIVE
         self.active = phase
         phase.serve()
     
-    def reset(self):
-        if self.active is not None:
-            raise RuntimeError(f'cannot reset {self.getTag()} while phase active')
-        self.last_phase = None
+    def cycle(self, offset: int = 0):
+        assert -1 < offset <= len(self.phases)
         
+        if not self.safe:
+            raise RuntimeError(f'cannot cycle {self.getTag()} while active')
+        
+        self.last_phase = None
+        self.offset = offset
+    
     def tick(self):
         if self.active is not None:
             if self.active.safe:
@@ -413,6 +429,10 @@ class Ring(IdentifiableBase):
 
 class Barrier(IdentifiableBase):
     UNIQUE_PHASES = set()
+    
+    @property
+    def safe(self):
+        return all([ring.safe for ring in self.rings])
     
     @property
     def active_rings(self):
@@ -440,6 +460,14 @@ class Barrier(IdentifiableBase):
             result = max(result, ring.depth)
         return result
     
+    @property
+    def unserved_phases(self):
+        return self._pool
+    
+    @property
+    def exhausted(self):
+        return len(self._pool) == 0
+    
     def __init__(self,
                  id_: int,
                  phases: Set[Phase],
@@ -451,27 +479,50 @@ class Barrier(IdentifiableBase):
                 raise RuntimeError(f'{phase.getTag()} already added to another barrier')
             self.UNIQUE_PHASES.add(phase)
         
+        self._pool: List[Phase] = []
         self.phases = sorted(phases)
-        self.pool: List[Phase] = []
-        
         self.rings = rings
         
         self.reset()
-        
+    
+    def getRingPosition(self, ring: Ring) -> int:
+        phase_intersection = set(self.phases).intersection(ring.phases)
+        position = 0
+        for phase in phase_intersection:
+            position = min(position, ring.getPosition(phase))
+        return position
+    
     def getRingByPhase(self, phase: Phase) -> Ring:
         for ring in self.rings:
             if phase in ring.phases:
                 return ring
         raise RuntimeError(f'failed to find ring by phase {phase.getTag()}')
     
+    def getPhasePartner(self, phase: Phase) -> Optional[Phase]:
+        ring = self.getRingByPhase(phase)
+        for candidate in self.unserved_phases:
+            if candidate == phase:
+                continue
+            if candidate.state in PHASE_RIGID_STATES:
+                continue
+            min_stop = candidate.timing[PhaseState.MIN_STOP]
+            if min_stop and candidate.safe and candidate.elapsed < min_stop:
+                continue
+            if candidate in ring.phases:
+                continue
+            return candidate
+        return None
+    
     def serve(self, phases: Iterable[Phase]) -> int:
-        count = 0
+        if self.exhausted:
+            raise RuntimeError('barrier is exhausted')
         
+        to_serve = {}
         for phase in phases:
             if phase not in self.phases:
                 raise RuntimeError(f'{phase.getTag()} not in barrier {self.getTag()}')
             
-            if phase in self.pool:
+            if phase in self._pool:
                 ring = self.getRingByPhase(phase)
                 
                 if ring.active is not None:
@@ -479,10 +530,17 @@ class Barrier(IdentifiableBase):
                         raise RuntimeError(f'attempt to run {self.getTag()} {phase.getTag()} while '
                                            f'{ring.getTag()} is serving within another barrier')
                 
-                if ring.state == RingState.INACTIVE:
-                    self.pool.remove(phase)
-                    ring.serve(phase)
-                    count += 1
+                if ring.safe:
+                    to_serve.update({ring: phase})
+        
+        count = 0
+        for ring, phase in to_serve.items():
+            self._pool.remove(phase)
+            ring.serve(phase)
+            count += 1
+            
+            if self.exhausted:
+                break
             
             if count >= len(self.rings):
                 break
@@ -490,18 +548,24 @@ class Barrier(IdentifiableBase):
         return count
     
     def reset(self):
-        self.pool = self.phases.copy()
+        self._pool = self.phases.copy()
 
 
-class Call:
+class Call(IdentifiableBase):
+    ID_COUNTER = 0
     
     @property
     def phase_tags_list(self):
         return csl([phase.getTag() for phase in self.phases])
     
     def __init__(self, phases: List[Phase]):
+        super().__init__(self.ID_COUNTER + 1)
+        self.ID_COUNTER += 2
         self.phases = phases
         self.age = 0.0
+    
+    def __hash__(self):
+        return self.id
     
     def __contains__(self, item):
         if isinstance(item, Phase):

@@ -26,16 +26,16 @@
     "response-attempts": 5
   },
   "random-actuation": {
-    "delay": 30,
-    "min": 1,
-    "max": 60,
+    "delay": 15,
+    "min": 10,
+    "max": 30,
     "enabled": true
   },
   "default-timing": {
     "min-stop": 1.0,
-    "go": 20.0,
+    "go": 18.0,
     "max-go": 30.0,
-    "caution": 6.0,
+    "caution": 4.0,
     "extend": 6.0,
     "pclr": 10.0,
     "walk": 3.0
@@ -48,7 +48,7 @@
     {
       "number": 1,
       "timing": {
-        "go": 9.0,
+        "go": 7.0,
         "max-go": 30.0
       },
       "flash-mode": "red",
@@ -59,7 +59,7 @@
     {
       "number": 2,
       "timing": {
-        "go": 26.0,
+        "go": 23.0,
         "max-go": 48.0,
         "extend": 20.0,
         "pclr": 16.0,
@@ -94,7 +94,7 @@
     {
       "number": 5,
       "timing": {
-        "go": 9.0,
+        "go": 7.0,
         "max-go": 30.0
       },
       "flash-mode": "red",
@@ -105,7 +105,7 @@
     {
       "number": 6,
       "timing": {
-        "go": 26.0,
+        "go": 23.0,
         "max-go": 48.0,
         "extend": 20.0,
         "pclr": 16.0,
