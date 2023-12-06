@@ -15,7 +15,7 @@ import time
 import random
 from typing import Iterable
 from atsc.core import *
-from atsc import logic, network, serialbus
+from atsc import logic, network, serialbus, constants
 from loguru import logger
 from bitarray import bitarray
 from atsc.utils import buildFieldMessage
@@ -25,7 +25,6 @@ from jacob.enumerations import text_to_enum
 
 
 class Controller:
-    INCREMENT = 0.1
     
     @property
     def idling(self):
@@ -64,15 +63,15 @@ class Controller:
         
         self.idle_phases: List[Phase] = self.getIdlePhases(config['idling']['phases'])
         self.idle_serve_delay: float = config['idling']['serve-delay']
-        self.idle_timer = logic.Timer(self.idle_serve_delay, step=self.INCREMENT)
+        self.idle_timer = logic.Timer(self.idle_serve_delay, step=constants.TIME_INCREMENT)
         self.idle_rising = EdgeTrigger(True)
         
-        self.second_timer = logic.Timer(1.0, step=self.INCREMENT)
+        self.second_timer = logic.Timer(1.0, step=constants.TIME_INCREMENT)
         
         # control entrance transition timer
         yellow_time = default_timing[PhaseState.CAUTION]
         self.cet_delay: float = max(yellow_time, config['init']['cet-delay'] - yellow_time)
-        self.cet_timer = logic.Timer(self.cet_delay, step=self.INCREMENT)
+        self.cet_timer = logic.Timer(self.cet_delay, step=constants.TIME_INCREMENT)
         
         # inputs data structure instances
         self.inputs: Dict[int, Input] = self.getInputs(config.get('inputs'))
@@ -91,7 +90,7 @@ class Controller:
         self.random_min = random_config['min']
         self.random_max = random_config['max']
         self.randomizer = random.Random()
-        self.random_timer = logic.Timer(random_delay, step=self.INCREMENT)
+        self.random_timer = logic.Timer(random_delay, step=constants.TIME_INCREMENT)
     
     def getDefaultTiming(self, configuration_node: Dict[str, float]) -> Dict[PhaseState, float]:
         timing = {}
@@ -123,7 +122,7 @@ class Controller:
             ped = None
             if ped_index is not None:
                 ped = self.getLoadSwitchById(ped_index)
-            phase = Phase(i, self.INCREMENT, phase_timing, veh, ped, flash_mode)
+            phase = Phase(i, phase_timing, veh, ped, flash_mode)
             phases.append(phase)
         
         return sorted(phases)
@@ -693,7 +692,7 @@ class Controller:
                 
                 while not self.bus.ready:
                     logger.info(f'Waiting on bus...')
-                    time.sleep(self.INCREMENT)
+                    time.sleep(constants.TIME_BASE)
                 
                 logger.info(f'Bus ready')
             
@@ -701,7 +700,7 @@ class Controller:
             self.transfer()
             while True:
                 self.tick()
-                time.sleep(self.INCREMENT)
+                time.sleep(constants.TIME_BASE)
     
     def shutdown(self):
         """Run termination tasks to stop control loop"""

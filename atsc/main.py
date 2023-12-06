@@ -15,7 +15,7 @@
 import os
 import loguru
 import argparse
-from atsc import configfile
+from atsc import configfile, constants
 from typing import TextIO, Optional
 from pathlib import Path
 from datetime import datetime as dt
@@ -58,6 +58,10 @@ def get_cli_args():
     parser.add_argument('-L', '--log',
                         dest='log_file',
                         help='Specify log file.')
+    parser.add_argument('-t', '--time-base',
+                        type=float,
+                        dest='time_base',
+                        help='Specify a alternate loop speed.')
     parser.add_argument(dest='config_paths',
                         nargs='+',
                         metavar='FILENAMES',
@@ -121,6 +125,12 @@ def run():
     
     logger.info(WELCOME_MSG)
     logger.info(f'Logging levels {levels_notation}')
+    
+    time_base = cla.get('time_base')
+    if time_base:
+        if abs(constants.TIME_BASE - time_base) > 0.001:
+            logger.warning('Running with an altered time base {}', time_base)
+        constants.TIME_BASE = time_base
     
     config_schema_path = configfile.get_config_schema_path()
     

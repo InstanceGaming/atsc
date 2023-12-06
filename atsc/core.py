@@ -15,6 +15,7 @@ from atsc import logic
 from enum import IntEnum
 from loguru import logger
 from typing import Dict, List, Optional
+from atsc import constants
 from atsc.logic import EdgeTrigger
 from jacob.text import csl
 from collections import Counter
@@ -182,7 +183,6 @@ class Phase(IdentifiableBase):
     
     def __init__(self,
                  id_: int,
-                 time_increment: float,
                  timing: Dict[PhaseState, float],
                  veh_ls: LoadSwitch,
                  ped_ls: Optional[LoadSwitch],
@@ -196,14 +196,10 @@ class Phase(IdentifiableBase):
             'ped_service': 0
         })
         self.timing = timing
-        self.flasher = True
-        self.flash_timer = logic.Timer(0.5,
-                                       step=time_increment,
-                                       invert=True)
-        self._increment = time_increment
+        self.flasher = logic.Flasher(60.0)
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
-        self._timer: logic.Timer = logic.Timer(0, step=time_increment)
+        self._timer: logic.Timer = logic.Timer(0, step=constants.TIME_INCREMENT)
         self._vls = veh_ls
         self._pls = ped_ls
         self._validate_timing()
@@ -243,7 +239,7 @@ class Phase(IdentifiableBase):
         changed = self.change()
         assert changed
         
-    def update_field(self, flasher: bool):
+    def update_field(self):
         pa = False
         pb = False
         pc = False
@@ -270,7 +266,7 @@ class Phase(IdentifiableBase):
             self._vls.a = False
             self._vls.b = False
             self._vls.c = True
-            pa = flasher
+            pa = self.flasher.bit
             pc = False
         elif self._state == PhaseState.WALK:
             self._vls.a = False
@@ -310,7 +306,8 @@ class Phase(IdentifiableBase):
                     self.stats['ped_service'] += 1
             
             if next_state in PHASE_TIMED_STATES:
-                assert setpoint >= 1.0
+                assert setpoint >= 0.0
+            
             self._state = next_state
             self.setpoint = round(setpoint, 1)
             return True
@@ -318,11 +315,10 @@ class Phase(IdentifiableBase):
             return False
     
     def tick(self, rest_inhibit: bool) -> bool:
-        if self.flash_timer.poll(self._state == PhaseState.PCLR):
-            self.flash_timer.reset()
-            self.flasher = not self.flasher
+        flashing = self._state == PhaseState.PCLR
+        self.flasher.poll(flashing)
         
-        self.update_field(self.flasher)
+        self.update_field()
         changed = False
         
         if self._timer.poll(True):
@@ -338,7 +334,7 @@ class Phase(IdentifiableBase):
                     changed = self.change()
         else:
             if self.extend_active:
-                self.setpoint -= self._increment
+                self.setpoint -= constants.TIME_INCREMENT
                 
         if self._state in PHASE_GO_STATES:
             if self.elapsed > self.timing[PhaseState.MAX_GO]:
