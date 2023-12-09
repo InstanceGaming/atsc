@@ -41,8 +41,7 @@
     "walk": 3.0
   },
   "idling": {
-    "serve-delay": 1.2,
-    "phases": [6, 2, 1, 5]
+    "recall": [6, 2, 1, 5]
   },
   "phases": [
     {

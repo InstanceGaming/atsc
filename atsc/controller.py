@@ -13,8 +13,6 @@
 #  limitations under the License.
 import time
 import random
-from collections import defaultdict
-
 from atsc import constants
 from atsc.core import *
 from atsc import logic, network, serialbus
@@ -57,6 +55,8 @@ class Controller:
         default_timing = self.getDefaultTiming(config['default-timing'])
         self.phases: List[Phase] = self.getPhases(config['phases'], default_timing)
         self.cycle_phases: Set[Phase] = set()
+        self.recall_phases = self.getIdlePhases(config['idling']['recall'])
+        
         self.calls: List[Call] = []
         
         self.rings: List[Ring] = self.getRings(config['rings'])
@@ -543,7 +543,14 @@ class Controller:
                                 calls_unserviceable.add(call)
                     
                     if choices:
-                        self.barrier.serve(choices.values())
+                        serve_phases = choices.values()
+                        should_recall = any([phase not in self.recall_phases for phase in serve_phases])
+                        
+                        if should_recall:
+                            recall_phases = self.recall_phases[:len(self.rings)]
+                            self.placeCall(recall_phases, 'recall')
+                        
+                        self.barrier.serve(serve_phases)
                 
                 for call in empty_calls:
                     self.calls.remove(call)
