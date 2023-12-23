@@ -60,7 +60,7 @@
     {
       "number": 2,
       "timing": {
-        "go": 23.0,
+        "go": 36.0,
         "max-go": 46.0,
         "extend": 20.0,
         "pclr": 16.0,
@@ -105,7 +105,7 @@
     {
       "number": 6,
       "timing": {
-        "go": 23.0,
+        "go": 36.0,
         "max-go": 46.0,
         "extend": 20.0,
         "pclr": 16.0,
