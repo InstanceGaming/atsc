@@ -352,6 +352,8 @@ class Controller:
             
             if self.recall_all:
                 self.placeAllCall()
+                
+            self.newCycle()
         
         previous_state = self.mode
         self.mode = new_state
@@ -428,6 +430,13 @@ class Controller:
             if all([ring.safe for ring in self.rings]):
                 self.resetRings(self.barrier)
                 self.barrier.reset()
+        
+        if next_barrier is None:
+            if len(self.calls):
+                next_call = self.calls[0]
+                next_phase = next_call.phases[0]
+                next_barrier = self.getBarrierByPhase(next_phase)
+        
         self.barrier = next_barrier
     
     def tick(self):
@@ -489,13 +498,6 @@ class Controller:
             for ring in self.rings:
                 ring.tick()
             
-            if self.barrier is not None and self.safe:
-                if self.barrier.exhausted:
-                    self.newCycle(note='barrier exhausted')
-                else:
-                    if len(self.cycle_phases) == len(self.phases):
-                        self.newCycle(note='cycle complete')
-            
             if self.barrier is not None:
                 calls_unserviceable = set()
                 empty_calls = set()
@@ -555,22 +557,18 @@ class Controller:
                 for call in empty_calls:
                     self.calls.remove(call)
                 
-                barrier_calls = self.getPhaseCalls(self.barrier.phases)
-                phases_in_calls = self.getPhasesInCalls(calls_unserviceable)
-                if self.safe and len(phases_in_calls) >= len(barrier_calls):
-                    self.newCycle(note='unservicable calls')
-            else:
-                if len(self.calls):
-                    outer_break = False
-                    for call in self.calls:
-                        for phase in call.phases:
-                            phase_barrier = self.getBarrierByPhase(phase)
-                            if not self.barrier or self.barrier != phase_barrier:
-                                self.newCycle(phase_barrier, note='first phase')
-                                outer_break = True
-                                break
-                        if outer_break:
-                            break
+                if self.safe:
+                    barrier_calls = self.getPhaseCalls(self.barrier.phases)
+                    phases_in_calls = self.getPhasesInCalls(calls_unserviceable)
+                    
+                    if len(phases_in_calls) >= len(barrier_calls):
+                        self.newCycle(note='unserviceable calls')
+                    
+                    if self.barrier.exhausted:
+                        self.newCycle(note='barrier exhausted')
+                    else:
+                        if len(self.cycle_phases) == len(self.phases):
+                            self.newCycle(note='cycle complete')
         elif self.mode == OperationMode.CET:
             for phase in self.phases:
                 phase.tick(True)
