@@ -7,4 +7,4 @@ then
   exit 10002
 fi
 
-$INTERPRETER_PATH -OO -m atsc.main --pid "$ATSC_PID_PATH" "$ATSC_DIR/configs/rpi.json" &
+$INTERPRETER_PATH -OO -m atsc.main -l "INFO,WARNING;stderr=ERROR,CRITICAL;file=INFO,CRITICAL" --pid "$ATSC_PID_PATH" "$ATSC_DIR/configs/rpi.json" &

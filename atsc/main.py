@@ -20,7 +20,7 @@ from typing import TextIO, Optional
 from pathlib import Path
 from datetime import datetime as dt
 from threading import main_thread
-from jacob.logging import CustomLevel, setup_logger
+from jacob.logging import CustomLevel, setup_logger, RECOMMENDED_LEVELS
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.timing import seconds
@@ -53,7 +53,7 @@ def get_cli_args():
                         help='PID file path.')
     parser.add_argument('-l', '--levels',
                         dest='log_levels',
-                        default='debug,error;stderr=error;file=warning',
+                        default=RECOMMENDED_LEVELS,
                         help='Specify logging levels.')
     parser.add_argument('-L', '--log',
                         dest='log_file',
