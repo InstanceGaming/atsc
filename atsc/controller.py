@@ -306,22 +306,21 @@ class Controller:
         """Check on the contents of bus data container for changes"""
         
         if self.last_input_bitfield is None or bf != self.last_input_bitfield:
-            for slot, inp in self.inputs.items():
-                if inp.action == InputAction.NOTHING:
+            for slot, input in self.inputs.items():
+                if input.action == InputAction.NOTHING:
                     continue
                 
                 try:
                     state = bf[slot - 1]
                     
-                    inp.last_state = inp.state
-                    inp.state = state
+                    input.last_state = input.state
+                    input.state = state
                     
-                    if inp.activated():
-                        if inp.action == InputAction.CALL:
-                            for target in inp.targets:
-                                self.placeCall([target], f'input call, slot {slot}')
-                        elif inp.action == InputAction.DETECT:
-                            self.detection(inp.targets, f'input detect, slot {slot}')
+                    if len(input.targets) and input.activated():
+                        if input.action == InputAction.CALL:
+                            self.placeCall(input.targets, f'input call, slot {slot}')
+                        elif input.action == InputAction.DETECT:
+                            self.detection(input.targets, f'input detect, slot {slot}')
                         else:
                             raise NotImplementedError()
                 except IndexError:
