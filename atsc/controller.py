@@ -171,10 +171,10 @@ class Controller:
                 active = text_to_enum(InputActivation, input_node['active'])
                 targets_node = input_node['targets']
                 
-                targets = []
-                for target_index in targets_node:
-                    target = self.phases[target_index - 1]
-                    targets.append(target)
+                targets = [self.getPhaseById(t) for t in targets_node]
+                
+                if not ignore:
+                    assert len(targets)
                 
                 inputs.update({
                     slot: Input(active, action, targets)
