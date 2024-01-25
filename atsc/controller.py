@@ -318,14 +318,15 @@ class Controller:
                     
                     if inp.activated():
                         if len(inp.targets):
+                            phases = inp.targets.copy()
                             if inp.action == InputAction.CALL:
-                                self.placeCall(inp.targets, f'input call, slot {slot}')
+                                self.placeCall(phases, f'input call, slot {slot}')
                             elif inp.action == InputAction.DETECT:
-                                self.detection(inp.targets, f'input detect, slot {slot}')
+                                self.detection(phases, f'input detect, slot {slot}')
                             else:
                                 raise NotImplementedError()
                         else:
-                            logger.debug('no targets defined for input slot {}', slot)
+                            logger.debug('No targets defined for input slot {}', slot)
                 except IndexError:
                     logger.verbose(f'Discarding signal for unused input slot {slot}')
         
