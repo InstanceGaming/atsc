@@ -306,23 +306,26 @@ class Controller:
         """Check on the contents of bus data container for changes"""
         
         if self.last_input_bitfield is None or bf != self.last_input_bitfield:
-            for slot, input in self.inputs.items():
-                if input.action == InputAction.NOTHING:
+            for slot, inp in self.inputs.items():
+                if inp.action == InputAction.NOTHING:
                     continue
                 
                 try:
                     state = bf[slot - 1]
                     
-                    input.last_state = input.state
-                    input.state = state
+                    inp.last_state = inp.state
+                    inp.state = state
                     
-                    if len(input.targets) and input.activated():
-                        if input.action == InputAction.CALL:
-                            self.placeCall(input.targets, f'input call, slot {slot}')
-                        elif input.action == InputAction.DETECT:
-                            self.detection(input.targets, f'input detect, slot {slot}')
+                    if inp.activated():
+                        if len(inp.targets):
+                            if inp.action == InputAction.CALL:
+                                self.placeCall(inp.targets, f'input call, slot {slot}')
+                            elif inp.action == InputAction.DETECT:
+                                self.detection(inp.targets, f'input detect, slot {slot}')
+                            else:
+                                raise NotImplementedError()
                         else:
-                            raise NotImplementedError()
+                            logger.debug('no targets defined for input slot {}', slot)
                 except IndexError:
                     logger.verbose(f'Discarding signal for unused input slot {slot}')
         
