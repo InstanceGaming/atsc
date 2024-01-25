@@ -20,7 +20,7 @@ from typing import TextIO, Optional
 from pathlib import Path
 from datetime import datetime as dt
 from threading import main_thread
-from jacob.logging import CustomLevel, setup_logger, RECOMMENDED_LEVELS
+from jacob.logging import CustomLevel, setup_logger
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.timing import seconds
@@ -42,10 +42,12 @@ CUSTOM_LOG_LEVELS = {
     CustomLevel(40, 'debug'),
     CustomLevel(50, 'info'),
     CustomLevel(90, 'warning'),
-    CustomLevel(100, 'error')
+    CustomLevel(100, 'error'),
+    CustomLevel(200, 'critical')
 }
 
 logger = loguru.logger
+DEFAULT_LEVELS = 'debug,warning;stderr=error,critical;file=info,critical'
 
 
 def get_cli_args():
@@ -55,7 +57,7 @@ def get_cli_args():
                         help='PID file path.')
     parser.add_argument('-l', '--levels',
                         dest='log_levels',
-                        default=RECOMMENDED_LEVELS,
+                        default=DEFAULT_LEVELS,
                         help='Specify logging levels.')
     parser.add_argument('-L', '--log',
                         dest='log_file',
