@@ -369,7 +369,7 @@ class Call:
         return csl([phase.getTag() for phase in self.phases])
     
     def __init__(self, phases: List[Phase]):
-        self.phases = phases
+        self.phases = phases.copy()
         self.age = 0.0
     
     def __contains__(self, item):

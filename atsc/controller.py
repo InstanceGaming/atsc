@@ -283,7 +283,7 @@ class Controller:
     
     def placeAllCall(self):
         """Place calls on all phases"""
-        self.placeCall(self.phases.copy(), 'all call')
+        self.placeCall(self.phases, 'all call')
     
     def detection(self, phases: List[Phase], note: Optional[str] = None):
         note_text = post_pend(note, note)
@@ -318,7 +318,7 @@ class Controller:
                     
                     if inp.activated():
                         if len(inp.targets):
-                            phases = inp.targets.copy()
+                            phases = inp.targets
                             if inp.action == InputAction.CALL:
                                 self.placeCall(phases, f'input call, slot {slot}')
                             elif inp.action == InputAction.DETECT:
