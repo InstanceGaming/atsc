@@ -60,7 +60,7 @@ class GenericFrame(abc.ABC):
         """
         Get the bytes that form the header structure.
 
-        :return: PrettyByteArray
+        :return: ByteArray
         """
         return bytearray([self._address, self._version, self._type])
     

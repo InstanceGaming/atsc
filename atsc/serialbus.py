@@ -13,7 +13,11 @@
 #  limitations under the License.
 
 import time
+from dataclasses import dataclass
+
 import serial
+from jacob.text import format_binary_literal
+
 from atsc import hdlc
 from loguru import logger
 from serial import SerialException
@@ -22,6 +26,16 @@ from threading import Lock, Thread
 from atsc.frames import FrameType, GenericFrame, DeviceAddress
 from collections import defaultdict
 from jacob.datetime.timing import millis
+
+
+@dataclass(frozen=True)
+class DecodedBusFrame:
+    address: int
+    control: int
+    type: FrameType
+    payload: bytes
+    crc: int
+    length: int
 
 
 class Bus(Thread):
@@ -57,7 +71,7 @@ class Bus(Thread):
         self._serial = None
         self._tx_lock = Lock()
         self._rx_lock = Lock()
-        self._rx_buf: Optional[hdlc.Frame] = None
+        self._decoded_frame: Optional[hdlc.Frame] = None
         self._stats: Dict[int, dict] = defaultdict(self._statsPopulator)
     
     def _statsPopulator(self) -> dict:
@@ -75,29 +89,46 @@ class Bus(Thread):
             'tx_bytes': 0, 'rx_bytes': 0, 'tx_frames': tx_map, 'rx_frames': rx_map
         }
     
-    def _updateStatsRx(self, f: hdlc.Frame):
-        data = f.data
-        size = len(data)
-        addr = data[0]
-        try:
-            da = DeviceAddress(addr)
-        except ValueError:
-            da = DeviceAddress.UNKNOWN
-        self._stats[addr]['rx_bytes'] += size
+    def _frameDecode(self, frame_data: bytearray):
+        frame, error = self._hdlc.decode(frame_data)
         
-        if size >= 3:
-            type_number = data[2]
+        if error is not None:
+            logger.bus(f'Framing error {error.name}')
+        else:
+            length = len(frame.data)
+            addr = frame.data[0]
             try:
-                ft = FrameType(type_number)
+                da = DeviceAddress(addr)
             except ValueError:
-                ft = FrameType.UNKNOWN
+                da = DeviceAddress.UNKNOWN
             
-            logger.bus('Received frame type '
-                         f'{ft.name} from '
-                         f'{da} ({size}B)')
+            self._stats[addr]['rx_bytes'] += length
             
-            self._stats[addr]['rx_frames'][ft][0] += 1
-            self._stats[addr]['rx_frames'][ft][1] = millis()
+            if length >= 3:
+                control = frame.data[1]
+                type_number = frame.data[2]
+                try:
+                    ft = FrameType(type_number)
+                except ValueError:
+                    ft = FrameType.UNKNOWN
+                
+                payload = frame.data[3:]
+                
+                logger.bus('Received frame type '
+                           f'{ft.name} from '
+                           f'{da} ({length}B)')
+                
+                logger.bus_rx(format_binary_literal(payload[:32]))
+                
+                self._stats[addr]['rx_frames'][ft][0] += 1
+                self._stats[addr]['rx_frames'][ft][1] = millis()
+                
+                self._decoded_frame = DecodedBusFrame(addr,
+                                                      control,
+                                                      ft,
+                                                      payload,
+                                                      frame.crc,
+                                                      length)
     
     def _formatParameterText(self):
         return f'port={self._port}, baud={self._baud}'
@@ -105,7 +136,7 @@ class Bus(Thread):
     def _write(self, data: bytes):
         try:
             self._serial.write(data)
-            self._stats[0]['tx_bytes'] += 1
+            self._stats[0]['tx_bytes'] += len(data)
         except serial.SerialTimeoutException:
             pass
         except SerialException as e:
@@ -121,18 +152,12 @@ class Bus(Thread):
                     in_frame = False
                     drydock = bytearray()
                     for b in self._serial.read(iw):
+                        self._stats[0]['rx_bytes'] += 1
+                        
                         if b == hdlc.HDLC_FLAG:
                             if in_frame:
                                 in_frame = False
-                                
-                                frame, error = self._hdlc.decode(drydock)
-                                
-                                if error is not None:
-                                    logger.bus(f'Framing error {error.name}')
-                                else:
-                                    self._stats[0]['rx_bytes'] += len(drydock)
-                                    self._updateStatsRx(frame)
-                                    self._rx_buf = frame
+                                self._frameDecode(drydock)
                                 drydock = bytearray()
                             else:
                                 in_frame = True
@@ -154,8 +179,8 @@ class Bus(Thread):
             self._running = True
         except ValueError as e:
             logger.error('Invalid settings configured for serial bus '
-                           f'({self._formatParameterText()}): '
-                           f'{str(e)}')
+                         f'({self._formatParameterText()}): '
+                         f'{str(e)}')
         except SerialException as e:
             logger.bus(f'Serial error: {str(e)}')
             self.shutdown()
@@ -180,23 +205,25 @@ class Bus(Thread):
     
     def sendFrame(self, f: GenericFrame):
         if self._tx_lock.acquire(timeout=self.LOCK_TIMEOUT):
-            payload = f.build(self._hdlc)
-            self._write(payload)
+            data = f.build(self._hdlc)
+            self._write(data)
             
             addr = f.address
-            ft = f.type
-            self._stats[addr]['tx_frames'][ft][0] += 1
-            self._stats[addr]['tx_frames'][ft][1] = millis()
-            logger.bus(f'Sent frame type {f.type.name} to {addr} ({len(payload)}B)')
+            
+            logger.bus(f'Sent frame type {f.type.name} to {addr} ({len(data)}B)')
+            logger.bus_tx(format_binary_literal(f.getPayload()[:32]))
+            
+            self._stats[addr]['tx_frames'][f.type][0] += 1
+            self._stats[addr]['tx_frames'][f.type][1] = millis()
             
             self._tx_lock.release()
         else:
             logger.bus('Failed to acquire transmit lock within timeout (with frame)')
     
-    def get(self) -> Optional[hdlc.Frame]:
+    def get(self) -> Optional[DecodedBusFrame]:
         if self._rx_lock.acquire(timeout=self.LOCK_TIMEOUT):
-            rv = self._rx_buf
-            self._rx_buf = None
+            rv = self._decoded_frame
+            self._decoded_frame = None
             self._rx_lock.release()
             return rv
         else:

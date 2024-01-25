@@ -420,17 +420,10 @@ class Controller:
         frame = self.bus.get()
         
         if frame is not None:
-            size = len(frame.data)
-            if size >= 3:
-                type_number = frame.data[2]
-                try:
-                    ft = FrameType(type_number)
-                except ValueError:
-                    ft = FrameType.UNKNOWN
-                
-                if ft == FrameType.INPUTS:
+            match frame.type:
+                case FrameType.INPUTS:
                     bitfield = bitarray()
-                    bitfield.frombytes(frame.data[3:])
+                    bitfield.frombytes(frame.payload)
                     self.handleInputs(bitfield)
     
     def setOperationState(self, new_state: OperationMode):
