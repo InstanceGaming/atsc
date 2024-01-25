@@ -11,8 +11,8 @@ WorkingDirectory=/home/atsc/atsc/
 ExecStart=/home/atsc/atsc/run_pi.sh
 PIDFile=/home/atsc/atsc/atsc.pid
 
-KillMode=mixed
-Restart=on-abnormal
+TimeoutStopSec=5
+Restart=always
 RestartSec=16
 
 [Install]
