@@ -151,7 +151,7 @@
     "default-timing": {
       "type": "object",
       "required": [
-        "min-stop",
+        "min-service",
         "rclr",
         "caution",
         "extend",
@@ -161,10 +161,10 @@
         "max-go"
       ],
       "properties": {
-        "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
+        "^min-service|rclr|caution|extend|go|pclr|walk|max-go$": {
           "type": "number",
           "minimum": 0,
-          "maximum": 999
+          "maximum": 10000
         }
       }
     },

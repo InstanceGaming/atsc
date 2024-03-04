@@ -361,10 +361,6 @@ class Controller:
         if phase.active:
             return False
         
-        min_stop = phase.timing[PhaseState.MIN_STOP]
-        if min_stop > 0.0 and phase.elapsed < min_stop:
-            return False
-        
         if phase not in self.getAvailablePhases(self.phase_pool, barrier=self.barrier):
             return False
         
@@ -435,13 +431,13 @@ class Controller:
             self.cet_timer.reset()
             for ph in self.phases:
                 if ph.flash_mode == FlashMode.YELLOW:
-                    ph.change(force_state=PhaseState.CAUTION)
+                    ph.change(state=PhaseState.CAUTION)
         
         elif new_state == OperationMode.NORMAL:
             self.second_timer.reset()
             
             for ph in self.phases:
-                ph.change(force_state=PhaseState.STOP)
+                ph.change(state=PhaseState.STOP)
             
             self.setBarrier(None)
             
@@ -559,10 +555,16 @@ class Controller:
         
         if self.mode == OperationMode.NORMAL:
             concurrent_phases = len(self.rings)
+            active_phases = self.getActivePhases(self.phases)
             
             for phase in self.phases:
                 conflicting_demand = self.checkPhaseConflictingDemand(phase)
                 idle_override = self.idle_phases and (phase not in self.idle_phases) or phase.secondary
+                
+                if (len(active_phases) < concurrent_phases and phase.state == PhaseState.GO
+                        and phase.last_state != PhaseState.STOP):
+                    phase.change(state=PhaseState.CAUTION)
+                
                 if phase.tick(conflicting_demand or idle_override):
                     if not phase.active:
                         self.idle_timer.reset()
@@ -580,7 +582,6 @@ class Controller:
                     else:
                         self.resetPhasePool()
             
-            active_phases = self.getActivePhases(self.phases)
             now_serving = []
             for call in self.calls:
                 for phase in call.phases:

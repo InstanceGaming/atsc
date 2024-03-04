@@ -11,12 +11,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from atsc import logic
 from enum import IntEnum
 from loguru import logger
 from typing import Dict, List, Optional
 from atsc import constants
-from atsc.logic import EdgeTrigger
+from atsc.logic import EdgeTrigger, Timer, Flasher
 from jacob.text import csl
 from collections import Counter
 from dataclasses import dataclass
@@ -93,7 +92,6 @@ class LoadSwitch(IdentifiableBase):
 
 class PhaseState(IntEnum):
     STOP = 0
-    MIN_STOP = 2
     RCLR = 4
     CAUTION = 6
     EXTEND = 8
@@ -101,11 +99,12 @@ class PhaseState(IntEnum):
     PCLR = 12
     WALK = 14
     MAX_GO = 32
+    MIN_SERVICE = 64
 
 
 PHASE_RIGID_STATES = (PhaseState.CAUTION, PhaseState.PCLR)
 
-PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
+PHASE_TIMED_STATES = (PhaseState.MIN_SERVICE,
                       PhaseState.RCLR,
                       PhaseState.CAUTION,
                       PhaseState.EXTEND,
@@ -147,6 +146,10 @@ class Phase(IdentifiableBase):
         return self._state
     
     @property
+    def last_state(self):
+        return self._last_state
+    
+    @property
     def setpoint(self) -> float:
         return self._timer.trigger
     
@@ -155,8 +158,12 @@ class Phase(IdentifiableBase):
         self._timer.trigger = value if value > 0.0 else 0.0
     
     @property
-    def elapsed(self) -> float:
+    def interval_elapsed(self):
         return float(self._timer.elapsed)
+    
+    @property
+    def service_elapsed(self):
+        return float(self._service_timer.elapsed)
     
     @property
     def veh_ls(self) -> LoadSwitch:
@@ -196,10 +203,12 @@ class Phase(IdentifiableBase):
             'ped_service': 0
         })
         self.timing = timing
-        self.flasher = logic.Flasher(60.0)
+        self.flasher = Flasher()
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
-        self._timer: logic.Timer = logic.Timer(0, step=constants.TIME_INCREMENT)
+        self._last_state: Optional[PhaseState] = None
+        self._timer = Timer(0, step=constants.TIME_INCREMENT)
+        self._service_timer = Timer(0, step=constants.TIME_INCREMENT)
         self._vls = veh_ls
         self._pls = ped_ls
         self._validate_timing()
@@ -239,6 +248,14 @@ class Phase(IdentifiableBase):
         changed = self.change()
         assert changed
         
+        self._service_timer.reset()
+        
+    def advance(self, state: Optional[PhaseState] = None):
+        if not self.active:
+            self.activate()
+        else:
+            return self.change(state=state)
+    
     def update_field(self):
         pa = False
         pb = False
@@ -280,10 +297,11 @@ class Phase(IdentifiableBase):
             self._pls.b = pb
             self._pls.c = pc
     
-    def change(self, force_state: Optional[PhaseState] = None) -> bool:
-        next_state = force_state if force_state is not None else self.getNextState(self.ped_service)
-        
-        if next_state != self._state:
+    def change(self, state: Optional[PhaseState] = None) -> bool:
+        next_state = state if state is not None else self.getNextState(self.ped_service)
+        min_service = self._state not in PHASE_TIMED_STATES or self.service_elapsed > self.timing[PhaseState.MIN_SERVICE]
+       
+        if min_service and next_state != self._state:
             self._timer.reset()
             
             if next_state == PhaseState.STOP:
@@ -308,6 +326,7 @@ class Phase(IdentifiableBase):
             if next_state in PHASE_TIMED_STATES:
                 assert setpoint >= 0.0
             
+            self._last_state = self._state
             self._state = next_state
             self.setpoint = round(setpoint, 1)
             return True
@@ -315,37 +334,38 @@ class Phase(IdentifiableBase):
             return False
     
     def tick(self, rest_inhibit: bool) -> bool:
-        flashing = self._state == PhaseState.PCLR
-        self.flasher.poll(flashing)
-        
+        self.flasher.poll(self._state == PhaseState.PCLR)
         self.update_field()
+        
         changed = False
         
         if self._timer.poll(True):
             if self.active:
                 if (self._state in PHASE_RIGID_STATES) or rest_inhibit:
-                    walking = self._state == PhaseState.WALK
-                    if walking:
+                    if self._state == PhaseState.WALK:
                         walk_time = self.timing[PhaseState.WALK]
-                        self.extend_inhibit = self.elapsed - walk_time > self.default_extend
+                        self.extend_inhibit = self.interval_elapsed - walk_time > self.default_extend
                         
                         if self.extend_inhibit:
                             logger.debug('{} extend inhibited', self.getTag())
+                    
                     changed = self.change()
         else:
             if self.extend_active:
                 self.setpoint -= constants.TIME_INCREMENT
                 
         if self._state in PHASE_GO_STATES:
-            if self.elapsed > self.timing[PhaseState.MAX_GO]:
+            if self.interval_elapsed > self.timing[PhaseState.MAX_GO]:
                 if rest_inhibit:
                     changed = self.change()
+        
+        self._service_timer.poll(self._state in PHASE_TIMED_STATES)
         
         return changed
     
     def __repr__(self):
         return (f'<{self.getTag()} {self.state.name} '
-                f'{round(self.elapsed, 1)} of {round(self.setpoint, 1)}>')
+                f'{round(self.interval_elapsed, 1)} of {round(self.setpoint, 1)}>')
 
 
 class Ring(IdentifiableBase):
