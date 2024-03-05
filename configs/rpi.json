@@ -2,7 +2,7 @@
   "version": 3,
   "init": {
     "mode": "cet",
-    "cet-delay": 1,
+    "cet-delay": 4,
     "recall-all": true
   },
   "device": {
@@ -26,13 +26,13 @@
     "response-attempts": 5
   },
   "random-actuation": {
-    "delay": 90,
+    "delay": 5,
     "min": 1,
     "max": 90,
     "enabled": true
   },
   "default-timing": {
-    "min-service": 1.0,
+    "min-service": 5.0,
     "rclr": 1.0,
     "go": 17.0,
     "max-go": 36.0,

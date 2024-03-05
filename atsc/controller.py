@@ -262,11 +262,12 @@ class Controller:
     def getActivePhases(self, pool) -> List[Phase]:
         return [phase for phase in pool if phase.active]
     
-    def placeCall(self, phases: List[Phase], note: Optional[str] = None):
+    def placeCall(self, phases: List[Phase], ped_service: bool = False, note: Optional[str] = None):
         """
         Create a new demand for traffic service.
 
         :param phases: the desired Phases to service.
+        :param ped_service: pedestrian service when True.
         :param note: arbitrary note to be appended to log message
         """
         assert phases
@@ -274,7 +275,7 @@ class Controller:
         
         exists = any([phase in call for call in self.calls for phase in phases])
         if not exists:
-            call = Call(phases)
+            call = Call(phases, ped_service=ped_service)
             logger.debug(f'Call placed for {call.phase_tags_list}{note_text}')
             self.calls.append(call)
             
@@ -283,13 +284,13 @@ class Controller:
     
     def placeAllCall(self):
         """Place calls on all phases"""
-        self.placeCall(self.phases, 'all call')
+        self.placeCall(self.phases, ped_service=True, note='all call')
     
-    def detection(self, phases: List[Phase], note: Optional[str] = None):
+    def detection(self, phases: List[Phase], ped_service: bool = False, note: Optional[str] = None):
         note_text = post_pend(note, note)
         
         if all([phase.state not in PHASE_GO_STATES for phase in phases]):
-            self.placeCall(phases, note)
+            self.placeCall(phases, ped_service=ped_service, note=note)
         else:
             for phase in phases:
                 if phase.state in PHASE_GO_STATES:
@@ -300,7 +301,7 @@ class Controller:
                     
                     phase.stats['detections'] += 1
                 else:
-                    self.placeCall(phases, note)
+                    self.placeCall(phases, ped_service=ped_service, note=note)
     
     def handleInputs(self, bf: bitarray):
         """Check on the contents of bus data container for changes"""
@@ -320,9 +321,9 @@ class Controller:
                         if len(inp.targets):
                             phases = inp.targets
                             if inp.action == InputAction.CALL:
-                                self.placeCall(phases, f'input call, slot {slot}')
+                                self.placeCall(phases, ped_service=True, note=f'input call, slot {slot}')
                             elif inp.action == InputAction.DETECT:
-                                self.detection(phases, f'input detect, slot {slot}')
+                                self.detection(phases, ped_service=True, note=f'input detect, slot {slot}')
                             else:
                                 raise NotImplementedError()
                         else:
@@ -454,7 +455,7 @@ class Controller:
         osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self.transferred)
         self.bus.sendFrame(osf)
     
-    def servePhase(self, phase: Phase):
+    def servePhase(self, phase: Phase, ped_service: bool = False):
         logger.debug(f'Serving phase {phase.getTag()}')
         
         if self.barrier is None:
@@ -465,10 +466,7 @@ class Controller:
             self.setBarrier(barrier)
         
         self.phase_pool.remove(phase)
-        
-        # todo: differentiate between vehicle and ped service
-        
-        phase.activate()
+        phase.activate(ped_service=ped_service)
     
     def getPhasePartner(self, phases: List[Phase], phase: Phase) -> Optional[Phase]:
         for candidate in self.filterPhases(phases, barrier=self.barrier):
@@ -546,7 +544,8 @@ class Controller:
                          csl([phase.getTag() for phase in phases]),
                          next_delay)
             
-            self.detection(phases, 'random actuation')
+            ped_service = bool(round(self.randomizer.random()))
+            self.detection(phases, ped_service=ped_service, note='random actuation')
             self.random_timer.trigger = next_delay
             self.random_timer.reset()
         
@@ -559,13 +558,13 @@ class Controller:
             
             for phase in self.phases:
                 conflicting_demand = self.checkPhaseConflictingDemand(phase)
-                idle_override = self.idle_phases and (phase not in self.idle_phases) or phase.secondary
+                rest_inhibit = self.idle_phases and (phase not in self.idle_phases) or conflicting_demand
                 
                 if (len(active_phases) < concurrent_phases and phase.state == PhaseState.GO
                         and phase.last_state != PhaseState.STOP):
                     phase.change(state=PhaseState.CAUTION)
                 
-                if phase.tick(conflicting_demand or idle_override):
+                if phase.tick(rest_inhibit, phase.primary):
                     if not phase.active:
                         self.idle_timer.reset()
                         logger.debug('{} terminated', phase.getTag())
@@ -586,7 +585,7 @@ class Controller:
             for call in self.calls:
                 for phase in call.phases:
                     if self.canPhaseRun(phase):
-                        self.servePhase(phase)
+                        self.servePhase(phase, ped_service=call.ped_service)
                         now_serving.append(phase)
                         active_phases = self.getActivePhases(self.phases)
                         if len(active_phases) >= concurrent_phases:
@@ -631,12 +630,12 @@ class Controller:
                 if available:
                     logger.debug('Recall idle phases')
                     cutoff = available[:len(self.rings)]
-                    self.placeCall(cutoff, 'idle')
+                    self.placeCall(cutoff, ped_service=True, note='idle')
                 
                 self.idle_timer.reset()
         elif self.mode == OperationMode.CET:
             for ph in self.phases:
-                ph.tick(True)
+                ph.tick(True, False)
             
             if self.cet_timer.poll(True):
                 self.setOperationState(OperationMode.NORMAL)

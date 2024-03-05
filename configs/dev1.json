@@ -1,7 +1,7 @@
 {
   "version": 3,
   "init": {
-    "mode": "normal",
+    "mode": "cet",
     "cet-delay": 1,
     "recall-all": false
   },
@@ -27,12 +27,12 @@
   },
   "random-actuation": {
     "delay": 5,
-    "min": 5,
-    "max": 20,
+    "min": 1,
+    "max": 30,
     "enabled": true
   },
   "default-timing": {
-    "min-service": 1.0,
+    "min-service": 5.0,
     "rclr": 1.0,
     "go": 17.0,
     "max-go": 36.0,

@@ -174,8 +174,8 @@ class Phase(IdentifiableBase):
         return self._pls
     
     @property
-    def secondary(self):
-        return self.ped_ls is None
+    def primary(self):
+        return self.ped_ls is not None
     
     def _validate_timing(self):
         if self.active:
@@ -195,7 +195,6 @@ class Phase(IdentifiableBase):
                  ped_ls: Optional[LoadSwitch],
                  flash_mode: FlashMode = FlashMode.RED):
         super().__init__(id_)
-        self.ped_service: bool = True
         self.extend_inhibit = False
         self.stats = Counter({
             'detections': 0,
@@ -204,6 +203,7 @@ class Phase(IdentifiableBase):
         })
         self.timing = timing
         self.flasher = Flasher()
+        self.ped_service = False
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
         self._last_state: Optional[PhaseState] = None
@@ -241,18 +241,21 @@ class Phase(IdentifiableBase):
         if self.extend_active:
             self._timer.reset()
     
-    def activate(self):
+    def activate(self, ped_service: bool = False):
         if self.active:
             raise RuntimeError('Cannot activate active phase')
         
+        self.ped_service = ped_service
         changed = self.change()
         assert changed
         
         self._service_timer.reset()
         
-    def advance(self, state: Optional[PhaseState] = None):
+    def advance(self,
+                state: Optional[PhaseState] = None,
+                ped_service: bool = False):
         if not self.active:
-            self.activate()
+            self.activate(ped_service=ped_service)
         else:
             return self.change(state=state)
     
@@ -298,7 +301,8 @@ class Phase(IdentifiableBase):
             self._pls.c = pc
     
     def change(self, state: Optional[PhaseState] = None) -> bool:
-        next_state = state if state is not None else self.getNextState(self.ped_service)
+        ped_service = self.ped_service
+        next_state = state if state is not None else self.getNextState(ped_service)
         min_service = self._state not in PHASE_TIMED_STATES or self.service_elapsed > self.timing[PhaseState.MIN_SERVICE]
        
         if min_service and next_state != self._state:
@@ -306,12 +310,13 @@ class Phase(IdentifiableBase):
             
             if next_state == PhaseState.STOP:
                 self.extend_inhibit = False
+                self.ped_service = False
             
             if next_state == PhaseState.GO:
                 setpoint = self.timing[PhaseState.GO]
                 setpoint -= self.timing[PhaseState.CAUTION]
                 
-                if self.ped_ls is not None and self.ped_service:
+                if self.ped_ls is not None and ped_service:
                     walk_time = self.timing[PhaseState.WALK]
                     pclr_time = self.timing[PhaseState.PCLR]
                     setpoint -= (walk_time + pclr_time)
@@ -333,7 +338,7 @@ class Phase(IdentifiableBase):
         else:
             return False
     
-    def tick(self, rest_inhibit: bool) -> bool:
+    def tick(self, rest_inhibit: bool, exceed_maximum: bool) -> bool:
         self.flasher.poll(self._state == PhaseState.PCLR)
         self.update_field()
         
@@ -356,7 +361,7 @@ class Phase(IdentifiableBase):
                 
         if self._state in PHASE_GO_STATES:
             if self.interval_elapsed > self.timing[PhaseState.MAX_GO]:
-                if rest_inhibit:
+                if not exceed_maximum and rest_inhibit:
                     changed = self.change()
         
         self._service_timer.poll(self._state in PHASE_TIMED_STATES)
@@ -388,8 +393,9 @@ class Call:
     def phase_tags_list(self):
         return csl([phase.getTag() for phase in self.phases])
     
-    def __init__(self, phases: List[Phase]):
+    def __init__(self, phases: List[Phase], ped_service: bool = False):
         self.phases = phases.copy()
+        self.ped_service = ped_service
         self.age = 0.0
     
     def __contains__(self, item):
