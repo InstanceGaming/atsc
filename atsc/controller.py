@@ -13,7 +13,7 @@
 #  limitations under the License.
 import time
 import random
-from typing import Iterable
+from typing import Iterable, Set
 from atsc.core import *
 from atsc import logic, network, serialbus, constants
 from loguru import logger
@@ -262,7 +262,7 @@ class Controller:
     def getActivePhases(self, pool) -> List[Phase]:
         return [phase for phase in pool if phase.active]
     
-    def placeCall(self, phases: List[Phase], ped_service: bool = False, note: Optional[str] = None):
+    def placeCall(self, phases: Iterable[Phase], ped_service: bool = False, note: Optional[str] = None):
         """
         Create a new demand for traffic service.
 
@@ -273,14 +273,17 @@ class Controller:
         assert phases
         note_text = post_pend(note, note)
         
-        exists = any([phase in call for call in self.calls for phase in phases])
-        if not exists:
-            call = Call(phases, ped_service=ped_service)
+        uncalled = sorted(set(phases) - self.getCalledPhases())
+        
+        if uncalled:
+            call = Call(uncalled, ped_service=ped_service)
             logger.debug(f'Call placed for {call.phase_tags_list}{note_text}')
             self.calls.append(call)
-            
+        
             for phase in call.phases:
                 phase.stats['detections'] += 1
+        else:
+            logger.debug('ignored call attempt for {}', csl([ph.getTag() for ph in phases]))
     
     def placeAllCall(self):
         """Place calls on all phases"""
@@ -478,10 +481,11 @@ class Controller:
                 return candidate
         return None
     
-    def getCalledPhases(self) -> List[Phase]:
-        phases = []
+    def getCalledPhases(self) -> Set[Phase]:
+        phases = set()
         for call in self.calls:
-            phases.extend(call.phases)
+            for phase in call.phases:
+                phases.add(phase)
         return phases
     
     def setBarrier(self, b: Optional[Barrier]):
@@ -558,7 +562,13 @@ class Controller:
             
             for phase in self.phases:
                 conflicting_demand = self.checkPhaseConflictingDemand(phase)
-                rest_inhibit = self.idle_phases and (phase not in self.idle_phases) or conflicting_demand
+                rest_inhibit = conflicting_demand or (self.idle_phases and phase not in self.idle_phases)
+                
+                # for active_phase in active_phases:
+                #     if (not self.checkPhaseConflict(phase, active_phase) and
+                #             active_phase.state in PHASE_GO_STATES):
+                #         rest_inhibit = False
+                #         break
                 
                 if (len(active_phases) < concurrent_phases and phase.state == PhaseState.GO
                         and phase.last_state != PhaseState.STOP):
@@ -598,9 +608,6 @@ class Controller:
                     if partner is not None:
                         logger.debug(f'Supplementing {solo.getTag()} '
                                      f'with partner {partner.getTag()}')
-                        
-                        # todo: do not serve ped if supplementing when more than
-                        #  two phases were active at time of call placement
                         
                         self.servePhase(partner)
                         now_serving.append(partner)

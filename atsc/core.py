@@ -316,6 +316,10 @@ class Phase(IdentifiableBase):
                 setpoint = self.timing[PhaseState.GO]
                 setpoint -= self.timing[PhaseState.CAUTION]
                 
+                extension = self.timing[PhaseState.EXTEND]
+                if extension:
+                    setpoint -= extension / 2
+                
                 if self.ped_ls is not None and ped_service:
                     walk_time = self.timing[PhaseState.WALK]
                     pclr_time = self.timing[PhaseState.PCLR]
@@ -358,11 +362,11 @@ class Phase(IdentifiableBase):
         else:
             if self.extend_active:
                 self.setpoint -= constants.TIME_INCREMENT
-                
-        if self._state in PHASE_GO_STATES:
-            if self.interval_elapsed > self.timing[PhaseState.MAX_GO]:
-                if not exceed_maximum and rest_inhibit:
-                    changed = self.change()
+        
+        if not exceed_maximum or not rest_inhibit:
+            if self._state in PHASE_GO_STATES:
+                if self.interval_elapsed > self.timing[PhaseState.MAX_GO]:
+                    changed = self.change(state=PhaseState.CAUTION)
         
         self._service_timer.poll(self._state in PHASE_TIMED_STATES)
         
