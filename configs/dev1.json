@@ -32,11 +32,11 @@
     "enabled": true
   },
   "idling": {
-    "serve-delay": 1.2,
+    "serve-delay": 1,
     "phases": [6, 2]
   },
   "default-timing": {
-    "min-service": 1.0,
+    "min-service": 3.0,
     "rclr": 1.0,
     "go": 23.0,
     "max-go": 36.0,
