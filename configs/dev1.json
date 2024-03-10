@@ -26,14 +26,14 @@
     "recall-all": true
   },
   "random-actuation": {
-    "delay": 3,
+    "delay": 5,
     "min": 1,
-    "max": 20,
+    "max": 80,
     "enabled": true
   },
   "idling": {
     "serve-delay": 1,
-    "phases": []
+    "phases": [6, 2]
   },
   "default-timing": {
     "min-service": 3.0,

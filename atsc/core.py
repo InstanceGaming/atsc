@@ -202,6 +202,19 @@ class Phase(IdentifiableBase):
                    self.timing[PhaseState.CAUTION] + self.timing[PhaseState.RCLR] + 1)
     
     @property
+    def go_override(self):
+        return self._go_override
+    
+    @go_override.setter
+    def go_override(self, value):
+        if self.go_override is not None:
+            if self.go_override < 0:
+                raise ValueError('go override must be positive')
+            self._go_override = min(value, self.timing[PhaseState.MAX_GO])
+        else:
+            self._go_override = None
+    
+    @property
     def veh_ls(self) -> LoadSwitch:
         return self._vls
     
@@ -241,8 +254,8 @@ class Phase(IdentifiableBase):
         
         self.extend_inhibit = False
         self.ped_service = False
-        self.go_override: Optional[float] = None
         
+        self._go_override: Optional[float] = None
         self._resting = False
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
@@ -287,12 +300,6 @@ class Phase(IdentifiableBase):
             raise NotImplementedError()
     
     def get_setpoint(self, state: PhaseState) -> float:
-        if self.go_override is not None:
-            if self.go_override < 0:
-                raise ValueError('go override must be positive')
-            if self.go_override > self.timing[PhaseState.MAX_GO]:
-                raise ValueError('go override time greater than max go time')
-        
         if state == PhaseState.GO:
             setpoint = self.go_override or self.timing[PhaseState.GO]
             setpoint -= self.timing[PhaseState.CAUTION]
@@ -441,7 +448,7 @@ class Phase(IdentifiableBase):
         
         if self._state in PHASE_GO_STATES:
             if self.interval_elapsed > self.timing[PhaseState.MAX_GO]:
-                if not exceed_maximum and rest_inhibit:
+                if not exceed_maximum or rest_inhibit:
                     changed = self.change(state=PhaseState.CAUTION)
                 else:
                     self._resting = True

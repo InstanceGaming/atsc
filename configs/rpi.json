@@ -26,7 +26,7 @@
     "recall-all": true
   },
   "random-actuation": {
-    "delay": 120,
+    "delay": 5,
     "min": 1,
     "max": 80,
     "enabled": true

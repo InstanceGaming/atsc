@@ -554,23 +554,22 @@ class Controller:
                 conflicting_demand = self.checkConflictingDemand(active_phases, phase)
                 idle_phase = self.idle_phases and phase not in self.idle_phases
                 rest_inhibit = conflicting_demand or idle_phase
-                exceed_maximum = idle_phase or not self.idle_phases
                 
                 partners = self.getPhasePartners(phase)
                 for active_phase in active_phases:
                     if active_phase.state in PHASE_SYNC_STATES:
                         if (active_phase in partners and active_phase in self.idle_phases
-                            and not active_phase.resting):
+                                and not active_phase.resting):
                             if not phase.extend_enabled:
                                 active_phase.extend_inhibit = True
                             rest_inhibit = False
                             break
                 
                 if (len(active_phases) < concurrent_phases and phase.state == PhaseState.GO
-                    and PhaseState.STOP not in phase.previous_states):
+                        and PhaseState.STOP not in phase.previous_states):
                     phase.change(state=PhaseState.CAUTION)
                 
-                if phase.tick(rest_inhibit, exceed_maximum):
+                if phase.tick(rest_inhibit, idle_phase):
                     if not phase.active:
                         self.idle_timer.reset()
                         logger.debug('{} terminated', phase.getTag())
