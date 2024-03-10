@@ -12,7 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from enum import IntEnum
-from loguru import logger
 from typing import Dict, List, Optional
 from atsc import constants
 from atsc.logic import EdgeTrigger, Timer, Flasher
@@ -202,6 +201,10 @@ class Phase(IdentifiableBase):
                    self.timing[PhaseState.CAUTION] + self.timing[PhaseState.RCLR] + 1)
     
     @property
+    def ped_service(self):
+        return self._ped_service
+    
+    @property
     def go_override(self):
         return self._go_override
     
@@ -251,10 +254,9 @@ class Phase(IdentifiableBase):
             'ped_service'    : 0
         })
         self.timing = timing
-        
         self.extend_inhibit = False
-        self.ped_service = False
         
+        self._ped_service = False
         self._go_override: Optional[float] = None
         self._resting = False
         self._flash_mode = flash_mode
@@ -266,18 +268,18 @@ class Phase(IdentifiableBase):
         self._pls = ped_ls
         self._validate_timing()
     
-    def get_recycle_state(self) -> PhaseState:
+    def get_recycle_state(self, ped_service: bool) -> PhaseState:
         if self._state in PHASE_RECYCLE_STATES:
-            if self.ped_service:
+            if ped_service:
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
         else:
             raise NotImplementedError()
     
-    def get_next_state(self) -> PhaseState:
+    def get_next_state(self, ped_service: bool, expedite: bool) -> PhaseState:
         if self._state == PhaseState.STOP:
-            if self.ped_ls is not None and self.ped_service:
+            if self.ped_ls is not None and ped_service:
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
@@ -288,12 +290,15 @@ class Phase(IdentifiableBase):
         elif self._state == PhaseState.EXTEND:
             return PhaseState.CAUTION
         elif self._state == PhaseState.GO:
-            if self.extend_enabled:
+            if self.extend_enabled and not expedite:
                 return PhaseState.EXTEND
             else:
                 return PhaseState.CAUTION
         elif self._state == PhaseState.PCLR:
-            return PhaseState.GO
+            if expedite:
+                return PhaseState.CAUTION
+            else:
+                return PhaseState.GO
         elif self._state == PhaseState.WALK:
             return PhaseState.PCLR
         else:
@@ -335,15 +340,16 @@ class Phase(IdentifiableBase):
         if self.extend_active:
             self._timer.reset()
     
-    def activate(self):
+    def activate(self, ped_service: bool):
         state = None
         
         if self.active:
             if self.state in PHASE_RIGID_STATES:
                 raise RuntimeError('Cannot activate active phase during rigidly-timed interval')
             
-            state = self.get_recycle_state()
-        changed = self.change(state=state)
+            state = self.get_recycle_state(ped_service)
+        
+        changed = self.change(state=state, ped_service=ped_service)
         assert changed
         
         self._service_timer.reset()
@@ -389,9 +395,14 @@ class Phase(IdentifiableBase):
             self._pls.b = pb
             self._pls.c = pc
     
-    def change(self, state: Optional[PhaseState] = None) -> bool:
-        next_state = state if state is not None else self.get_next_state()
+    def change(self,
+               state: Optional[PhaseState] = None,
+               ped_service: bool = False,
+               expedite: bool = False) -> bool:
+        next_state = state if state is not None else self.get_next_state(ped_service,
+                                                                         expedite)
         if next_state != self._state:
+            self._ped_service = ped_service
             self._resting = False
             self._timer.reset()
             
@@ -423,7 +434,7 @@ class Phase(IdentifiableBase):
         else:
             return False
     
-    def tick(self, rest_inhibit: bool, exceed_maximum: bool) -> bool:
+    def tick(self, rest_inhibit: bool, supress_maximum: bool) -> bool:
         self.flasher.poll(self._state == PhaseState.PCLR)
         self.update_field()
         
@@ -435,10 +446,6 @@ class Phase(IdentifiableBase):
                     if self._state == PhaseState.WALK:
                         walk_time = self.timing[PhaseState.WALK]
                         self.extend_inhibit = self.interval_elapsed - walk_time > self.default_extend
-                        
-                        if self.extend_inhibit:
-                            logger.debug('{} extend inhibited', self.getTag())
-                    
                     changed = self.change()
                 else:
                     self._resting = True
@@ -448,8 +455,8 @@ class Phase(IdentifiableBase):
         
         if self._state in PHASE_GO_STATES:
             if self.interval_elapsed > self.timing[PhaseState.MAX_GO]:
-                if not exceed_maximum or rest_inhibit:
-                    changed = self.change(state=PhaseState.CAUTION)
+                if not supress_maximum or rest_inhibit:
+                    changed = self.change(expedite=True)
                 else:
                     self._resting = True
         

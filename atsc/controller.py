@@ -516,10 +516,9 @@ class Controller:
         except ValueError:
             pass
         
-        phase.ped_service = ped_service
         phase.go_override = go_override
         phase.extend_inhibit = extend_inhibit
-        phase.activate()
+        phase.activate(ped_service)
     
     def tick(self):
         """Polled once every 100ms"""
