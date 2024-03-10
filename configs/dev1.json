@@ -1,10 +1,5 @@
 {
   "version": 3,
-  "init": {
-    "mode": "cet",
-    "cet-delay": 5,
-    "recall-all": true
-  },
   "device": {
     "name": "ATSC Development Intersection",
     "location": {
@@ -25,6 +20,11 @@
     "baud": 115200,
     "response-attempts": 5
   },
+  "init": {
+    "mode": "cet",
+    "cet-delay": 5,
+    "recall-all": true
+  },
   "random-actuation": {
     "delay": 3,
     "min": 1,
@@ -33,7 +33,7 @@
   },
   "idling": {
     "serve-delay": 1,
-    "phases": [6, 2]
+    "phases": []
   },
   "default-timing": {
     "min-service": 3.0,

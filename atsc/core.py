@@ -100,18 +100,35 @@ class PhaseState(IntEnum):
     WALK = 14
     MAX_GO = 32
     MIN_SERVICE = 64
+    
+    def __repr__(self):
+        return self.name
 
 
 PHASE_RIGID_STATES = (PhaseState.RCLR, PhaseState.CAUTION, PhaseState.PCLR)
 
-PHASE_TIMED_STATES = (PhaseState.MIN_SERVICE,
-                      PhaseState.RCLR,
+PHASE_SERVICE_STATES = (PhaseState.RCLR,
+                        PhaseState.CAUTION,
+                        PhaseState.EXTEND,
+                        PhaseState.GO,
+                        PhaseState.PCLR,
+                        PhaseState.WALK)
+
+PHASE_TIMES_STATES = (PhaseState.RCLR,
                       PhaseState.CAUTION,
                       PhaseState.EXTEND,
                       PhaseState.GO,
                       PhaseState.PCLR,
-                      PhaseState.WALK,
-                      PhaseState.MAX_GO)
+                      PhaseState.WALK)
+
+PHASE_TIMED_STATES_ALL = (PhaseState.MIN_SERVICE,
+                          PhaseState.RCLR,
+                          PhaseState.CAUTION,
+                          PhaseState.EXTEND,
+                          PhaseState.GO,
+                          PhaseState.PCLR,
+                          PhaseState.WALK,
+                          PhaseState.MAX_GO)
 
 PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.GO,
@@ -122,7 +139,7 @@ PHASE_SYNC_STATES = (PhaseState.GO,
                      PhaseState.PCLR,
                      PhaseState.WALK)
 
-PHASE_SUPPLEMENT_STATES = (PhaseState.GO, PhaseState.WALK)
+PHASE_SUPPLEMENT_STATES = (PhaseState.GO, PhaseState.WALK, PhaseState.PCLR)
 
 PHASE_PARTNER_INHIBIT_STATES = (PhaseState.CAUTION, PhaseState.EXTEND)
 
@@ -160,8 +177,8 @@ class Phase(IdentifiableBase):
         return self._state
     
     @property
-    def last_state(self):
-        return self._last_state
+    def previous_states(self):
+        return self._previous_states
     
     @property
     def setpoint(self) -> float:
@@ -178,6 +195,11 @@ class Phase(IdentifiableBase):
     @property
     def service_elapsed(self):
         return float(self._service_timer.elapsed)
+    
+    @property
+    def minimum_service(self):
+        return max(self.timing[PhaseState.MIN_SERVICE],
+                   self.timing[PhaseState.CAUTION] + self.timing[PhaseState.RCLR] + 1)
     
     @property
     def veh_ls(self) -> LoadSwitch:
@@ -197,7 +219,7 @@ class Phase(IdentifiableBase):
         if self.timing is None:
             raise TypeError('Timing map cannot be None')
         keys = self.timing.keys()
-        if len(keys) != len(PHASE_TIMED_STATES):
+        if len(keys) != len(PHASE_TIMED_STATES_ALL):
             raise RuntimeError('Timing map mismatched size')
         elif PhaseState.STOP in keys:
             raise KeyError('STOP cannot be in timing map')
@@ -219,29 +241,30 @@ class Phase(IdentifiableBase):
         
         self.extend_inhibit = False
         self.ped_service = False
+        self.go_override: Optional[float] = None
         
         self._resting = False
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
-        self._last_state: Optional[PhaseState] = None
+        self._previous_states: List[PhaseState] = []
         self._timer = Timer(0, step=constants.TIME_INCREMENT)
         self._service_timer = Timer(0, step=constants.TIME_INCREMENT)
         self._vls = veh_ls
         self._pls = ped_ls
         self._validate_timing()
     
-    def get_recycle_state(self, ped_service: bool) -> PhaseState:
+    def get_recycle_state(self) -> PhaseState:
         if self._state in PHASE_RECYCLE_STATES:
-            if ped_service:
+            if self.ped_service:
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
         else:
             raise NotImplementedError()
     
-    def get_next_state(self, ped_service: bool) -> PhaseState:
+    def get_next_state(self) -> PhaseState:
         if self._state == PhaseState.STOP:
-            if self.ped_ls is not None and ped_service:
+            if self.ped_ls is not None and self.ped_service:
                 return PhaseState.WALK
             else:
                 return PhaseState.GO
@@ -263,20 +286,56 @@ class Phase(IdentifiableBase):
         else:
             raise NotImplementedError()
     
+    def get_setpoint(self, state: PhaseState) -> float:
+        if self.go_override is not None:
+            if self.go_override < 0:
+                raise ValueError('go override must be positive')
+            if self.go_override > self.timing[PhaseState.MAX_GO]:
+                raise ValueError('go override time greater than max go time')
+        
+        if state == PhaseState.GO:
+            setpoint = self.go_override or self.timing[PhaseState.GO]
+            setpoint -= self.timing[PhaseState.CAUTION]
+            
+            extension = self.timing[PhaseState.EXTEND]
+            if extension:
+                setpoint -= extension / 2
+            
+            if self.ped_ls is not None and self.ped_service:
+                setpoint -= self.timing[PhaseState.WALK]
+                setpoint -= self.timing[PhaseState.PCLR]
+        else:
+            setpoint = self.timing.get(state, 0.0)
+        
+        return round(setpoint, 1)
+    
+    def estimate_remaining(self) -> Optional[float]:
+        if self.state == PhaseState.STOP:
+            return None
+        
+        setpoints = 0.0
+        for state in PHASE_SERVICE_STATES:
+            if self.state >= state.value:
+                setpoints += self.get_setpoint(state)
+            else:
+                break
+        
+        # I don't know why it's SOMETIMES 1 off...
+        estimate = round(setpoints - self.interval_elapsed) - 1.0
+        return estimate
+    
     def gap_reset(self):
         if self.extend_active:
             self._timer.reset()
     
-    def activate(self, ped_service: bool = False):
+    def activate(self):
         state = None
         
         if self.active:
             if self.state in PHASE_RIGID_STATES:
                 raise RuntimeError('Cannot activate active phase during rigidly-timed interval')
             
-            state = self.get_recycle_state(ped_service)
-        
-        self.ped_service = ped_service
+            state = self.get_recycle_state()
         changed = self.change(state=state)
         assert changed
         
@@ -324,44 +383,35 @@ class Phase(IdentifiableBase):
             self._pls.c = pc
     
     def change(self, state: Optional[PhaseState] = None) -> bool:
-        self._resting = False
-        
-        ped_service = self.ped_service
-        next_state = state if state is not None else self.get_next_state(ped_service)
-        min_service = self._state not in PHASE_TIMED_STATES or self.service_elapsed > self.timing[
-            PhaseState.MIN_SERVICE]
-        
-        if min_service and next_state != self._state:
+        next_state = state if state is not None else self.get_next_state()
+        if next_state != self._state:
+            self._resting = False
             self._timer.reset()
             
             if next_state == PhaseState.STOP:
+                if float(self._service_timer.elapsed) < self.minimum_service:
+                    raise ValueError('less than minimum service time served')
+                
                 self.extend_inhibit = False
+                self.go_override = None
             
             if next_state == PhaseState.GO:
-                setpoint = self.timing[PhaseState.GO]
-                setpoint -= self.timing[PhaseState.CAUTION]
-                
-                extension = self.timing[PhaseState.EXTEND]
-                if extension:
-                    setpoint -= extension / 2
-                
-                if self.ped_ls is not None and ped_service:
-                    setpoint -= self.timing[PhaseState.WALK]
-                    setpoint -= self.timing[PhaseState.PCLR]
-                
                 self.stats['vehicle_service'] += 1
             else:
-                setpoint = self.timing.get(next_state, 0.0)
-                
                 if next_state == PhaseState.WALK:
                     self.stats['ped_service'] += 1
             
-            if next_state in PHASE_TIMED_STATES:
+            setpoint = self.get_setpoint(next_state)
+            if next_state in PHASE_TIMED_STATES_ALL:
                 assert setpoint >= 0.0
             
-            self._last_state = self._state
+            self._previous_states.insert(0, self.state)
+            
+            if len(self._previous_states) > len(PHASE_TIMES_STATES) - 1:
+                self._previous_states.pop()
+            
             self._state = next_state
-            self.setpoint = round(setpoint, 1)
+            self.setpoint = setpoint
             return True
         else:
             return False
@@ -399,7 +449,7 @@ class Phase(IdentifiableBase):
         if self.extend_active and not self.extend_enabled:
             self.change()
         
-        self._service_timer.poll(self._state in PHASE_TIMED_STATES)
+        self._service_timer.poll(self._state in PHASE_TIMES_STATES)
         
         return changed
     
@@ -428,8 +478,12 @@ class Call:
     def phase_tags_list(self):
         return csl([phase.getTag() for phase in self.phases])
     
+    @property
+    def sorting_weight(self):
+        return max([p.interval_elapsed for p in self.phases if not p.active] or [self.age])
+    
     def __init__(self, phases: List[Phase], ped_service: bool = False):
-        self.phases = phases.copy()
+        self.phases = phases
         self.ped_service = ped_service
         self.age = 0.0
     

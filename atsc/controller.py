@@ -72,8 +72,8 @@ class Controller:
         
         # control entrance transition timer
         yellow_time = default_timing[PhaseState.CAUTION]
-        self.cet_delay: float = max(yellow_time, config['init']['cet-delay'] - yellow_time)
-        self.cet_timer = logic.Timer(self.cet_delay, step=constants.TIME_INCREMENT)
+        cet_delay: float = max(yellow_time, config['init']['cet-delay'] - 1) + 1
+        self.cet_timer = logic.Timer(cet_delay, step=constants.TIME_INCREMENT)
         
         # inputs data structure instances
         self.inputs: Dict[int, Input] = self.getInputs(config.get('inputs'))
@@ -271,6 +271,9 @@ class Controller:
                 phases.add(phase)
         return phases
     
+    def sortCalls(self, calls: Iterable[Call]) -> List[Call]:
+        return sorted(calls, key=lambda c: c.sorting_weight)
+    
     def placeCall(self, phases: Iterable[Phase], ped_service: bool = False, note: Optional[str] = None):
         """
         Create a new demand for traffic service.
@@ -282,21 +285,39 @@ class Controller:
         assert phases
         note_text = post_pend(note, note)
         
-        uncalled = sorted(set(phases).difference(self.getCalledPhases()))
+        phases = set(phases)
+        merged = set()
+        for call in self.calls:
+            for call_phase in call.phases:
+                for up in phases:
+                    if up.id in self.friend_matrix[call_phase.id]:
+                        if len(call.phases) < len(self.rings):
+                            logger.debug('Merging {} into existing call with {}',
+                                         up.getTag(),
+                                         csl([p.getTag() for p in call.phases]))
+                            call.phases.append(up)
+                            merged.add(up)
+                        else:
+                            break
+                if len(call.phases) >= len(self.rings):
+                    break
         
-        if uncalled:
-            call = Call(uncalled, ped_service=ped_service)
+        remaining = sorted(phases - merged)
+        if remaining:
+            call = Call(remaining, ped_service=ped_service)
             logger.debug(f'Call placed for {call.phase_tags_list}{note_text}')
             self.calls.append(call)
-        else:
-            logger.debug('ignored call attempt for {}', csl([ph.getTag() for ph in phases]))
         
         for phase in phases:
             phase.stats['detections'] += 1
+        
+        self.sortCalls(self.calls)
     
     def placeAllCall(self):
         """Place calls on all phases"""
         self.placeCall(self.phases, ped_service=True, note='all call')
+        if self.idle_phases:
+            self.placeCall(self.idle_phases, ped_service=True, note='idle phases')
     
     def detection(self, phases: List[Phase], ped_service: bool = False, note: Optional[str] = None):
         note_text = post_pend(note, note)
@@ -371,7 +392,7 @@ class Controller:
                     
                     if conflict:
                         continue
-                    
+                
                 if not self.checkPhaseDemand(phase):
                     continue
                 
@@ -426,7 +447,7 @@ class Controller:
                 return b
         
         raise RuntimeError(f'Failed to get barrier by {phase.getTag()}')
-        
+    
     def getPhasePartners(self, phase: Phase) -> List[Phase]:
         return [self.getPhaseById(i) for i in self.friend_matrix[phase.id]]
     
@@ -476,6 +497,30 @@ class Controller:
         note_text = post_pend(note, note)
         logger.debug(f'Ended cycle {self.cycle_count}{note_text}')
     
+    def serve_phase(self,
+                    phase: Phase,
+                    ped_service: bool,
+                    go_override: Optional[float] = None,
+                    extend_inhibit: bool = False):
+        logger.debug(f'Serving phase {phase.getTag()}')
+        
+        if self.barrier is None:
+            barrier = self.getBarrierByPhase(phase)
+            logger.debug('{} captured {}',
+                         phase.getTag(),
+                         barrier.getTag())
+            self.setBarrier(barrier)
+        
+        try:
+            self.phase_pool.remove(phase)
+        except ValueError:
+            pass
+        
+        phase.ped_service = ped_service
+        phase.go_override = go_override
+        phase.extend_inhibit = extend_inhibit
+        phase.activate()
+    
     def tick(self):
         """Polled once every 100ms"""
         if self.random_timer.poll(self.random_enabled):
@@ -515,14 +560,14 @@ class Controller:
                 for active_phase in active_phases:
                     if active_phase.state in PHASE_SYNC_STATES:
                         if (active_phase in partners and active_phase in self.idle_phases
-                                and not active_phase.resting):
+                            and not active_phase.resting):
                             if not phase.extend_enabled:
                                 active_phase.extend_inhibit = True
                             rest_inhibit = False
                             break
                 
                 if (len(active_phases) < concurrent_phases and phase.state == PhaseState.GO
-                        and phase.last_state != PhaseState.STOP):
+                    and PhaseState.STOP not in phase.previous_states):
                     phase.change(state=PhaseState.CAUTION)
                 
                 if phase.tick(rest_inhibit, exceed_maximum):
@@ -532,15 +577,16 @@ class Controller:
                         if phase in self.idle_phases:
                             self.placeCall([phase], ped_service=True, note='idle recall')
             
-            if not len(self.phase_pool):
-                self.endCycle('complete')
-            else:
-                available = self.getAvailablePhases(active_phases)
-                if not len(available):
-                    if self.barrier:
-                        self.setBarrier(None)
-                    else:
-                        self.resetPhasePool()
+            if not active_phases:
+                if not len(self.phase_pool):
+                    self.endCycle('complete')
+                else:
+                    available = self.getAvailablePhases(active_phases)
+                    if not len(available):
+                        if self.barrier:
+                            self.setBarrier(None)
+                        else:
+                            self.resetPhasePool()
             
             available = self.getAvailablePhases(active_phases)
             now_serving = []
@@ -550,30 +596,34 @@ class Controller:
                         if len(active_phases) >= concurrent_phases:
                             break
                         
-                        logger.debug(f'Serving phase {phase.getTag()}')
-                        
-                        if self.barrier is None:
-                            barrier = self.getBarrierByPhase(phase)
-                            logger.debug('{} captured {}',
-                                         phase.getTag(),
-                                         barrier.getTag())
-                            self.setBarrier(barrier)
-                        
-                        self.phase_pool.remove(phase)
-                        phase.activate(ped_service=call.ped_service)
-                        
+                        self.serve_phase(phase, call.ped_service)
                         now_serving.append(phase)
                         active_phases = self.getActivePhases(self.phases)
                         available = self.getAvailablePhases(active_phases)
             
-            # if len(active_phases) == 1:
-            #     solo = active_phases[0]
-            #     if solo.state in PHASE_SUPPLEMENT_STATES:
-            #         if not self.checkConflictingDemand(active_phases, solo):
-            #             partner = self.selectPhasePartner(solo, self.phase_pool)
-            #             if partner is not None:
-            #                 self.placeCall([partner], note=f'supplement for {solo.getTag()}')
-            #                 now_serving.append(partner)
+            for phase in active_phases:
+                if 0 < len(active_phases) < concurrent_phases:
+                    if phase.state in PHASE_SUPPLEMENT_STATES:
+                        partner = self.selectPhasePartner(phase, self.phase_pool)
+                        if partner is not None:
+                            go_override = phase.estimate_remaining()
+                            if go_override > partner.minimum_service:
+                                logger.debug('Running {} with {} (modified service {})',
+                                             partner.getTag(),
+                                             phase.getTag(),
+                                             go_override)
+                                self.serve_phase(partner,
+                                                 False,
+                                                 go_override=go_override,
+                                                 extend_inhibit=True)
+                                now_serving.append(partner)
+                                active_phases = self.getActivePhases(self.phases)
+                            else:
+                                logger.verbose('Could not run {} with {} ({} < {})',
+                                               partner.getTag(),
+                                               phase.getTag(),
+                                               go_override,
+                                               partner.minimum_service)
             
             for phase in now_serving:
                 for call in self.calls:
@@ -586,21 +636,6 @@ class Controller:
                 self.calls.remove(call)
             
             if self.idle_phases and self.idle_timer.poll(self.idling):
-                # available = []
-                # if active_phases == 1:
-                #     solo = active_phases[0]
-                #     partner = self.selectPhasePartner(solo, self.idle_phases)
-                #     if partner:
-                #         available.append(partner)
-                # elif not active_phases:
-                #     self.endCycle('idle')
-                #     available.extend([phase for phase in self.idle_phases])
-                #
-                # if available:
-                #     logger.debug('Recall idle phases')
-                #     cutoff = available[:len(self.rings)]
-                #     self.placeCall(cutoff, ped_service=True, note='idle')
-                
                 self.idle_timer.reset()
         elif self.mode == OperationMode.CET:
             for ph in self.phases:
