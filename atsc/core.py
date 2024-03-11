@@ -125,12 +125,14 @@ PHASE_RECYCLE_STATES = (PhaseState.WALK, PhaseState.GO, PhaseState.EXTEND)
 class Phase(IdentifiableBase):
     
     @property
-    def extend_enabled(self):
-        return self.timing[PhaseState.EXTEND] > 0.0 and not self.extend_inhibit
-    
-    @property
     def default_extend(self):
         return self.timing[PhaseState.EXTEND] / 2.0
+    
+    @property
+    def extend_enabled(self):
+        return (self.timing[PhaseState.EXTEND] > 0.0 and
+                not self.extend_inhibit and
+                self._gap_timer.elapsed < self.default_extend)
     
     @property
     def extend_active(self):
@@ -167,10 +169,6 @@ class Phase(IdentifiableBase):
     @property
     def interval_elapsed(self):
         return self._timer.elapsed
-    
-    @property
-    def service_elapsed(self):
-        return self._service_timer.elapsed
     
     @property
     def minimum_service(self):
@@ -239,7 +237,7 @@ class Phase(IdentifiableBase):
         self._state: PhaseState = PhaseState.STOP
         self._previous_states: List[PhaseState] = []
         self._timer = Timer()
-        self._service_timer = Timer()
+        self._gap_timer = Timer()
         self._vls = veh_ls
         self._pls = ped_ls
         self._validate_timing()
@@ -284,13 +282,12 @@ class Phase(IdentifiableBase):
         if state == PhaseState.GO:
             setpoint = self.go_override or self.timing[PhaseState.GO]
             setpoint -= self.timing[PhaseState.CAUTION]
+            setpoint -= self.default_extend
             
-            extension = self.timing[PhaseState.EXTEND]
-            if extension:
-                setpoint -= extension / 2
-            
-            if self.ped_ls is not None and self.ped_service:
+            if PhaseState.WALK in self.previous_states:
                 setpoint -= self.timing[PhaseState.WALK]
+            
+            if PhaseState.PCLR in self.previous_states:
                 setpoint -= self.timing[PhaseState.PCLR]
         else:
             setpoint = self.timing.get(state, 0.0)
@@ -313,6 +310,7 @@ class Phase(IdentifiableBase):
         return estimate
     
     def gap_reset(self):
+        self._gap_timer.reset()
         if self.extend_active:
             self._timer.reset()
     
@@ -327,8 +325,6 @@ class Phase(IdentifiableBase):
         
         changed = self.change(state=state, ped_service=ped_service)
         assert changed
-        
-        self._service_timer.reset()
     
     def update_field(self):
         pa = False
@@ -378,22 +374,18 @@ class Phase(IdentifiableBase):
         next_state = state if state is not None else self.get_next_state(ped_service,
                                                                          expedite)
         if next_state != self._state:
-            self._ped_service = ped_service
             self._resting = False
             self._timer.reset()
             
             if next_state == PhaseState.STOP:
-                if float(self._service_timer.elapsed) < self.minimum_service:
-                    raise ValueError('less than minimum service time served')
-                
                 self.extend_inhibit = False
                 self.go_override = None
             
-            if next_state == PhaseState.GO:
-                self.stats['vehicle_service'] += 1
-            else:
+            if next_state in (PhaseState.GO, PhaseState.WALK):
+                self._gap_timer.reset()
                 if next_state == PhaseState.WALK:
                     self.stats['ped_service'] += 1
+                self.stats['vehicle_service'] += 1
             
             setpoint = self.get_setpoint(next_state)
             if next_state in PHASE_TIMED_STATES_ALL:
@@ -404,6 +396,7 @@ class Phase(IdentifiableBase):
             if len(self._previous_states) > len(PHASE_TIMES_STATES) - 1:
                 self._previous_states.pop()
             
+            self._ped_service = ped_service
             self._state = next_state
             self.setpoint = setpoint
             return True
@@ -438,8 +431,6 @@ class Phase(IdentifiableBase):
         
         if self.extend_active and not self.extend_enabled:
             self.change()
-        
-        self._service_timer.poll(self._state in PHASE_TIMES_STATES)
         
         return changed
     

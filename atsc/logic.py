@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from atsc import constants
-from atsc.constants import TIME_INCREMENT
 
 
 class LogicBase(ABC):
@@ -26,7 +25,7 @@ class EdgeTrigger(LogicBase):
         """
         super().__init__()
         self.polarity = polarity
-        self.previous = not polarity
+        self.previous = polarity
     
     def poll(self, signal: bool) -> bool:
         """
@@ -118,7 +117,7 @@ class Flasher:
     
     def __init__(self, fpm: float = 60.0):
         self.fpm = fpm
-        self.timer = Timer(self.delay, step=TIME_INCREMENT)
+        self.timer = Timer(self.delay)
         self.bit = True
     
     def poll(self, signal: bool):
