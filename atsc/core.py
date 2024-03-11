@@ -11,10 +11,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from atsc import constants
 from enum import IntEnum
 from typing import Dict, List, Optional
-from atsc import constants
-from atsc.logic import EdgeTrigger, Timer, Flasher
+from atsc.logic import Timer, Flasher, EdgeTrigger
 from jacob.text import csl
 from collections import Counter
 from dataclasses import dataclass
@@ -40,7 +40,7 @@ class IdentifiableBase:
     def __lt__(self, other) -> bool:
         return self._id < other.id
     
-    def getTag(self):
+    def get_tag(self):
         return f'{type(self).__name__[:2].upper()}{self.id:02d}'
     
     def __repr__(self):
@@ -60,7 +60,7 @@ class FrozenIdentifiableBase:
     def __lt__(self, other):
         return self.id < other.id
     
-    def getTag(self):
+    def get_tag(self):
         return f'{type(self).__name__[:2].upper()}{self.id:02d}'
     
     def __repr__(self):
@@ -468,7 +468,7 @@ class Phase(IdentifiableBase):
         return changed
     
     def __repr__(self):
-        return (f'<{self.getTag()} {self.state.name} '
+        return (f'<{self.get_tag()} {self.state.name} '
                 f'{round(self.interval_elapsed, 1)} of {round(self.setpoint, 1)}>')
 
 
@@ -490,7 +490,7 @@ class Call:
     
     @property
     def phase_tags_list(self):
-        return csl([phase.getTag() for phase in self.phases])
+        return csl([phase.get_tag() for phase in self.phases])
     
     @property
     def sorting_weight(self):

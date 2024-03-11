@@ -15,7 +15,7 @@
 import os
 import loguru
 import argparse
-from atsc import configfile, constants
+from atsc import constants, configfile
 from typing import TextIO, Optional
 from pathlib import Path
 from datetime import datetime as dt

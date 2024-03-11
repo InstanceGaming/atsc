@@ -13,18 +13,16 @@
 #  limitations under the License.
 
 import time
-from dataclasses import dataclass
-
 import serial
-from jacob.text import format_binary_literal
-
 from atsc import hdlc
 from loguru import logger
 from serial import SerialException
 from typing import Dict, List, Optional
 from threading import Lock, Thread
+from jacob.text import format_binary_literal
 from atsc.frames import FrameType, GenericFrame, DeviceAddress
 from collections import defaultdict
+from dataclasses import dataclass
 from jacob.datetime.timing import millis
 
 
@@ -72,9 +70,9 @@ class Bus(Thread):
         self._tx_lock = Lock()
         self._rx_lock = Lock()
         self._decoded_frame: Optional[hdlc.Frame] = None
-        self._stats: Dict[int, dict] = defaultdict(self._statsPopulator)
+        self._stats: Dict[int, dict] = defaultdict(self.build_stats_populator)
     
-    def _statsPopulator(self) -> dict:
+    def build_stats_populator(self) -> dict:
         tx_map: Dict[FrameType, List[int, Optional[int]]] = {}
         
         for ft in FrameType:
@@ -89,7 +87,7 @@ class Bus(Thread):
             'tx_bytes': 0, 'rx_bytes': 0, 'tx_frames': tx_map, 'rx_frames': rx_map
         }
     
-    def _frameDecode(self, frame_data: bytearray):
+    def _frame_decode(self, frame_data: bytearray):
         frame, error = self._hdlc.decode(frame_data)
         
         if error is not None:
@@ -130,7 +128,7 @@ class Bus(Thread):
                                                       frame.crc,
                                                       length)
     
-    def _formatParameterText(self):
+    def _format_parameter_text(self):
         return f'port={self._port}, baud={self._baud}'
     
     def _write(self, data: bytes):
@@ -157,7 +155,7 @@ class Bus(Thread):
                         if b == hdlc.HDLC_FLAG:
                             if in_frame:
                                 in_frame = False
-                                self._frameDecode(drydock)
+                                self._frame_decode(drydock)
                                 drydock = bytearray()
                             else:
                                 in_frame = True
@@ -179,14 +177,14 @@ class Bus(Thread):
             self._running = True
         except ValueError as e:
             logger.error('Invalid settings configured for serial bus '
-                         f'({self._formatParameterText()}): '
+                         f'({self._format_parameter_text()}): '
                          f'{str(e)}')
         except SerialException as e:
             logger.bus(f'Serial error: {str(e)}')
             self.shutdown()
         
         if self._running:
-            logger.bus(f'Serial bus started ({self._formatParameterText()})')
+            logger.bus(f'Serial bus started ({self._format_parameter_text()})')
             while self._running:
                 time.sleep(0.1)
                 if self._serial is not None:
@@ -203,7 +201,7 @@ class Bus(Thread):
         else:
             logger.bus('Failed to acquire transmit lock within timeout')
     
-    def sendFrame(self, f: GenericFrame):
+    def send_frame(self, f: GenericFrame):
         if self._tx_lock.acquire(timeout=self.LOCK_TIMEOUT):
             data = f.build(self._hdlc)
             self._write(data)
@@ -211,7 +209,7 @@ class Bus(Thread):
             addr = f.address
             
             logger.bus(f'Sent frame type {f.type.name} to {addr} ({len(data)}B)')
-            logger.bus_tx(format_binary_literal(f.getPayload()[:32]))
+            logger.bus_tx(format_binary_literal(f.get_payload()[:32]))
             
             self._stats[addr]['tx_frames'][f.type][0] += 1
             self._stats[addr]['tx_frames'][f.type][1] = millis()

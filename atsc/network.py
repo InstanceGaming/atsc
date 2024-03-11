@@ -15,13 +15,13 @@ import time
 import socket
 import atsc.proto.controller_pb2 as pb
 from loguru import logger
-from typing import List, Tuple, Optional
+from typing import List, Optional
 from atsc.core import Phase, LoadSwitch
 from threading import Thread
 from jacob.text import format_byte_size
 
 
-def getIPAddress(filter_if_name: str):
+def get_net_address(filter_if_name: str):
     from netifaces import AF_INET, ifaddresses
     
     interface = ifaddresses(filter_if_name)
@@ -46,11 +46,11 @@ class Monitor(Thread):
         self._clients = []
         self._host = host
         self._port = port
-        self._control_info: Optional[pb.ControlInfo] = self.buildControlInfo()
+        self._control_info: Optional[pb.ControlInfo] = self.build_controller_info()
         
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
-    def buildControlInfo(self):
+    def build_controller_info(self):
         control_pb = pb.ControlInfo()
         control_pb.version = 1
         control_pb.name = self.net_name
@@ -111,7 +111,7 @@ class Monitor(Thread):
             for c in self._clients:
                 c.send(self._prefix(data))
     
-    def broadcastControlUpdate(self, phases: List[Phase], lss: List[LoadSwitch]):
+    def broadcast_control_update(self, phases: List[Phase], lss: List[LoadSwitch]):
         if self.client_count > 0:
             control_pb = pb.ControlUpdate()
             

@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-def formatFields(a, b, c, colored=False):
+def format_fields(a, b, c, colored=False):
     r = '<r>R</r>' if colored else 'R'
     y = '<y>Y</y>' if colored else 'Y'
     g = '<g>G</g>' if colored else 'G'
@@ -24,9 +24,9 @@ def formatFields(a, b, c, colored=False):
     return first + second + third
 
 
-def buildFieldMessage(switches):
+def build_field_message(switches):
     field_text = ''
     for ls in switches:
-        ft = formatFields(ls.a, ls.b, ls.c)
+        ft = format_fields(ls.a, ls.b, ls.c)
         field_text += f'{ls.id:02d}{ft} '
     return field_text

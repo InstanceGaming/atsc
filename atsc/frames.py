@@ -56,7 +56,7 @@ class GenericFrame(abc.ABC):
         self._type = fr_type
         self._awk_type = awk_type
     
-    def getHeader(self) -> bytearray:
+    def get_header(self) -> bytearray:
         """
         Get the bytes that form the header structure.
 
@@ -65,18 +65,18 @@ class GenericFrame(abc.ABC):
         return bytearray([self._address, self._version, self._type])
     
     @abc.abstractmethod
-    def getPayload(self) -> bytearray:
+    def get_payload(self) -> bytearray:
         """
         Get the data to be included after the header in the frame.
         """
         pass
     
-    def getContent(self) -> bytearray:
+    def get_content(self) -> bytearray:
         """
         Get the bytes that form the overall frame data.
         """
-        header = self.getHeader()
-        payload = self.getPayload()
+        header = self.get_header()
+        payload = self.get_payload()
         
         if payload is not None:
             header.extend(payload)
@@ -89,7 +89,7 @@ class GenericFrame(abc.ABC):
 
         :return: Frame bytes
         """
-        return hdlc.encode(self.getContent())
+        return hdlc.encode(self.get_content())
     
     def __repr__(self):
         return f'<GenericFrame type={self._type} address={self._address} ' \
@@ -102,7 +102,7 @@ class BeaconFrame(GenericFrame):
     def __init__(self, address: int):
         super(BeaconFrame, self).__init__(address, self.VERSION, FrameType.BEACON, FrameType.AWK)
     
-    def getPayload(self):
+    def get_payload(self):
         return None
 
 
@@ -115,7 +115,7 @@ class OutputStateFrame(GenericFrame):
         self._channel_states = lss
         self._transfer = transfer
     
-    def getPayload(self):
+    def get_payload(self):
         sf = bytearray([0] * 6)
         ci = 0
         for i in range(6):
@@ -153,5 +153,5 @@ class InputStateFrame(GenericFrame):
         
         self._bitfield: bitarray = bitfield
     
-    def getPayload(self):
+    def get_payload(self):
         return self._bitfield
