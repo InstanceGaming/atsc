@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from atsc import constants
 from atsc.constants import TIME_INCREMENT
 
 
@@ -76,21 +77,21 @@ class Timer(LogicBase):
     
     @property
     def countdown(self):
-        return self.step < 0
+        return self.step < 0.0
     
     @property
     def initial(self):
-        return self.trigger if self.countdown else 0
+        return self.trigger if self.countdown else 0.0
     
     @property
     def delta(self):
         return self.initial - self.elapsed
     
-    def __init__(self, trigger, step=1):
+    def __init__(self, trigger=0.0, step=constants.TIME_INCREMENT):
         super().__init__()
         self.step = step
         self.trigger = trigger
-        self.elapsed = self.initial
+        self.elapsed: float = self.initial
     
     def reset(self):
         self.q = False

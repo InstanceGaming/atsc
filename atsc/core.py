@@ -17,7 +17,6 @@ from typing import Dict, List, Optional
 from atsc.logic import Timer, Flasher, EdgeTrigger
 from jacob.text import csl
 from collections import Counter
-from dataclasses import dataclass
 
 
 class IdentifiableBase:
@@ -39,26 +38,6 @@ class IdentifiableBase:
     
     def __lt__(self, other) -> bool:
         return self._id < other.id
-    
-    def get_tag(self):
-        return f'{type(self).__name__[:2].upper()}{self.id:02d}'
-    
-    def __repr__(self):
-        return f'<{type(self).__name__} #{self.id}>'
-
-
-@dataclass(frozen=True)
-class FrozenIdentifiableBase:
-    id: int
-    
-    def __hash__(self) -> int:
-        return self.id
-    
-    def __eq__(self, other):
-        return self.id == other.id
-    
-    def __lt__(self, other):
-        return self.id < other.id
     
     def get_tag(self):
         return f'{type(self).__name__[:2].upper()}{self.id:02d}'
@@ -98,7 +77,6 @@ class PhaseState(IntEnum):
     PCLR = 12
     WALK = 14
     MAX_GO = 32
-    MIN_SERVICE = 64
     
     def __repr__(self):
         return self.name
@@ -120,8 +98,7 @@ PHASE_TIMES_STATES = (PhaseState.RCLR,
                       PhaseState.PCLR,
                       PhaseState.WALK)
 
-PHASE_TIMED_STATES_ALL = (PhaseState.MIN_SERVICE,
-                          PhaseState.RCLR,
+PHASE_TIMED_STATES_ALL = (PhaseState.RCLR,
                           PhaseState.CAUTION,
                           PhaseState.EXTEND,
                           PhaseState.GO,
@@ -189,16 +166,15 @@ class Phase(IdentifiableBase):
     
     @property
     def interval_elapsed(self):
-        return float(self._timer.elapsed)
+        return self._timer.elapsed
     
     @property
     def service_elapsed(self):
-        return float(self._service_timer.elapsed)
+        return self._service_timer.elapsed
     
     @property
     def minimum_service(self):
-        return max(self.timing[PhaseState.MIN_SERVICE],
-                   self.timing[PhaseState.CAUTION] + self.timing[PhaseState.RCLR] + 1)
+        return self.timing[PhaseState.CAUTION] + self.timing[PhaseState.RCLR] + 1
     
     @property
     def ped_service(self):
@@ -262,8 +238,8 @@ class Phase(IdentifiableBase):
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
         self._previous_states: List[PhaseState] = []
-        self._timer = Timer(0, step=constants.TIME_INCREMENT)
-        self._service_timer = Timer(0, step=constants.TIME_INCREMENT)
+        self._timer = Timer()
+        self._service_timer = Timer()
         self._vls = veh_ls
         self._pls = ped_ls
         self._validate_timing()
@@ -521,56 +497,56 @@ class Call:
 
 
 class InputAction(IntEnum):
-    NOTHING = 0
-    CALL = 1
-    DETECT = 2
-    PREEMPTION = 3
-    TIME_FREEZE = 4
+    IGNORE = 0
+    CALL = 10
+    DETECT = 20
+    PREEMPTION = 30
+    TIME_FREEZE = 40
+    CALL_INHIBIT = 51
+    EXTEND_INHIBIT = 52
+    PED_CLEAR_INHIBIT = 53
+    TECH_FLASH = 60
+    DARK = 61
+
+
+class Input(IdentifiableBase):
     
-    PED_CLEAR_INHIBIT = 5
-    FYA_INHIBIT = 6
-    CALL_INHIBIT = 7
-    REDUCE_INHIBIT = 8
+    @property
+    def kwargs(self):
+        return self._kwargs
     
-    MODE_DARK = 9
-    MODE_NORMAL = 10
-    MODE_LS_FLASH = 11
-
-
-class InputActivation(IntEnum):
-    OFF = 0
-    LOW = 1
-    HIGH = 2
-    RISING = 3
-    FALLING = 4
-
-
-class Input:
+    @property
+    def high_elapsed(self):
+        return self._high_timer.elapsed
+    
+    @property
+    def low_elapsed(self):
+        return self._low_timer.elapsed
     
     def __init__(self,
-                 trigger: InputActivation,
+                 id_: int,
                  action: InputAction,
-                 targets: List[Phase],
-                 state: bool = False):
-        self.trigger = trigger
+                 **kwargs):
+        super().__init__(id_)
         self.action = action
-        self.targets = targets
-        self.state = state
-        self.rising = EdgeTrigger(True)
-        self.falling = EdgeTrigger(False)
+        self.signal = False
+        self._kwargs = kwargs
+        self._high_timer = Timer()
+        self._low_timer = Timer()
+        self._rising_edge = EdgeTrigger(True)
+        self._falling_edge = EdgeTrigger(False)
     
-    def activated(self) -> bool:
-        if self.trigger.RISING:
-            return self.rising.poll(self.state)
-        elif self.trigger.FALLING:
-            return self.falling.poll(self.state)
-        else:
-            if self.trigger.HIGH:
-                return self.state
-            elif self.trigger.LOW:
-                return not self.state
-        return False
+    def get(self, key, default=None):
+        return self._kwargs.get(key, default)
+    
+    def poll(self):
+        self._high_timer.poll(self.signal)
+        self._low_timer.poll(not self.signal)
+        rising = 1 if self._rising_edge.poll(self.signal) else 0
+        falling = -1 if self._falling_edge.poll(self.signal) else 0
+        
+        return rising + falling
     
     def __repr__(self):
-        return f'<Input {self.trigger.name} {self.action.name} ' \
-               f'{"ACTIVE" if self.state else "INACTIVE"}'
+        elapsed = round(self.high_elapsed if self.signal else self.low_elapsed, 1)
+        return f'<Input {self.id} {self.action.name} {self.signal} {elapsed}>'

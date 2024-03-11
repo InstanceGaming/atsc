@@ -28,7 +28,6 @@ from jacob.datetime.formatting import format_dhms
 
 
 VERSION = '2.0.1'
-PID_FILE = 'atsc.pid'
 WELCOME_MSG = f'Actuated Traffic Signal Controller v{VERSION} by Jacob Jewett'
 CONFIG_SCHEMA_CHECK = True
 CONFIG_LOGIC_CHECK = True
