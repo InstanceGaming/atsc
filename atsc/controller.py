@@ -323,23 +323,27 @@ class Controller:
                 return True
         return False
     
-    def get_available_phases(self, active: Iterable[Phase]) -> List[Phase]:
+    def get_available_phases(self, active_phases: Iterable[Phase]) -> List[Phase]:
         available = []
         
-        for phase in self.phase_pool:
+        pool = self.phase_pool
+        if self.barrier:
+            barrier_pool = self.get_barrier_phases(self.barrier)
+            pool = set(pool).intersection(barrier_pool)
+        
+        for phase in pool:
             if not phase.active:
-                if active:
-                    if phase.state in PHASE_PARTNER_INHIBIT_STATES:
-                        continue
-                    
-                    conflict = False
-                    for active_phase in active:
-                        if active_phase.id not in self.friend_matrix[phase.id]:
-                            conflict = True
-                            break
-                    
-                    if conflict:
-                        continue
+                if phase.state in PHASE_PARTNER_INHIBIT_STATES:
+                    continue
+                
+                conflict = False
+                for active_phase in active_phases:
+                    if active_phase.id not in self.friend_matrix[phase.id]:
+                        conflict = True
+                        break
+                
+                if conflict:
+                    continue
                 
                 if not self.check_phase_demand(phase):
                     continue
@@ -409,8 +413,6 @@ class Controller:
     def set_barrier(self, b: Optional[Barrier]):
         if b is not None:
             logger.debug(f'{b.get_tag()} activated')
-            if not set(self.get_barrier_phases(b)).issuperset(self.get_active_phases()):
-                raise RuntimeError('phases active not part of activated barrier')
         else:
             logger.debug(f'Free barrier')
         
@@ -422,17 +424,13 @@ class Controller:
     def reset_phase_pool(self):
         self.phase_pool = self.phases.copy()
     
-    def end_cycle(self, note: Optional[str] = None) -> None:
+    def end_cycle(self) -> None:
         """End phasing for this control cycle iteration"""
         self.reset_phase_pool()
+        self.cycle_count += 1
+        self.set_barrier(None)
         
-        active_count = len(self.get_active_phases())
-        if not active_count:
-            self.cycle_count += 1
-            self.set_barrier(None)
-        
-        note_text = post_pend(note, note)
-        logger.debug(f'Ended cycle {self.cycle_count}{note_text}')
+        logger.debug(f'Ended cycle {self.cycle_count}')
     
     def serve_phase(self,
                     phase: Phase,
@@ -573,17 +571,14 @@ class Controller:
                         if phase in self.idle_phases:
                             self.recall([phase], ped_service=True, note='idle recall')
             
-            if not active_phases:
-                if not len(self.phase_pool):
-                    self.end_cycle('complete')
-                else:
-                    available = self.get_available_phases(active_phases)
-                    if not len(available):
-                        if self.barrier:
-                            self.set_barrier(None)
-                        self.reset_phase_pool()
-            
             available = self.get_available_phases(active_phases)
+            
+            if not len(active_phases):
+                if not len(self.phase_pool):
+                    self.end_cycle()
+                elif not len(available):
+                    self.set_barrier(None)
+            
             now_serving = []
             for call in self.calls:
                 for phase in call.phases:
@@ -613,12 +608,17 @@ class Controller:
                                                  extend_inhibit=True)
                                 now_serving.append(partner)
                                 active_phases = self.get_active_phases()
+                                available = self.get_available_phases(active_phases)
                             else:
                                 logger.verbose('Could not run {} with {} ({} < {})',
                                                partner.get_tag(),
                                                phase.get_tag(),
                                                go_override,
                                                partner.minimum_service)
+            
+            if self.barrier:
+                if not set(self.get_barrier_phases(self.barrier)).issuperset(active_phases):
+                    raise RuntimeError('phases active not part of active barrier')
             
             for phase in now_serving:
                 for call in self.calls:
