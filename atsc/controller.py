@@ -18,7 +18,7 @@ from itertools import chain
 from atsc.core import *
 from atsc import logic, network, constants, serialbus
 from loguru import logger
-from typing import Iterable
+from typing import Iterable, Set
 from bitarray import bitarray
 from atsc.utils import build_field_message
 from jacob.text import post_pend
@@ -73,6 +73,7 @@ class Controller:
         # inputs data structure instances
         self.input_bitfield = bitarray()
         self.inputs: Dict[int, Input] = self.get_inputs(config.get('inputs'))
+        self.phase_inputs: Dict[Phase, Set[Input]] = self.get_phase_inputs()
         
         # communications
         self.bus: Optional[serialbus.Bus] = self.get_bus(config['bus'])
@@ -242,6 +243,15 @@ class Controller:
                 inputs.update({id_: Input(id_, action, **node)})
         
         return inputs
+    
+    def get_phase_inputs(self) -> Dict[Phase, Set[Input]]:
+        mapping = defaultdict(set)
+        
+        for input_ in self.inputs.values():
+            for phase in self.get_phases_by_id(input_.get('targets')):
+                mapping[phase].add(input_)
+        
+        return mapping
     
     def get_idle_phases(self, items: List[int]) -> List[Phase]:
         phases = []
@@ -484,14 +494,10 @@ class Controller:
                     if input_.action in (InputAction.CALL, InputAction.DETECT):
                         targets = input_.get('targets')
                         phases = self.get_phases_by_id(targets)
-                        active = self.get_active_phases()
-                        called = self.get_called_phases()
-                        for phase in phases:
-                            if input_.action == InputAction.DETECT and phase in active:
-                                self.detect([phase], note=f'input {input_.id}')
-                            else:
-                                if phase in called:
-                                    self.recall([phase], note=f'input {input_.id}')
+                        if input_.action == InputAction.DETECT:
+                            self.detect(phases, note=f'input {input_.id}')
+                        else:
+                            self.recall(phases, note=f'input {input_.id}')
                 case -1:
                     logger.verbose('Input {} falling (was high for {})',
                                    input_.id,
@@ -499,11 +505,9 @@ class Controller:
                     if input_.action in (InputAction.CALL, InputAction.DETECT):
                         targets = input_.get('targets')
                         phases = self.get_phases_by_id(targets)
-                        active = self.get_active_phases()
                         for phase in phases:
-                            if phase not in active:
-                                logger.debug('Removing phase {} from calls', phase.get_tag())
-                                self.remove_phase_call(phase)
+                            logger.debug('Removing phase {} from calls', phase.get_tag())
+                            self.remove_phase_call(phase)
     
     def poll_bus(self):
         frame = self.bus.get()
@@ -570,6 +574,13 @@ class Controller:
                         logger.debug('{} terminated', phase.get_tag())
                         if phase in self.idle_phases:
                             self.recall([phase], ped_service=True, note='idle recall')
+                        inputs = self.phase_inputs[phase]
+                        for input_ in inputs:
+                            if input_.signal:
+                                if input_.action == InputAction.DETECT:
+                                    self.detect([phase], note=f'input {input_.id}')
+                                else:
+                                    self.recall([phase], note=f'input {input_.id}')
             
             available = self.get_available_phases(active_phases)
             
@@ -577,6 +588,7 @@ class Controller:
                 if not len(self.phase_pool):
                     self.end_cycle()
                 elif not len(available):
+                    self.reset_phase_pool()
                     self.set_barrier(None)
             
             now_serving = []
@@ -608,7 +620,6 @@ class Controller:
                                                  extend_inhibit=True)
                                 now_serving.append(partner)
                                 active_phases = self.get_active_phases()
-                                available = self.get_available_phases(active_phases)
                             else:
                                 logger.verbose('Could not run {} with {} ({} < {})',
                                                partner.get_tag(),

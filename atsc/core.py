@@ -111,9 +111,7 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.PCLR,
                    PhaseState.WALK)
 
-PHASE_SYNC_STATES = (PhaseState.GO,
-                     PhaseState.PCLR,
-                     PhaseState.WALK)
+PHASE_SYNC_STATES = [PhaseState.GO]
 
 PHASE_SUPPLEMENT_STATES = (PhaseState.GO, PhaseState.WALK, PhaseState.PCLR)
 
@@ -305,7 +303,6 @@ class Phase(IdentifiableBase):
             else:
                 break
         
-        # I don't know why it's SOMETIMES 1 off...
         estimate = round(setpoints - self.interval_elapsed) - 1.0
         return estimate
     
