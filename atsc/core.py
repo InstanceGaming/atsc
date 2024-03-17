@@ -176,6 +176,10 @@ class Phase(IdentifiableBase):
     def ped_service(self):
         return self._ped_service
     
+    @ped_service.setter
+    def ped_service(self, value):
+        self._ped_service_request = value
+    
     @property
     def go_override(self):
         return self._go_override
@@ -229,6 +233,7 @@ class Phase(IdentifiableBase):
         self.extend_inhibit = False
         
         self._ped_service = False
+        self._ped_service_request = False
         self._go_override: Optional[float] = None
         self._resting = False
         self._flash_mode = flash_mode
@@ -312,16 +317,16 @@ class Phase(IdentifiableBase):
         if self.extend_active:
             self._timer.reset()
     
-    def activate(self, ped_service: bool):
+    def activate(self):
         state = None
         
         if self.active:
             if self.state in PHASE_RIGID_STATES:
                 raise RuntimeError('Cannot activate active phase during rigidly-timed interval')
             
-            state = self.get_recycle_state(ped_service)
+            state = self.get_recycle_state(self.ped_service)
         
-        changed = self.change(state=state, ped_service=ped_service)
+        changed = self.change(state=state)
         assert changed
     
     def update_field(self):
@@ -367,10 +372,12 @@ class Phase(IdentifiableBase):
     
     def change(self,
                state: Optional[PhaseState] = None,
-               ped_service: bool = False,
                expedite: bool = False) -> bool:
-        next_state = state if state is not None else self.get_next_state(ped_service,
-                                                                         expedite)
+        
+        if self._state not in PHASE_GO_STATES:
+            self._ped_service = self._ped_service_request
+        
+        next_state = state if state is not None else self.get_next_state(self.ped_service, expedite)
         if next_state != self._state:
             self._resting = False
             self._timer.reset()
@@ -395,7 +402,6 @@ class Phase(IdentifiableBase):
             if len(self._previous_states) > len(PHASE_TIMES_STATES) - 1:
                 self._previous_states.pop()
             
-            self._ped_service = ped_service
             self._state = next_state
             self.setpoint = setpoint
             return True

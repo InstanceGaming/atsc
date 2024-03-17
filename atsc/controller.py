@@ -469,9 +469,10 @@ class Controller:
         except ValueError:
             pass
         
+        phase.ped_service = ped_service
         phase.go_override = go_override
         phase.extend_inhibit = extend_inhibit
-        phase.activate(ped_service)
+        phase.activate()
     
     def get_called_phases(self):
         return chain([call.phases for call in self.calls])
