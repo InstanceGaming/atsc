@@ -508,9 +508,13 @@ class Controller:
                         targets = input_.get('targets')
                         phases = self.get_phases_by_id(targets)
                         if input_.action == InputAction.DETECT:
-                            self.detect(phases, note=f'input {input_.id}')
+                            self.detect(phases,
+                                        ped_service=True,
+                                        note=f'input {input_.id}')
                         else:
-                            self.recall(phases, note=f'input {input_.id}')
+                            self.recall(phases,
+                                        ped_service=True,
+                                        note=f'input {input_.id}')
                 case -1:
                     logger.verbose('Input {} falling (was high for {})',
                                    input_.id,
