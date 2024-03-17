@@ -401,10 +401,13 @@ class Controller:
         return self.get_phases_by_id(self.friend_matrix[phase.id])
     
     def select_phase_partner(self, phase: Phase, pool: Optional[Iterable[Phase]] = None) -> Optional[Phase]:
-        partners = [phase for phase in self.get_phase_partners(phase) if phase in pool]
+        partners = self.get_phase_partners(phase)
         
         for candidate in sorted(partners, key=lambda c: c.interval_elapsed, reverse=True):
             if candidate.active:
+                continue
+            
+            if pool and candidate not in pool:
                 continue
             
             return candidate
