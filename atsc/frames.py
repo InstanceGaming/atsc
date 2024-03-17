@@ -142,8 +142,8 @@ class InputStateFrame(GenericFrame):
     def bitfield(self):
         return self._bitfield
     
-    def __init__(self, address: int, bf: Union[bitarray, bytearray]):
-        if isinstance(bf, bytearray):
+    def __init__(self, address: int, bf: Union[bitarray, bytearray, bytes]):
+        if isinstance(bf, (bytearray, bytes)):
             bitfield = bitarray()
             bitfield.frombytes(bytes(bf))
         else:

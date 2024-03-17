@@ -32,7 +32,7 @@
     "enabled": true
   },
   "idling": {
-    "phases": [6, 2]
+    "phases": []
   },
   "default-timing": {
     "rclr": 1.0,
@@ -58,8 +58,8 @@
     {
       "id": 2,
       "timing": {
-        "go": 40.0,
-        "max-go": 60.0,
+        "go": 36.0,
+        "max-go": 56.0,
         "extend": 20.0,
         "pclr": 16.0,
         "walk": 3.0
@@ -103,8 +103,8 @@
     {
       "id": 6,
       "timing": {
-        "go": 40.0,
-        "max-go": 60.0,
+        "go": 36.0,
+        "max-go": 56.0,
         "extend": 20.0,
         "pclr": 16.0,
         "walk": 3.0

@@ -298,7 +298,7 @@ class Phase(IdentifiableBase):
         
         setpoints = 0.0
         for state in PHASE_SERVICE_STATES:
-            if self.state >= state.value:
+            if self.state.value >= state.value:
                 setpoints += self.get_setpoint(state)
             else:
                 break

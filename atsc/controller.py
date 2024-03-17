@@ -304,8 +304,6 @@ class Controller:
     def place_all_call(self):
         """Place calls on all phases"""
         self.recall(self.phases, ped_service=True, note='all call')
-        if self.idle_phases:
-            self.recall(self.idle_phases, ped_service=True, note='idle phases')
     
     def detect(self, phases: List[Phase], ped_service: bool = False, note: Optional[str] = None):
         note_text = post_pend(note, note)
@@ -379,6 +377,9 @@ class Controller:
             if self.recall_all:
                 self.place_all_call()
             
+            if self.idle_phases:
+                self.recall(self.idle_phases, ped_service=True, note='idle phases')
+        
         previous_state = self.mode
         self.mode = new_state
         logger.info(f'Operation state is now {new_state.name} (was {previous_state.name})')
@@ -400,16 +401,20 @@ class Controller:
         return self.get_phases_by_id(self.friend_matrix[phase.id])
     
     def select_phase_partner(self, phase: Phase, pool: Optional[Iterable[Phase]] = None) -> Optional[Phase]:
-        candidates = [partner for partner in self.get_phase_partners(phase) if not partner.active]
+        partners = [phase for phase in self.get_phase_partners(phase) if phase in pool]
         
-        for candidate in sorted(candidates, key=lambda c: c.interval_elapsed, reverse=True):
-            if pool and candidate not in pool:
+        for candidate in sorted(partners, key=lambda c: c.interval_elapsed, reverse=True):
+            if candidate.active:
                 continue
+            
             return candidate
         return None
     
     def check_phase_conflict(self, a: Phase, b: Phase) -> bool:
         """Check weather phase B conflicts with phase A."""
+        if a.id == b.id:
+            return False
+        
         return b.id not in self.friend_matrix[a.id]
     
     def check_conflicting_demand(self, phase: Phase) -> bool:
@@ -424,7 +429,7 @@ class Controller:
         if b is not None:
             logger.debug(f'{b.get_tag()} activated')
         else:
-            logger.debug(f'Free barrier')
+            logger.verbose(f'Free barrier')
         
         self.barrier = b
     
@@ -477,15 +482,20 @@ class Controller:
                 pass
         return False
     
+    def get_next_phases(self) -> List[Phase]:
+        next_phases = []
+        
+        if len(self.calls):
+            return self.calls[0].phases
+        
+        return next_phases
+    
     def poll_inputs(self):
         """Process the bus input bitfield"""
         input_: Input
         for bit_value, input_ in zip(self.input_bitfield, self.inputs.values()):
-            if input_.action != InputAction.IGNORE:
-                input_.signal = bool(bit_value)
-        
-        for input_ in self.inputs.values():
             status = input_.poll()
+            
             match status:
                 case 1:
                     logger.verbose('Input {} rising (was low for {})',
@@ -508,14 +518,19 @@ class Controller:
                         for phase in phases:
                             logger.debug('Removing phase {} from calls', phase.get_tag())
                             self.remove_phase_call(phase)
-    
+                        
+            if input_.action != InputAction.IGNORE:
+                input_.signal = bool(bit_value)
+        
     def poll_bus(self):
         frame = self.bus.get()
         
         if frame is not None:
             match frame.type:
                 case FrameType.INPUTS:
-                    self.input_bitfield.frombytes(frame.payload)
+                    bf = bitarray()
+                    bf.frombytes(frame.payload)
+                    self.input_bitfield = bf
     
     def tick(self):
         """Polled once every 100ms"""
@@ -548,28 +563,34 @@ class Controller:
             concurrent_phases = len(self.rings)
             active_phases = self.get_active_phases()
             
+            available = self.get_available_phases(active_phases)
             for phase in self.phases:
                 rest_inhibit = self.check_conflicting_demand(phase)
                 idle_phase = self.idle_phases and phase in self.idle_phases
+                supress_maximum = idle_phase or (not self.idle_phases and not rest_inhibit)
                 
                 if len(active_phases) and self.barrier:
                     # if there are still phases left to run in the current barrier
                     phase_pool = set(self.phase_pool).intersection(self.get_barrier_phases(self.barrier))
                     if phase_pool:
                         partners = self.get_phase_partners(phase)
-                        for active_phase in active_phases:
-                            if active_phase.state in PHASE_SYNC_STATES and active_phase in partners:
-                                if active_phase in self.idle_phases and not active_phase.resting:
-                                    if not phase.extend_enabled:
-                                        active_phase.extend_inhibit = True
-                                    rest_inhibit = False
-                                    break
+                        for partner in partners:
+                            if partner.state in PHASE_SYNC_STATES and not partner.resting:
+                                partner.extend_inhibit = not phase.extend_enabled
+                                rest_inhibit = False
+                                break
                 
-                if (len(active_phases) < concurrent_phases and phase.state == PhaseState.GO
-                        and PhaseState.STOP not in phase.previous_states):
+                last_state = phase.previous_states[0] if phase.previous_states else None
+                if (len(active_phases) < concurrent_phases and
+                        phase.state == PhaseState.GO and
+                        last_state != PhaseState.STOP):
                     phase.change(state=PhaseState.CAUTION)
                 
-                if phase.tick(rest_inhibit, idle_phase):
+                if available and phase in available[:concurrent_phases]:
+                    rest_inhibit = False
+                    supress_maximum = True
+                
+                if phase.tick(rest_inhibit, supress_maximum):
                     if not phase.active:
                         logger.debug('{} terminated', phase.get_tag())
                         if phase in self.idle_phases:
@@ -583,13 +604,13 @@ class Controller:
                                     self.recall([phase], note=f'input {input_.id}')
             
             available = self.get_available_phases(active_phases)
-            
             if not len(active_phases):
                 if not len(self.phase_pool):
                     self.end_cycle()
                 elif not len(available):
                     self.reset_phase_pool()
                     self.set_barrier(None)
+                    available = self.get_available_phases(active_phases)
             
             now_serving = []
             for call in self.calls:
@@ -615,17 +636,18 @@ class Controller:
                                              phase.get_tag(),
                                              go_override)
                                 self.serve_phase(partner,
-                                                 False,
+                                                 phase.ped_service,
                                                  go_override=go_override,
                                                  extend_inhibit=True)
-                                now_serving.append(partner)
-                                active_phases = self.get_active_phases()
                             else:
                                 logger.verbose('Could not run {} with {} ({} < {})',
                                                partner.get_tag(),
                                                phase.get_tag(),
                                                go_override,
                                                partner.minimum_service)
+                        
+                        now_serving.append(partner)
+                        active_phases = self.get_active_phases()
             
             if self.barrier:
                 if not set(self.get_barrier_phases(self.barrier)).issuperset(active_phases):
