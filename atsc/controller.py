@@ -570,7 +570,6 @@ class Controller:
             concurrent_phases = len(self.rings)
             active_phases = self.get_active_phases()
             
-            available = self.get_available_phases(active_phases)
             for phase in self.phases:
                 rest_inhibit = self.check_conflicting_demand(phase)
                 idle_phase = self.idle_phases and phase in self.idle_phases
@@ -592,10 +591,6 @@ class Controller:
                         phase.state == PhaseState.GO and
                         last_state != PhaseState.STOP):
                     phase.change(state=PhaseState.CAUTION)
-                
-                if available and phase in available[:concurrent_phases]:
-                    rest_inhibit = False
-                    supress_maximum = True
                 
                 if phase.tick(rest_inhibit, supress_maximum):
                     if not phase.active:
