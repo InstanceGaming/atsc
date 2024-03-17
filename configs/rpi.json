@@ -166,42 +166,42 @@
   "inputs": [
     {
       "id": 10,
-      "action": "call",
+      "action": "detect",
       "targets": [1]
     },
     {
       "id": 20,
-      "action": "call",
+      "action": "detect",
       "targets": [2]
     },
     {
       "id": 30,
-      "action": "call",
+      "action": "detect",
       "targets": [3]
     },
     {
       "id": 40,
-      "action": "call",
+      "action": "detect",
       "targets": [4]
     },
     {
       "id": 50,
-      "action": "call",
+      "action": "detect",
       "targets": [5]
     },
     {
       "id": 60,
-      "action": "call",
+      "action": "detect",
       "targets": [6]
     },
     {
       "id": 70,
-      "action": "call",
+      "action": "detect",
       "targets": [7]
     },
     {
       "id": 80,
-      "action": "call",
+      "action": "detect",
       "targets": [8]
     }
   ]
