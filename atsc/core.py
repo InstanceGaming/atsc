@@ -235,6 +235,7 @@ class Phase(IdentifiableBase):
         self._state: PhaseState = PhaseState.STOP
         self._previous_states: List[PhaseState] = []
         self._timer = Timer()
+        self._go_timer = Timer()
         self._gap_timer = Timer()
         self._vls = veh_ls
         self._pls = ped_ls
@@ -379,6 +380,7 @@ class Phase(IdentifiableBase):
                 self.go_override = None
             
             if next_state in (PhaseState.GO, PhaseState.WALK):
+                self._go_timer.reset()
                 self._gap_timer.reset()
                 if next_state == PhaseState.WALK:
                     self.stats['ped_service'] += 1
@@ -419,12 +421,15 @@ class Phase(IdentifiableBase):
             if self.extend_active:
                 self.setpoint -= constants.TIME_INCREMENT
         
-        if self._state in PHASE_GO_STATES:
-            if self.interval_elapsed > self.timing[PhaseState.MAX_GO]:
+        go_state = self._state in PHASE_GO_STATES
+        if go_state:
+            if self._go_timer.elapsed > self.timing[PhaseState.MAX_GO]:
                 if not supress_maximum or rest_inhibit:
                     changed = self.change(expedite=True)
                 else:
                     self._resting = True
+        
+        self._go_timer.poll(go_state)
         
         if self.extend_active and not self.extend_enabled:
             self.change()

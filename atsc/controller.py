@@ -602,9 +602,13 @@ class Controller:
                         for input_ in inputs:
                             if input_.signal:
                                 if input_.action == InputAction.DETECT:
-                                    self.detect([phase], note=f'input {input_.id}')
+                                    self.detect([phase],
+                                                ped_service=phase.ped_service,
+                                                note=f'input {input_.id}')
                                 else:
-                                    self.recall([phase], note=f'input {input_.id}')
+                                    self.recall([phase],
+                                                ped_service=phase.ped_service,
+                                                note=f'input {input_.id}')
             
             available = self.get_available_phases(active_phases)
             if not len(active_phases):

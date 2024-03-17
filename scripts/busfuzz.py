@@ -20,7 +20,7 @@ def run():
     
     time.sleep(5.0)
     bytefield = bytearray(5)
-    
+    max_delay = 5
     try:
         while True:
             for i in range(5):
@@ -31,7 +31,7 @@ def run():
             frame = InputStateFrame(DeviceAddress.CONTROLLER, bytefield)
             bus.send_frame(frame)
             
-            delay = rng.randrange(1, 80)
+            delay = rng.randrange(1, max_delay)
             time.sleep(delay)
     except KeyboardInterrupt:
         bus.shutdown()
