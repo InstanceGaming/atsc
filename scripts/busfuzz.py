@@ -31,7 +31,7 @@ def run():
             frame = InputStateFrame(DeviceAddress.CONTROLLER, bytefield)
             bus.send_frame(frame)
             
-            delay = rng.randrange(1, 10)
+            delay = rng.randrange(1, 80)
             time.sleep(delay)
     except KeyboardInterrupt:
         bus.shutdown()

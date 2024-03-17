@@ -420,8 +420,8 @@ class Controller:
         
         return b.id not in self.friend_matrix[a.id]
     
-    def check_conflicting_demand(self, phase: Phase) -> bool:
-        for other_phase in self.phases:
+    def check_conflicting_demand(self, phase: Phase, pool: Iterable[Phase] = None) -> bool:
+        for other_phase in pool or self.phases:
             if other_phase == phase:
                 pass
             if self.check_phase_demand(other_phase) and self.check_phase_conflict(phase, other_phase):
@@ -582,9 +582,10 @@ class Controller:
                         partners = self.get_phase_partners(phase)
                         for partner in partners:
                             if partner.state in PHASE_SYNC_STATES and not partner.resting:
-                                partner.extend_inhibit = not phase.extend_enabled
-                                rest_inhibit = False
-                                break
+                                if not self.check_conflicting_demand(partner, partners):
+                                    partner.extend_inhibit = not phase.extend_enabled
+                                    rest_inhibit = False
+                                    break
                 
                 last_state = phase.previous_states[0] if phase.previous_states else None
                 if (len(active_phases) < concurrent_phases and
