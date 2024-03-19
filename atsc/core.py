@@ -170,7 +170,7 @@ class Phase(IdentifiableBase):
     
     @property
     def minimum_service(self):
-        return self.timing[PhaseState.CAUTION] + self.timing[PhaseState.RCLR] + 1
+        return self.timing[PhaseState.CAUTION] + self.timing[PhaseState.RCLR] + 1.0
     
     @property
     def ped_service(self):
@@ -230,7 +230,9 @@ class Phase(IdentifiableBase):
             'ped_service'    : 0
         })
         self.timing = timing
+        self.supress_maximum = False
         self.extend_inhibit = False
+        self.rest_inhibit = False
         
         self._ped_service = False
         self._ped_service_request = False
@@ -373,7 +375,6 @@ class Phase(IdentifiableBase):
     def change(self,
                state: Optional[PhaseState] = None,
                expedite: bool = False) -> bool:
-        
         if self._state not in PHASE_GO_STATES:
             self._ped_service = self._ped_service_request
         
@@ -408,7 +409,7 @@ class Phase(IdentifiableBase):
         else:
             return False
     
-    def tick(self, rest_inhibit: bool, supress_maximum: bool) -> bool:
+    def tick(self) -> bool:
         self.flasher.poll(self._state == PhaseState.PCLR)
         self.update_field()
         
@@ -416,7 +417,7 @@ class Phase(IdentifiableBase):
         
         if self._timer.poll(True):
             if self.active:
-                if (self._state in PHASE_RIGID_STATES) or rest_inhibit:
+                if (self._state in PHASE_RIGID_STATES) or self.rest_inhibit:
                     if self._state == PhaseState.WALK:
                         walk_time = self.timing[PhaseState.WALK]
                         self.extend_inhibit = self.interval_elapsed - walk_time > self.default_extend
@@ -430,10 +431,11 @@ class Phase(IdentifiableBase):
         go_state = self._state in PHASE_GO_STATES
         if go_state:
             if self._go_timer.elapsed > self.timing[PhaseState.MAX_GO]:
-                if not supress_maximum or rest_inhibit:
-                    changed = self.change(expedite=True)
-                else:
-                    self._resting = True
+                if self._state not in PHASE_RIGID_STATES:
+                    if not self.supress_maximum or self.rest_inhibit:
+                        changed = self.change(expedite=True)
+                    else:
+                        self._resting = True
         
         self._go_timer.poll(go_state)
         

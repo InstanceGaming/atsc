@@ -36,9 +36,9 @@
   },
   "default-timing": {
     "rclr": 1.0,
-    "go": 23.0,
-    "max-go": 36.0,
-    "caution": 4.0,
+    "go": 25.0,
+    "max-go": 38.0,
+    "caution": 6.0,
     "extend": 8.0,
     "pclr": 10.0,
     "walk": 3.0
@@ -58,8 +58,8 @@
     {
       "id": 2,
       "timing": {
-        "go": 36.0,
-        "max-go": 56.0,
+        "go": 38.0,
+        "max-go": 58.0,
         "extend": 20.0,
         "pclr": 16.0,
         "walk": 3.0
@@ -103,8 +103,8 @@
     {
       "id": 6,
       "timing": {
-        "go": 36.0,
-        "max-go": 56.0,
+        "go": 38.0,
+        "max-go": 58.0,
         "extend": 20.0,
         "pclr": 16.0,
         "walk": 3.0
