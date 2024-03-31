@@ -1,6 +1,11 @@
-env/
-**/__pycache__/
+/env
+/venv
+/data
+/dist
+__pycache__/
+*secret*
+*.db
 *.zip
-picp.bat
-profiling/
-/scripts/serialbridge.py
+*.7z
+*.egg-info
+*.wheel

@@ -36,10 +36,10 @@
   },
   "default-timing": {
     "rclr": 1.0,
-    "go": 25.0,
-    "max-go": 38.0,
+    "go": 20.0,
+    "max-go": 40.0,
     "caution": 6.0,
-    "extend": 8.0,
+    "extend": 10.0,
     "pclr": 10.0,
     "walk": 3.0
   },
@@ -166,42 +166,50 @@
   "inputs": [
     {
       "id": 10,
-      "action": "detect",
+      "action": "recall",
+      "recall-type": "maintain",
       "targets": [1]
     },
     {
       "id": 20,
-      "action": "detect",
+      "action": "recall",
+      "recall-type": "maintain",
       "targets": [2]
     },
     {
       "id": 30,
-      "action": "detect",
+      "action": "recall",
+      "recall-type": "maintain",
       "targets": [3]
     },
     {
       "id": 40,
-      "action": "detect",
+      "action": "recall",
+      "recall-type": "maintain",
       "targets": [4]
     },
     {
       "id": 50,
-      "action": "detect",
+      "action": "recall",
+      "recall-type": "maintain",
       "targets": [5]
     },
     {
       "id": 60,
-      "action": "detect",
+      "action": "recall",
+      "recall-type": "maintain",
       "targets": [6]
     },
     {
       "id": 70,
-      "action": "detect",
+      "action": "recall",
+      "recall-type": "maintain",
       "targets": [7]
     },
     {
       "id": 80,
-      "action": "detect",
+      "action": "recall",
+      "recall-type": "maintain",
       "targets": [8]
     }
   ]

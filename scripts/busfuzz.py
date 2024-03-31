@@ -20,7 +20,7 @@ def run():
     
     time.sleep(5.0)
     bytefield = bytearray(5)
-    max_delay = 60
+    max_delay = 10
     try:
         while True:
             for i in range(5):

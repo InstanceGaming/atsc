@@ -274,15 +274,22 @@
             "type": "string",
             "enum": [
               "ignore",
-              "call",
-              "detect",
+              "recall",
               "preemption",
               "time-freeze",
+              "tech-flash",
               "call-inhibit",
               "extend-inhibit",
               "ped-clear-inhibit",
-              "tech-flash",
-              "dark"
+              "dark",
+              "random-recall-inhibit"
+            ]
+          },
+          "recall-type": {
+            "type": "string",
+            "enum": [
+              "maintain",
+              "latch"
             ]
           },
           "targets": {
@@ -294,6 +301,20 @@
               "uniqueItems": true
             }
           }
+        },
+        "if": {
+          "properties": {
+            "action": {
+              "const": "recall"
+            }
+          },
+          "required": [
+            "targets",
+            "recall-type"
+          ]
+        },
+        "then": {
+          "required": []
         }
       }
     }

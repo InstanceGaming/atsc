@@ -248,8 +248,9 @@ class Controller:
         mapping = defaultdict(set)
         
         for input_ in self.inputs.values():
-            for phase in self.get_phases_by_id(input_.get('targets')):
-                mapping[phase].add(input_)
+            if input_.action == InputAction.RECALL:
+                for phase in self.get_phases_by_id(input_.targets):
+                    mapping[phase].add(input_)
         
         return mapping
     
@@ -341,7 +342,7 @@ class Controller:
         
         for phase in pool:
             if not phase.active:
-                if phase.state in PHASE_PARTNER_INHIBIT_STATES:
+                if phase.state in (PhaseState.CAUTION, PhaseState.EXTEND):
                     continue
                 
                 conflict = False
@@ -453,7 +454,7 @@ class Controller:
     def serve_phase(self,
                     phase: Phase,
                     ped_service: bool,
-                    go_override: Optional[float] = None,
+                    go_override: float = 0.0,
                     extend_inhibit: bool = False):
         logger.debug(f'Serving phase {phase.get_tag()}')
         
@@ -502,30 +503,24 @@ class Controller:
             
             match status:
                 case 1:
-                    logger.verbose('Input {} rising (was low for {})',
+                    logger.verbose('Input {} rising (was low for {}s)',
                                    input_.id,
-                                   input_.low_elapsed)
-                    if input_.action in (InputAction.CALL, InputAction.DETECT):
-                        targets = input_.get('targets')
-                        phases = self.get_phases_by_id(targets)
-                        if input_.action == InputAction.DETECT:
-                            self.detect(phases,
-                                        ped_service=True,
-                                        note=f'input {input_.id}')
-                        else:
-                            self.recall(phases,
-                                        ped_service=True,
-                                        note=f'input {input_.id}')
+                                   round(input_.low_elapsed, 1))
+                    if input_.action == InputAction.RECALL:
+                        phases = self.get_phases_by_id(input_.targets)
+                        self.detect(phases,
+                                    ped_service=True,
+                                    note=f'input {input_.id}')
                 case -1:
-                    logger.verbose('Input {} falling (was high for {})',
+                    logger.verbose('Input {} falling (was high for {}s)',
                                    input_.id,
-                                   input_.high_elapsed)
-                    if input_.action in (InputAction.CALL, InputAction.DETECT):
-                        targets = input_.get('targets')
-                        phases = self.get_phases_by_id(targets)
-                        for phase in phases:
-                            logger.debug('Removing phase {} from calls', phase.get_tag())
-                            self.remove_phase_call(phase)
+                                   round(input_.high_elapsed, 1))
+                    if input_.action == InputAction.RECALL:
+                        if input_.recall_type == RecallType.MAINTAIN:
+                            phases = self.get_phases_by_id(input_.targets)
+                            for phase in phases:
+                                logger.debug('Removing phase {} from calls', phase.get_tag())
+                                self.remove_phase_call(phase)
                         
             if input_.action != InputAction.IGNORE:
                 input_.signal = bool(bit_value)
@@ -577,14 +572,9 @@ class Controller:
                         inputs = self.phase_inputs[phase]
                         for input_ in inputs:
                             if input_.signal:
-                                if input_.action == InputAction.DETECT:
-                                    self.detect([phase],
-                                                ped_service=phase.ped_service,
-                                                note=f'input {input_.id}')
-                                else:
-                                    self.recall([phase],
-                                                ped_service=phase.ped_service,
-                                                note=f'input {input_.id}')
+                                self.recall([phase],
+                                            ped_service=phase.ped_service,
+                                            note=f'input {input_.id}')
             
             concurrent_phases = len(self.rings)
             active_phases = self.get_active_phases()
@@ -597,14 +587,13 @@ class Controller:
                     phase.change(state=PhaseState.CAUTION)
                 
                 rest_inhibit = self.check_conflicting_demand(phase)
-                
                 if len(active_phases) and self.barrier:
                     # if there are still phases left to run in the current barrier
                     phase_pool = set(self.phase_pool).intersection(self.get_barrier_phases(self.barrier))
                     if phase_pool:
                         partners = self.get_phase_partners(phase)
                         for partner in partners:
-                            if partner.state in PHASE_SYNC_STATES and not partner.resting:
+                            if partner.state == PhaseState.GO and not partner.resting:
                                 if not self.check_conflicting_demand(partner, partners):
                                     partner.extend_inhibit = not phase.extend_enabled
                                     rest_inhibit = False
@@ -635,30 +624,30 @@ class Controller:
                         active_phases = self.get_active_phases()
                         available = self.get_available_phases(active_phases)
             
-            # for phase in active_phases:
-            #     if 0 < len(active_phases) < concurrent_phases:
-            #         if phase.state in PHASE_SUPPLEMENT_STATES:
-            #             partner = self.select_phase_partner(phase, self.phase_pool)
-            #             if partner is not None:
-            #                 go_override = phase.estimate_remaining()
-            #                 if go_override > partner.minimum_service:
-            #                     logger.debug('Running {} with {} (modified service {})',
-            #                                  partner.get_tag(),
-            #                                  phase.get_tag(),
-            #                                  go_override)
-            #                     self.serve_phase(partner,
-            #                                      phase.ped_service,
-            #                                      go_override=go_override,
-            #                                      extend_inhibit=True)
-            #                 else:
-            #                     logger.verbose('Could not run {} with {} ({} < {})',
-            #                                    partner.get_tag(),
-            #                                    phase.get_tag(),
-            #                                    go_override,
-            #                                    partner.minimum_service)
-            #
-            #             now_serving.append(partner)
-            #             active_phases = self.get_active_phases()
+            for phase in active_phases:
+                if 0 < len(active_phases) < concurrent_phases:
+                    if phase.state in (PhaseState.GO, PhaseState.WALK, PhaseState.PCLR):
+                        partner = self.select_phase_partner(phase)
+                        if partner is not None:
+                            go_override = phase.estimate_remaining()
+                            if go_override and go_override >= partner.minimum_service:
+                                logger.debug('Running {} with {} (modified service {})',
+                                             partner.get_tag(),
+                                             phase.get_tag(),
+                                             go_override)
+                                self.serve_phase(partner,
+                                                 phase.ped_service,
+                                                 go_override=go_override,
+                                                 extend_inhibit=True)
+                            else:
+                                logger.verbose('Could not run {} with {} ({} < {})',
+                                               partner.get_tag(),
+                                               phase.get_tag(),
+                                               go_override,
+                                               partner.minimum_service)
+
+                        now_serving.append(partner)
+                        active_phases = self.get_active_phases()
             
             if self.barrier:
                 if not set(self.get_barrier_phases(self.barrier)).issuperset(active_phases):

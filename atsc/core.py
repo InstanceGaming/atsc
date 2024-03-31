@@ -11,6 +11,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from jacob.enumerations import text_to_enum
+
 from atsc import constants
 from enum import IntEnum
 from typing import Dict, List, Optional
@@ -84,13 +86,6 @@ class PhaseState(IntEnum):
 
 PHASE_RIGID_STATES = (PhaseState.RCLR, PhaseState.CAUTION, PhaseState.PCLR)
 
-PHASE_SERVICE_STATES = (PhaseState.RCLR,
-                        PhaseState.CAUTION,
-                        PhaseState.EXTEND,
-                        PhaseState.GO,
-                        PhaseState.PCLR,
-                        PhaseState.WALK)
-
 PHASE_TIMES_STATES = (PhaseState.RCLR,
                       PhaseState.CAUTION,
                       PhaseState.EXTEND,
@@ -111,13 +106,55 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.PCLR,
                    PhaseState.WALK)
 
-PHASE_SYNC_STATES = [PhaseState.GO]
 
-PHASE_SUPPLEMENT_STATES = (PhaseState.GO, PhaseState.WALK, PhaseState.PCLR)
-
-PHASE_PARTNER_INHIBIT_STATES = (PhaseState.CAUTION, PhaseState.EXTEND)
-
-PHASE_RECYCLE_STATES = (PhaseState.WALK, PhaseState.GO, PhaseState.EXTEND)
+def validate_phase_timing(timing: Dict[PhaseState, float],
+                          primary: bool):
+    if not isinstance(timing, dict):
+        raise TypeError()
+    
+    if len(timing) != len(PHASE_TIMED_STATES_ALL):
+        raise RuntimeError('Timing map mismatched size')
+    
+    for state, time in timing.items():
+        if not isinstance(state, PhaseState):
+            raise TypeError()
+        if not isinstance(time, float):
+            raise TypeError()
+        if time < 0.0:
+            raise ValueError('state time must be non-negative')
+    
+    if timing.get(PhaseState.STOP):
+        raise ValueError('stop state cannot have specified time')
+    
+    go = timing.get(PhaseState.GO, 0.0)
+    max_go = timing.get(PhaseState.MAX_GO, 0.0)
+    
+    if max_go < 1.0:
+        raise ValueError('max go less than 1.0')
+    
+    if go > max_go:
+        raise ValueError('go longer than max go time')
+    
+    for state in (PhaseState.CAUTION,
+                  PhaseState.EXTEND,
+                  PhaseState.GO,
+                  PhaseState.PCLR,
+                  PhaseState.WALK):
+        time = timing.get(state, 0.0)
+        if 0.0 < time < 1.0:
+            raise ValueError(f'{state.name} must be at least 1.0')
+    
+    caution = timing.get(PhaseState.CAUTION, 0.0)
+    extend = timing.get(PhaseState.EXTEND, 0.0)
+    pclr = timing.get(PhaseState.PCLR, 0.0)
+    walk = timing.get(PhaseState.WALK, 0.0)
+    
+    deductions = caution + extend
+    if primary:
+        deductions += pclr + walk
+    
+    if deductions - go < 1.0:
+        raise ValueError('invalid gross go time')
 
 
 class Phase(IdentifiableBase):
@@ -170,7 +207,10 @@ class Phase(IdentifiableBase):
     
     @property
     def minimum_service(self):
-        return self.timing[PhaseState.CAUTION] + self.timing[PhaseState.RCLR] + 1.0
+        rv = self.timing[PhaseState.CAUTION]
+        if self.primary:
+            rv += self.timing[PhaseState.PCLR]
+        return rv
     
     @property
     def ped_service(self):
@@ -186,12 +226,14 @@ class Phase(IdentifiableBase):
     
     @go_override.setter
     def go_override(self, value):
-        if self.go_override is not None:
-            if self.go_override < 0:
-                raise ValueError('go override must be positive')
-            self._go_override = min(value, self.timing[PhaseState.MAX_GO])
+        if value < 0.0:
+            value = 0.0
         else:
-            self._go_override = None
+            max_go = self.timing[PhaseState.MAX_GO]
+            if value > max_go:
+                value = max_go
+        
+        self._go_override = value
     
     @property
     def veh_ls(self) -> LoadSwitch:
@@ -204,17 +246,6 @@ class Phase(IdentifiableBase):
     @property
     def primary(self):
         return self.ped_ls is not None
-    
-    def _validate_timing(self):
-        if self.active:
-            raise RuntimeError('Cannot changing timing map while active')
-        if self.timing is None:
-            raise TypeError('Timing map cannot be None')
-        keys = self.timing.keys()
-        if len(keys) != len(PHASE_TIMED_STATES_ALL):
-            raise RuntimeError('Timing map mismatched size')
-        elif PhaseState.STOP in keys:
-            raise KeyError('STOP cannot be in timing map')
     
     def __init__(self,
                  id_: int,
@@ -236,7 +267,7 @@ class Phase(IdentifiableBase):
         
         self._ped_service = False
         self._ped_service_request = False
-        self._go_override: Optional[float] = None
+        self._go_override: float = 0.0
         self._resting = False
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
@@ -246,10 +277,10 @@ class Phase(IdentifiableBase):
         self._gap_timer = Timer()
         self._vls = veh_ls
         self._pls = ped_ls
-        self._validate_timing()
+        validate_phase_timing(timing, self.primary)
     
     def get_recycle_state(self, ped_service: bool) -> PhaseState:
-        if self._state in PHASE_RECYCLE_STATES:
+        if self._state in (PhaseState.WALK, PhaseState.GO, PhaseState.EXTEND):
             if ped_service:
                 return PhaseState.WALK
             else:
@@ -292,9 +323,6 @@ class Phase(IdentifiableBase):
             
             if PhaseState.WALK in self.previous_states:
                 setpoint -= self.timing[PhaseState.WALK]
-            
-            if PhaseState.PCLR in self.previous_states:
-                setpoint -= self.timing[PhaseState.PCLR]
         else:
             setpoint = self.timing.get(state, 0.0)
         
@@ -305,14 +333,18 @@ class Phase(IdentifiableBase):
             return None
         
         setpoints = 0.0
-        for state in PHASE_SERVICE_STATES:
+        for state in (PhaseState.RCLR,
+                      PhaseState.CAUTION,
+                      PhaseState.EXTEND,
+                      PhaseState.GO,
+                      PhaseState.PCLR,
+                      PhaseState.WALK):
             if self.state.value >= state.value:
                 setpoints += self.get_setpoint(state)
             else:
                 break
         
-        estimate = round(setpoints - self.interval_elapsed) - 1.0
-        return estimate
+        return round(setpoints - self.interval_elapsed, 1)
     
     def gap_reset(self):
         self._gap_timer.reset()
@@ -385,7 +417,7 @@ class Phase(IdentifiableBase):
             
             if next_state == PhaseState.STOP:
                 self.extend_inhibit = False
-                self.go_override = None
+                self.go_override = 0.0
             
             if next_state in (PhaseState.GO, PhaseState.WALK):
                 self._go_timer.reset()
@@ -498,23 +530,24 @@ class Call:
 
 
 class InputAction(IntEnum):
-    IGNORE = 0
-    CALL = 10
-    DETECT = 20
-    PREEMPTION = 30
-    TIME_FREEZE = 40
-    CALL_INHIBIT = 51
-    EXTEND_INHIBIT = 52
-    PED_CLEAR_INHIBIT = 53
-    TECH_FLASH = 60
-    DARK = 61
+    IGNORE = 10
+    TIME_FREEZE = 11
+    TECH_FLASH = 12
+    RECALL = 20
+    CALL_INHIBIT = 30
+    EXTEND_INHIBIT = 31
+    PED_CLEAR_INHIBIT = 32
+    PREEMPTION = 40
+    DARK = 50
+    RANDOM_RECALL_INHIBIT = 51
+    
+    
+class RecallType(IntEnum):
+    MAINTAIN = 10
+    LATCH = 20
 
 
 class Input(IdentifiableBase):
-    
-    @property
-    def kwargs(self):
-        return self._kwargs
     
     @property
     def high_elapsed(self):
@@ -524,6 +557,14 @@ class Input(IdentifiableBase):
     def low_elapsed(self):
         return self._low_timer.elapsed
     
+    @property
+    def recall_type(self):
+        return self._recall_type
+    
+    @property
+    def targets(self):
+        return self._targets
+    
     def __init__(self,
                  id_: int,
                  action: InputAction,
@@ -531,14 +572,15 @@ class Input(IdentifiableBase):
         super().__init__(id_)
         self.action = action
         self.signal = False
+        
         self._kwargs = kwargs
+        self._recall_type = text_to_enum(RecallType, kwargs.get('recall-type'))
+        self._targets = kwargs.get('targets')
+        
         self._high_timer = Timer()
         self._low_timer = Timer()
         self._rising_edge = EdgeTrigger(True)
         self._falling_edge = EdgeTrigger(False)
-    
-    def get(self, key, default=None):
-        return self._kwargs.get(key, default)
     
     def poll(self):
         self._high_timer.poll(self.signal)

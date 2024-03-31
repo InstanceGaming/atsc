@@ -91,6 +91,7 @@ class Timer(LogicBase):
         self.step = step
         self.trigger = trigger
         self.elapsed: float = self.initial
+        self._falling_edge = EdgeTrigger(False)
     
     def reset(self):
         self.q = False
@@ -101,7 +102,8 @@ class Timer(LogicBase):
             self.q = abs(self.delta) >= (self.trigger - self.step)
             self.elapsed += self.step
         else:
-            self.reset()
+            if self._falling_edge.poll(signal):
+                self.reset()
         return self.q
 
 
