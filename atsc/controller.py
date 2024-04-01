@@ -13,13 +13,12 @@
 #  limitations under the License.
 import time
 import random
-from itertools import chain
-
 from atsc.core import *
 from atsc import logic, network, constants, serialbus
 from loguru import logger
-from typing import Iterable, Set
+from typing import Set, Iterable
 from bitarray import bitarray
+from itertools import chain
 from atsc.utils import build_field_message
 from jacob.text import post_pend
 from atsc.frames import FrameType, DeviceAddress, OutputStateFrame
@@ -261,7 +260,7 @@ class Controller:
         return phases
     
     def sort_calls(self, calls: Iterable[Call]) -> List[Call]:
-        return sorted(calls, key=lambda c: c.sorting_weight)
+        return sorted(calls, key=lambda c: min([p.id for p in c.phases]))
     
     def recall(self, phases: Iterable[Phase], ped_service: bool = False, note: Optional[str] = None):
         """
@@ -322,9 +321,6 @@ class Controller:
                     phase.stats['detections'] += 1
                 else:
                     self.recall(phases, ped_service=ped_service, note=note)
-
-    def get_ring_phases(self, ring: Ring) -> List[Phase]:
-        return self.get_phases_by_id(ring.phases)
     
     def check_phase_demand(self, phase: Phase) -> bool:
         for call in self.calls:
@@ -360,43 +356,6 @@ class Controller:
                 available.append(phase)
         
         return available
-    
-    def set_operation_state(self, new_state: OperationMode):
-        """Set controller state for a given `OperationMode`"""
-        if new_state == OperationMode.CET:
-            self.cet_timer.reset()
-            for ph in self.phases:
-                if ph.flash_mode == FlashMode.YELLOW:
-                    ph.change(state=PhaseState.CAUTION)
-        
-        elif new_state == OperationMode.NORMAL:
-            for ph in self.phases:
-                ph.change(state=PhaseState.STOP)
-            
-            self.set_barrier(None)
-            
-            if self.recall_all:
-                self.place_all_call()
-            
-            if self.idle_phases:
-                self.recall(self.idle_phases, ped_service=True, note='idle phases')
-        
-        previous_state = self.mode
-        self.mode = new_state
-        logger.info(f'Operation state is now {new_state.name} (was {previous_state.name})')
-    
-    def update_bus_outputs(self, lss: List[LoadSwitch]):
-        osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self.transferred)
-        self.bus.send_frame(osf)
-    
-    def get_barrier_by_phase(self, phase: Phase) -> Barrier:
-        """Get `Barrier` instance by associated `Phase` instance"""
-        assert isinstance(phase, Phase)
-        for b in self.barriers:
-            if phase.id in b.phases:
-                return b
-        
-        raise RuntimeError(f'Failed to get barrier by {phase.get_tag()}')
     
     def get_phase_partners(self, phase: Phase) -> List[Phase]:
         return self.get_phases_by_id(self.friend_matrix[phase.id])
@@ -450,6 +409,15 @@ class Controller:
         self.set_barrier(None)
         
         logger.debug(f'Ended cycle {self.cycle_count}')
+    
+    def get_barrier_by_phase(self, phase: Phase) -> Barrier:
+        """Get `Barrier` instance by associated `Phase` instance"""
+        assert isinstance(phase, Phase)
+        for b in self.barriers:
+            if phase.id in b.phases:
+                return b
+        
+        raise RuntimeError(f'Failed to get barrier by {phase.get_tag()}')
     
     def serve_phase(self,
                     phase: Phase,
@@ -534,6 +502,34 @@ class Controller:
                     bf = bitarray()
                     bf.frombytes(frame.payload)
                     self.input_bitfield = bf
+                
+    def update_bus_outputs(self, lss: List[LoadSwitch]):
+        osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self.transferred)
+        self.bus.send_frame(osf)
+    
+    def set_operation_state(self, new_state: OperationMode):
+        """Set controller state for a given `OperationMode`"""
+        if new_state == OperationMode.CET:
+            self.cet_timer.reset()
+            for ph in self.phases:
+                if ph.flash_mode == FlashMode.YELLOW:
+                    ph.change(state=PhaseState.CAUTION)
+        
+        elif new_state == OperationMode.NORMAL:
+            for ph in self.phases:
+                ph.change(state=PhaseState.STOP)
+            
+            self.set_barrier(None)
+            
+            if self.recall_all:
+                self.place_all_call()
+            
+            if self.idle_phases:
+                self.recall(self.idle_phases, ped_service=True, note='idle phases')
+        
+        previous_state = self.mode
+        self.mode = new_state
+        logger.info(f'Operation state is now {new_state.name} (was {previous_state.name})')
     
     def tick(self):
         """Polled once every 100ms"""

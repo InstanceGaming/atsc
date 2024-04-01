@@ -21,7 +21,11 @@ from pathlib import Path
 from datetime import datetime as dt
 from threading import main_thread
 from jacob.logging import setup_logger
-from atsc.constants import WELCOME_MSG, DEFAULT_LEVELS, CUSTOM_LOG_LEVELS, CONFIG_SCHEMA_CHECK, CONFIG_LOGIC_CHECK
+from atsc.constants import (WELCOME_MSG,
+                            DEFAULT_LEVELS,
+                            CUSTOM_LOG_LEVELS,
+                            CONFIG_LOGIC_CHECK,
+                            CONFIG_SCHEMA_CHECK)
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.timing import seconds

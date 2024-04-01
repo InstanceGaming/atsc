@@ -1,10 +1,10 @@
 import time
 import random
 from jacob.text import format_binary_literal
+from atsc.frames import InputStateFrame
 from jacob.logging import setup_logger
 from atsc.constants import CUSTOM_LOG_LEVELS
 from atsc.serialbus import Bus, DeviceAddress
-from atsc.frames import InputStateFrame
 
 
 def run():

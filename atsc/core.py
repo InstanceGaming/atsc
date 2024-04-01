@@ -11,14 +11,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from jacob.enumerations import text_to_enum
-
 from atsc import constants
 from enum import IntEnum
 from typing import Dict, List, Optional
 from atsc.logic import Timer, Flasher, EdgeTrigger
 from jacob.text import csl
 from collections import Counter
+from jacob.enumerations import text_to_enum
 
 
 class IdentifiableBase:
@@ -500,10 +499,6 @@ class Call:
     @property
     def phase_tags_list(self):
         return csl([phase.get_tag() for phase in self.phases])
-    
-    @property
-    def sorting_weight(self):
-        return max([p.interval_elapsed for p in self.phases if not p.active] or [self.age])
     
     def __init__(self, phases: List[Phase], ped_service: bool = False):
         self.phases = phases
