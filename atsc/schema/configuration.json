@@ -22,7 +22,7 @@
   "properties": {
     "version": {
       "type": "integer",
-      "const": 4
+      "const": 5
     },
     "device": {
       "type": "object",
@@ -173,19 +173,19 @@
     "default-timing": {
       "type": "object",
       "required": [
-        "rclr",
+        "go-min",
+        "gap",
+        "go-max",
         "caution",
-        "extend",
-        "go",
-        "pclr",
+        "vclr",
         "walk",
-        "max-go"
+        "pclr"
       ],
       "properties": {
-        "^rclr|caution|extend|go|pclr|walk|max-go$": {
+        "^go-min|gap|go-max|caution|vclr|walk|pclr$": {
           "type": "number",
           "minimum": 0,
-          "maximum": 10000
+          "maximum": 1000
         }
       }
     },
@@ -207,10 +207,10 @@
           "timing": {
             "type": "object",
             "properties": {
-              "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
+              "^go-min|gap|go-max|caution|vclr|walk|pclr$": {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999
+                "maximum": 1000
               }
             }
           },

@@ -20,7 +20,7 @@ from pathlib import Path
 from collections import ChainMap
 
 
-CONFIG_SCHEMA_VERSION = 4
+CONFIG_SCHEMA_VERSION = 5
 
 
 class ErrorType(enum.Enum):

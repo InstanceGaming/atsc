@@ -338,7 +338,7 @@ class Controller:
         
         for phase in pool:
             if not phase.active:
-                if phase.state in (PhaseState.CAUTION, PhaseState.EXTEND):
+                if phase.state in (PhaseState.CAUTION, PhaseState.GAP):
                     continue
                 
                 conflict = False
@@ -578,7 +578,7 @@ class Controller:
             for phase in self.phases:
                 last_state = phase.previous_states[0] if phase.previous_states else None
                 if (len(active_phases) < concurrent_phases and
-                        phase.state == PhaseState.GO and
+                        phase.state == PhaseState.GO_MIN and
                         last_state != PhaseState.STOP):
                     phase.change(state=PhaseState.CAUTION)
                 
@@ -589,7 +589,7 @@ class Controller:
                     if phase_pool:
                         partners = self.get_phase_partners(phase)
                         for partner in partners:
-                            if partner.state == PhaseState.GO and not partner.resting:
+                            if partner.state == PhaseState.GO_MIN and not partner.resting:
                                 if not self.check_conflicting_demand(partner, partners):
                                     partner.extend_inhibit = not phase.extend_enabled
                                     rest_inhibit = False
@@ -622,7 +622,7 @@ class Controller:
             
             for phase in active_phases:
                 if 0 < len(active_phases) < concurrent_phases:
-                    if phase.state in (PhaseState.GO, PhaseState.WALK, PhaseState.PCLR):
+                    if phase.state in (PhaseState.GO_MIN, PhaseState.WALK, PhaseState.PCLR):
                         partner = self.select_phase_partner(phase)
                         if partner is not None:
                             go_override = phase.estimate_remaining()

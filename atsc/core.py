@@ -71,37 +71,37 @@ class LoadSwitch(IdentifiableBase):
 
 class PhaseState(IntEnum):
     STOP = 0
-    RCLR = 4
+    VCLR = 4
     CAUTION = 6
-    EXTEND = 8
-    GO = 10
+    GAP = 8
+    GO_MIN = 10
     PCLR = 12
     WALK = 14
-    MAX_GO = 32
+    GO_MAX = 32
     
     def __repr__(self):
         return self.name
 
 
-PHASE_RIGID_STATES = (PhaseState.RCLR, PhaseState.CAUTION, PhaseState.PCLR)
+PHASE_RIGID_STATES = (PhaseState.VCLR, PhaseState.CAUTION, PhaseState.PCLR)
 
-PHASE_TIMES_STATES = (PhaseState.RCLR,
+PHASE_TIMES_STATES = (PhaseState.VCLR,
                       PhaseState.CAUTION,
-                      PhaseState.EXTEND,
-                      PhaseState.GO,
+                      PhaseState.GAP,
+                      PhaseState.GO_MIN,
                       PhaseState.PCLR,
                       PhaseState.WALK)
 
-PHASE_TIMED_STATES_ALL = (PhaseState.RCLR,
+PHASE_TIMED_STATES_ALL = (PhaseState.VCLR,
                           PhaseState.CAUTION,
-                          PhaseState.EXTEND,
-                          PhaseState.GO,
+                          PhaseState.GAP,
+                          PhaseState.GO_MIN,
                           PhaseState.PCLR,
                           PhaseState.WALK,
-                          PhaseState.MAX_GO)
+                          PhaseState.GO_MAX)
 
-PHASE_GO_STATES = (PhaseState.EXTEND,
-                   PhaseState.GO,
+PHASE_GO_STATES = (PhaseState.GAP,
+                   PhaseState.GO_MIN,
                    PhaseState.PCLR,
                    PhaseState.WALK)
 
@@ -125,8 +125,8 @@ def validate_phase_timing(timing: Dict[PhaseState, float],
     if timing.get(PhaseState.STOP):
         raise ValueError('stop state cannot have specified time')
     
-    go = timing.get(PhaseState.GO, 0.0)
-    max_go = timing.get(PhaseState.MAX_GO, 0.0)
+    go = timing.get(PhaseState.GO_MIN, 0.0)
+    max_go = timing.get(PhaseState.GO_MAX, 0.0)
     
     if max_go < 1.0:
         raise ValueError('max go less than 1.0')
@@ -135,8 +135,8 @@ def validate_phase_timing(timing: Dict[PhaseState, float],
         raise ValueError('go longer than max go time')
     
     for state in (PhaseState.CAUTION,
-                  PhaseState.EXTEND,
-                  PhaseState.GO,
+                  PhaseState.GAP,
+                  PhaseState.GO_MIN,
                   PhaseState.PCLR,
                   PhaseState.WALK):
         time = timing.get(state, 0.0)
@@ -144,7 +144,7 @@ def validate_phase_timing(timing: Dict[PhaseState, float],
             raise ValueError(f'{state.name} must be at least 1.0')
     
     caution = timing.get(PhaseState.CAUTION, 0.0)
-    extend = timing.get(PhaseState.EXTEND, 0.0)
+    extend = timing.get(PhaseState.GAP, 0.0)
     pclr = timing.get(PhaseState.PCLR, 0.0)
     walk = timing.get(PhaseState.WALK, 0.0)
     
@@ -160,17 +160,17 @@ class Phase(IdentifiableBase):
     
     @property
     def default_extend(self):
-        return self.timing[PhaseState.EXTEND] / 2.0
+        return self.timing[PhaseState.GAP] / 2.0
     
     @property
     def extend_enabled(self):
-        return (self.timing[PhaseState.EXTEND] > 0.0 and
+        return (self.timing[PhaseState.GAP] > 0.0 and
                 not self.extend_inhibit and
                 self._gap_timer.elapsed < self.default_extend)
     
     @property
     def extend_active(self):
-        return self._state == PhaseState.EXTEND
+        return self._state == PhaseState.GAP
     
     @property
     def flash_mode(self) -> FlashMode:
@@ -228,7 +228,7 @@ class Phase(IdentifiableBase):
         if value < 0.0:
             value = 0.0
         else:
-            max_go = self.timing[PhaseState.MAX_GO]
+            max_go = self.timing[PhaseState.GO_MAX]
             if value > max_go:
                 value = max_go
         
@@ -279,11 +279,11 @@ class Phase(IdentifiableBase):
         validate_phase_timing(timing, self.primary)
     
     def get_recycle_state(self, ped_service: bool) -> PhaseState:
-        if self._state in (PhaseState.WALK, PhaseState.GO, PhaseState.EXTEND):
+        if self._state in (PhaseState.WALK, PhaseState.GO_MIN, PhaseState.GAP):
             if ped_service:
                 return PhaseState.WALK
             else:
-                return PhaseState.GO
+                return PhaseState.GO_MIN
         else:
             raise NotImplementedError()
     
@@ -292,50 +292,40 @@ class Phase(IdentifiableBase):
             if self.ped_ls is not None and ped_service:
                 return PhaseState.WALK
             else:
-                return PhaseState.GO
-        elif self._state == PhaseState.RCLR:
+                return PhaseState.GO_MIN
+        elif self._state == PhaseState.VCLR:
             return PhaseState.STOP
         elif self._state == PhaseState.CAUTION:
-            return PhaseState.RCLR
-        elif self._state == PhaseState.EXTEND:
+            return PhaseState.VCLR
+        elif self._state == PhaseState.GAP:
             return PhaseState.CAUTION
-        elif self._state == PhaseState.GO:
+        elif self._state == PhaseState.GO_MIN:
             if self.extend_enabled and not expedite:
-                return PhaseState.EXTEND
+                return PhaseState.GAP
             else:
                 return PhaseState.CAUTION
         elif self._state == PhaseState.PCLR:
             if expedite:
                 return PhaseState.CAUTION
             else:
-                return PhaseState.GO
+                return PhaseState.GO_MIN
         elif self._state == PhaseState.WALK:
             return PhaseState.PCLR
         else:
             raise NotImplementedError()
     
     def get_setpoint(self, state: PhaseState) -> float:
-        if state == PhaseState.GO:
-            setpoint = self.go_override or self.timing[PhaseState.GO]
-            setpoint -= self.timing[PhaseState.CAUTION]
-            setpoint -= self.default_extend
-            
-            if PhaseState.WALK in self.previous_states:
-                setpoint -= self.timing[PhaseState.WALK]
-        else:
-            setpoint = self.timing.get(state, 0.0)
-        
-        return round(setpoint, 1)
+        return round(self.timing.get(state, 0.0), 1)
     
     def estimate_remaining(self) -> Optional[float]:
         if self.state == PhaseState.STOP:
             return None
         
         setpoints = 0.0
-        for state in (PhaseState.RCLR,
+        for state in (PhaseState.VCLR,
                       PhaseState.CAUTION,
-                      PhaseState.EXTEND,
-                      PhaseState.GO,
+                      PhaseState.GAP,
+                      PhaseState.GO_MIN,
                       PhaseState.PCLR,
                       PhaseState.WALK):
             if self.state.value >= state.value:
@@ -367,7 +357,7 @@ class Phase(IdentifiableBase):
         pb = False
         pc = False
         
-        if self._state == PhaseState.STOP or self._state == PhaseState.RCLR:
+        if self._state == PhaseState.STOP or self._state == PhaseState.VCLR:
             self._vls.a = True
             self._vls.b = False
             self._vls.c = False
@@ -379,7 +369,7 @@ class Phase(IdentifiableBase):
             self._vls.c = False
             pa = True
             pc = False
-        elif self._state == PhaseState.GO or self._state == PhaseState.EXTEND:
+        elif self._state == PhaseState.GO_MIN or self._state == PhaseState.GAP:
             self._vls.a = False
             self._vls.b = False
             self._vls.c = True
@@ -418,7 +408,7 @@ class Phase(IdentifiableBase):
                 self.extend_inhibit = False
                 self.go_override = 0.0
             
-            if next_state in (PhaseState.GO, PhaseState.WALK):
+            if next_state in (PhaseState.GO_MIN, PhaseState.WALK):
                 self._go_timer.reset()
                 self._gap_timer.reset()
                 if next_state == PhaseState.WALK:
@@ -461,7 +451,7 @@ class Phase(IdentifiableBase):
         
         go_state = self._state in PHASE_GO_STATES
         if go_state:
-            if self._go_timer.elapsed > self.timing[PhaseState.MAX_GO]:
+            if self._go_timer.elapsed > self.timing[PhaseState.GO_MAX]:
                 if self._state not in PHASE_RIGID_STATES:
                     if not self.supress_maximum or self.rest_inhibit:
                         changed = self.change(expedite=True)
