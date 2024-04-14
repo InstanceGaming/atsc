@@ -12,4 +12,4 @@ then
   fi
 fi
 
-screen -dmS atsc $INTERPRETER_PATH -OO -m atsc.main --pid "$ATSC_PID_PATH" "$ATSC_DIR/configs/rpi.json"
+screen -dmS atsc $INTERPRETER_PATH -OO -m atsc.main --pid "$ATSC_PID_PATH" "$ATSC_DIR/configs/306-rpi.json"

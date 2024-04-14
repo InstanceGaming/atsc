@@ -12,4 +12,4 @@ then
   fi
 fi
 
-$INTERPRETER_PATH -m atsc.main -l "0,warning;stderr=error,critical;file=info,critical" --pid "$ATSC_PID_PATH" "$ATSC_DIR/configs/rpi.json"
+$INTERPRETER_PATH -m atsc.main -l "0,warning;stderr=error,critical;file=info,critical" --pid "$ATSC_PID_PATH" "$ATSC_DIR/configs/306-rpi.json"
