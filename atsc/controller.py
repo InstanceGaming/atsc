@@ -16,7 +16,7 @@ import random
 from atsc.core import *
 from atsc import logic, network, constants, serialbus
 from loguru import logger
-from typing import Set, Iterable
+from typing import Set, Iterable, Dict
 from bitarray import bitarray
 from itertools import chain
 from atsc.utils import build_field_message
@@ -55,18 +55,19 @@ class Controller:
         default_timing = self.get_default_timing(config['default-timing'])
         self.phases: List[Phase] = self.get_phases(config['phases'], default_timing)
         self.phase_pool: List[Phase] = self.phases.copy()
+
         self.rings: List[Ring] = self.get_rings(config['rings'])
         self.barriers: List[Barrier] = self.get_barriers(config['barriers'])
-        self.barrier: Optional[Barrier] = None
         self.friend_matrix: Dict[int, List[int]] = self.generate_friend_matrix(self.rings, self.barriers)
+        
+        self.barrier: Optional[Barrier] = None
         
         self.calls: List[Call] = []
         self.cycle_count = 0
         self.idle_phases: List[Phase] = self.get_idle_phases(config['idling']['phases'])
         
         # control entrance transition timer
-        yellow_time = default_timing[PhaseState.CAUTION]
-        cet_delay: float = max(yellow_time, config['init']['cet-delay'] - 1) + 1
+        cet_delay: float = max(default_timing.caution, config['init']['cet-delay'])
         self.cet_timer = logic.Timer(cet_delay)
         
         # inputs data structure instances
@@ -87,28 +88,78 @@ class Controller:
         self.randomizer = random.Random()
         self.random_timer = logic.Timer(random_delay)
     
-    def get_default_timing(self, configuration_node: Dict[str, float]) -> Dict[PhaseState, float]:
-        timing = {}
-        for name, value in configuration_node.items():
-            ps = text_to_enum(PhaseState, name)
-            timing.update({ps: value})
-        return timing
+    def get_default_timing(self, node: Dict[str, float]) -> PhaseTiming:
+        service_clear = node['service-clear']
+        service_min = node['service-min']
+        service_max = node['service-max']
+        caution = node['caution']
+        gap = node['gap']
+        gap_reduce = node['gap-reduce']
+        gap_min = node['gap-min']
+        gap_max = node['gap-max']
+        walk_min = node['walk-min']
+        walk_max = node['walk-max']
+        ped_clear = node['ped-clear']
+        
+        return PhaseTiming(service_clear=service_clear,
+                           service_min=service_min,
+                           service_max=service_max,
+                           caution=caution,
+                           gap=gap,
+                           gap_reduce=gap_reduce,
+                           gap_min=gap_min,
+                           gap_max=gap_max,
+                           walk_min=walk_min,
+                           walk_max=walk_max,
+                           ped_clear=ped_clear)
     
     def get_phases(self,
                    configuration_node: List[Dict],
-                   default_timing: Dict[PhaseState, float]) -> List[Phase]:
+                   default_timing: PhaseTiming) -> List[Phase]:
         phases = []
         
         for i, node in enumerate(configuration_node, start=1):
             flash_mode_text = node['flash-mode']
             flash_mode = text_to_enum(FlashMode, flash_mode_text)
-            phase_timing: Dict[PhaseState, float] = default_timing.copy()
-            timing_data = node.get('timing')
+            timing_node = node.get('timing')
             
-            if timing_data is not None:
-                for name, value in timing_data.items():
-                    ps = text_to_enum(PhaseState, name)
-                    phase_timing.update({ps: value})
+            if timing_node is not None:
+                service_clear = timing_node.get('service-clear',
+                                                default_timing.service_clear)
+                service_min = timing_node.get('service-min',
+                                              default_timing.service_min)
+                service_max = timing_node.get('service-max',
+                                              default_timing.service_max)
+                caution = timing_node.get('caution',
+                                          default_timing.caution)
+                gap = timing_node.get('gap',
+                                      default_timing.gap)
+                gap_reduce = timing_node.get('gap-reduce',
+                                             default_timing.gap_reduce)
+                gap_min = timing_node.get('gap-min',
+                                          default_timing.gap_min)
+                gap_max = timing_node.get('gap-max',
+                                          default_timing.gap_max)
+                walk_min = timing_node.get('walk-min',
+                                           default_timing.walk_min)
+                walk_max = timing_node.get('walk-max',
+                                           default_timing.walk_max)
+                ped_clear = timing_node.get('ped-clear',
+                                            default_timing.ped_clear)
+            
+                timing = PhaseTiming(service_clear=service_clear,
+                                     service_min=service_min,
+                                     service_max=service_max,
+                                     caution=caution,
+                                     gap=gap,
+                                     gap_reduce=gap_reduce,
+                                     gap_min=gap_min,
+                                     gap_max=gap_max,
+                                     walk_min=walk_min,
+                                     walk_max=walk_max,
+                                     ped_clear=ped_clear)
+            else:
+                timing = default_timing
             
             ls_node = node['load-switches']
             veh = ls_node['vehicle']
@@ -117,7 +168,7 @@ class Controller:
             ped = None
             if ped_index is not None:
                 ped = self.get_load_switch_by_id(ped_index)
-            phase = Phase(i, phase_timing, veh, ped, flash_mode)
+            phase = Phase(i, timing, veh, ped, flash_mode)
             phases.append(phase)
         
         return sorted(phases)
@@ -212,7 +263,7 @@ class Controller:
             if ls.id == i:
                 return ls
         raise RuntimeError(f'Failed to find load switch {i}')
-
+    
     def get_barrier_phases(self, barrier: Barrier) -> List[Phase]:
         """Map the phase indices defined in a `Barrier` to `Phase` instances"""
         return self.get_phases_by_id(barrier.phases)
@@ -262,6 +313,10 @@ class Controller:
     def sort_calls(self, calls: Iterable[Call]) -> List[Call]:
         return sorted(calls, key=lambda c: min([p.id for p in c.phases]))
     
+    def clean_calls(self):
+        for call in [c for c in self.calls if not len(c.phases)]:
+            self.calls.remove(call)
+    
     def recall(self, phases: Iterable[Phase], ped_service: bool = False, note: Optional[str] = None):
         """
         Create a new demand for traffic service.
@@ -299,6 +354,7 @@ class Controller:
         for phase in phases:
             phase.stats['detections'] += 1
         
+        self.clean_calls()
         self.sort_calls(self.calls)
     
     def place_all_call(self):
@@ -308,14 +364,14 @@ class Controller:
     def detect(self, phases: List[Phase], ped_service: bool = False, note: Optional[str] = None):
         note_text = post_pend(note, note)
         
-        if all([phase.state not in PHASE_GO_STATES for phase in phases]):
+        if all([phase.interval not in PHASE_GO_INTERVALS for phase in phases]):
             self.recall(phases, ped_service=ped_service, note=note)
         else:
             for phase in phases:
-                if phase.state in PHASE_GO_STATES:
+                if phase.interval in PHASE_GO_INTERVALS:
                     logger.debug(f'Detection on {phase.get_tag()}{note_text}')
                     
-                    if phase.extend_active:
+                    if phase.interval == PhaseInterval.GAP:
                         phase.gap_reset()
                     
                     phase.stats['detections'] += 1
@@ -328,8 +384,8 @@ class Controller:
                 return True
         return False
     
-    def get_available_phases(self, active_phases: Iterable[Phase]) -> List[Phase]:
-        available = []
+    def get_available_phases(self, active_phases: Iterable[Phase]) -> Set[Phase]:
+        available = set()
         
         pool = self.phase_pool
         if self.barrier:
@@ -338,8 +394,8 @@ class Controller:
         
         for phase in pool:
             if not phase.active:
-                if phase.state in (PhaseState.CAUTION, PhaseState.GAP):
-                    continue
+                # if phase.interval in (PhaseInterval.CAUTION, PhaseInterval.GAP):
+                #     continue
                 
                 conflict = False
                 for active_phase in active_phases:
@@ -353,25 +409,13 @@ class Controller:
                 if not self.check_phase_demand(phase):
                     continue
                 
-                available.append(phase)
+                available.add(phase)
         
         return available
     
     def get_phase_partners(self, phase: Phase) -> List[Phase]:
-        return self.get_phases_by_id(self.friend_matrix[phase.id])
-    
-    def select_phase_partner(self, phase: Phase, pool: Optional[Iterable[Phase]] = None) -> Optional[Phase]:
-        partners = self.get_phase_partners(phase)
-        
-        for candidate in sorted(partners, key=lambda c: c.interval_elapsed, reverse=True):
-            if candidate.active:
-                continue
-            
-            if pool and candidate not in pool:
-                continue
-            
-            return candidate
-        return None
+        rv = self.get_phases_by_id(self.friend_matrix[phase.id])
+        return sorted(rv, key=lambda c: c.interval_elapsed, reverse=True)
     
     def check_phase_conflict(self, a: Phase, b: Phase) -> bool:
         """Check weather phase B conflicts with phase A."""
@@ -391,8 +435,6 @@ class Controller:
     def set_barrier(self, b: Optional[Barrier]):
         if b is not None:
             logger.debug(f'{b.get_tag()} activated')
-        else:
-            logger.verbose(f'Free barrier')
         
         self.barrier = b
     
@@ -439,12 +481,12 @@ class Controller:
             pass
         
         phase.ped_service = ped_service
-        phase.go_override = go_override
-        phase.extend_inhibit = extend_inhibit
+        phase.service_override = go_override
+        phase.gap_inhibit = extend_inhibit
         phase.activate()
     
     def get_called_phases(self):
-        return chain([call.phases for call in self.calls])
+        return chain(*[call.phases for call in self.calls])
     
     def remove_phase_call(self, phase: Phase) -> bool:
         for call in self.calls:
@@ -489,10 +531,10 @@ class Controller:
                             for phase in phases:
                                 logger.debug('Removing phase {} from calls', phase.get_tag())
                                 self.remove_phase_call(phase)
-                        
+            
             if input_.action != InputAction.IGNORE:
                 input_.signal = bool(bit_value)
-        
+    
     def poll_bus(self):
         frame = self.bus.get()
         
@@ -502,7 +544,7 @@ class Controller:
                     bf = bitarray()
                     bf.frombytes(frame.payload)
                     self.input_bitfield = bf
-                
+    
     def update_bus_outputs(self, lss: List[LoadSwitch]):
         osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self.transferred)
         self.bus.send_frame(osf)
@@ -513,11 +555,11 @@ class Controller:
             self.cet_timer.reset()
             for ph in self.phases:
                 if ph.flash_mode == FlashMode.YELLOW:
-                    ph.change(state=PhaseState.CAUTION)
+                    ph.change(interval=PhaseInterval.CAUTION)
         
         elif new_state == OperationMode.NORMAL:
             for ph in self.phases:
-                ph.change(state=PhaseState.STOP)
+                ph.change(interval=PhaseInterval.STOP)
             
             self.set_barrier(None)
             
@@ -544,16 +586,19 @@ class Controller:
             phases.append(first_phase)
             choose_two = round(self.randomizer.random())
             if choose_two:
-                second_phase = self.select_phase_partner(first_phase)
-                if second_phase is not None:
-                    phases.append(second_phase)
+                partners = self.get_phase_partners(first_phase)
+                if partners:
+                    second_phase = partners[0]
+                    if second_phase is not None:
+                        phases.append(second_phase)
             
             next_delay = self.randomizer.randint(self.random_min, self.random_max)
             logger.debug('Random actuation for {}, next in {}s',
                          csl([phase.get_tag() for phase in phases]),
                          next_delay)
             
-            ped_service = bool(round(self.randomizer.random()))
+            ped_service = False
+            # ped_service = bool(round(self.randomizer.random()))
             self.detect(phases, ped_service=ped_service, note='random actuation')
             self.random_timer.trigger = next_delay
             self.random_timer.reset()
@@ -576,11 +621,11 @@ class Controller:
             active_phases = self.get_active_phases()
             
             for phase in self.phases:
-                last_state = phase.previous_states[0] if phase.previous_states else None
+                last_interval = phase.previous_intervals[0] if phase.previous_intervals else None
                 if (len(active_phases) < concurrent_phases and
-                        phase.state == PhaseState.GO_MIN and
-                        last_state != PhaseState.STOP):
-                    phase.change(state=PhaseState.CAUTION)
+                        phase.interval == PhaseInterval.GO and
+                            last_interval != PhaseInterval.STOP):
+                    phase.change(interval=PhaseInterval.CAUTION)
                 
                 rest_inhibit = self.check_conflicting_demand(phase)
                 if len(active_phases) and self.barrier:
@@ -589,18 +634,31 @@ class Controller:
                     if phase_pool:
                         partners = self.get_phase_partners(phase)
                         for partner in partners:
-                            if partner.state == PhaseState.GO_MIN and not partner.resting:
+                            if partner.interval == PhaseInterval.GO and not partner.resting:
                                 if not self.check_conflicting_demand(partner, partners):
-                                    partner.extend_inhibit = not phase.extend_enabled
+                                    # partner.gap_inhibit = not phase.extend_enabled
                                     rest_inhibit = False
                                     break
                 
-                idle_phase = self.idle_phases and phase in self.idle_phases
-                phase.supress_maximum = idle_phase or (not self.idle_phases and not rest_inhibit)
+                # idle_phase = self.idle_phases and phase in self.idle_phases
+                # phase.supress_maximum = idle_phase or (not self.idle_phases and not rest_inhibit)
                 phase.rest_inhibit = rest_inhibit
             
             available = self.get_available_phases(active_phases)
-            if not len(active_phases):
+            if len(active_phases):
+                if len(active_phases) < concurrent_phases and self.barrier:
+                    barrier_phases = self.get_barrier_phases(self.barrier)
+                    called_phases = set(self.get_called_phases())
+                    # called phases only within the active barrier
+                    if called_phases.issubset(barrier_phases):
+                        # but called phases are not in the available pool
+                        if not called_phases.issubset(available):
+                            logger.debug('Resetting phase pool because the only '
+                                         'remaining calls are within the active '
+                                         'barrier while phases are active')
+                            self.reset_phase_pool()
+                            available = self.get_available_phases(active_phases)
+            else:
                 if not len(self.phase_pool):
                     self.end_cycle()
                 elif not len(available):
@@ -622,27 +680,32 @@ class Controller:
             
             for phase in active_phases:
                 if 0 < len(active_phases) < concurrent_phases:
-                    if phase.state in (PhaseState.GO_MIN, PhaseState.WALK, PhaseState.PCLR):
-                        partner = self.select_phase_partner(phase)
-                        if partner is not None:
-                            go_override = phase.estimate_remaining()
-                            if go_override and go_override >= partner.minimum_service:
-                                logger.debug('Running {} with {} (modified service {})',
-                                             partner.get_tag(),
-                                             phase.get_tag(),
-                                             go_override)
-                                self.serve_phase(partner,
-                                                 phase.ped_service,
-                                                 go_override=go_override,
-                                                 extend_inhibit=True)
-                            else:
-                                logger.verbose('Could not run {} with {} ({} < {})',
-                                               partner.get_tag(),
-                                               phase.get_tag(),
-                                               go_override,
-                                               partner.minimum_service)
-
-                        now_serving.append(partner)
+                    if phase.interval in (PhaseInterval.GO, PhaseInterval.WALK, PhaseInterval.PCLR):
+                        partners = self.get_phase_partners(phase)
+                        if partners:
+                            for partner in partners:
+                                if partner.active:
+                                    break
+                                
+                                go_override = phase.estimate_remaining()
+                                if go_override and go_override >= partner.timing.fixed_interval_total:
+                                    logger.debug('Running {} with {} (modified service {})',
+                                                 partner.get_tag(),
+                                                 phase.get_tag(),
+                                                 go_override)
+                                    self.serve_phase(partner,
+                                                     phase.ped_service,
+                                                     go_override=go_override,
+                                                     extend_inhibit=True)
+                                else:
+                                    logger.verbose('Could not run {} with {} ({} < {})',
+                                                   partner.get_tag(),
+                                                   phase.get_tag(),
+                                                   go_override,
+                                                   partner.timing.fixed_interval_total)
+                                
+                                now_serving.append(partner)
+                                break
                         active_phases = self.get_active_phases()
             
             if self.barrier:
@@ -656,8 +719,7 @@ class Controller:
                     except ValueError:
                         pass
             
-            for call in [c for c in self.calls if not len(c.phases)]:
-                self.calls.remove(call)
+            self.clean_calls()
         elif self.mode == OperationMode.CET:
             for ph in self.phases:
                 ph.tick()

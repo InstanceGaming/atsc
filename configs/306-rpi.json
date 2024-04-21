@@ -26,7 +26,7 @@
     "recall-all": true
   },
   "random-actuation": {
-    "delay": 5,
+    "delay": 0,
     "min": 1,
     "max": 80,
     "enabled": true
@@ -35,13 +35,17 @@
     "phases": []
   },
   "default-timing": {
-    "go-min": 5.0,
-    "gap": 2.0,
-    "go-max": 25.0,
+    "service-clear": 2.0,
+    "service-min": 5.0,
+    "service-max": 30.0,
     "caution": 4.0,
-    "vclr": 2.0,
-    "walk": 0.0,
-    "pclr": 0.0
+    "gap": 2.0,
+    "gap-reduce": 0.0,
+    "gap-min": 0.0,
+    "gap-max": 25.0,
+    "walk-min": 0.0,
+    "walk-max": 0.0,
+    "ped-clear": 0.0
   },
   "phases": [
     {
@@ -54,11 +58,11 @@
     {
       "id": 2,
       "timing": {
-        "go-min": 10.0,
+        "service-max": 60.0,
         "gap": 3.0,
-        "go-max": 55.0,
-        "pclr": 9.0,
-        "walk": 5.0
+        "gap-max": 55.0,
+        "walk-min": 5.0,
+        "ped-clear": 9.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -76,10 +80,10 @@
     {
       "id": 4,
       "timing": {
-        "go-min": 10.0,
-        "go-max": 35.0,
-        "pclr": 14.0,
-        "walk": 5.0
+        "service-max": 40.0,
+        "gap-max": 35.0,
+        "walk-min": 5.0,
+        "ped-clear": 14.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -97,11 +101,11 @@
     {
       "id": 6,
       "timing": {
-        "go-min": 10.0,
+        "service-max": 60.0,
         "gap": 3.0,
-        "go-max": 55.0,
-        "pclr": 10.0,
-        "walk": 5.0
+        "gap-max": 55.0,
+        "walk-min": 5.0,
+        "ped-clear": 10.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -119,10 +123,10 @@
     {
       "id": 8,
       "timing": {
-        "go-min": 10.0,
-        "go-max": 35.0,
-        "pclr": 14.0,
-        "walk": 5.0
+        "service-max": 40.0,
+        "gap-max": 35.0,
+        "walk-min": 5.0,
+        "ped-clear": 14.0
       },
       "flash-mode": "red",
       "load-switches": {

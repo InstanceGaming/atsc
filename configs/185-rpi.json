@@ -1,7 +1,7 @@
 {
-  "version": 4,
+  "version": 5,
   "device": {
-    "name": "ATSC Development Intersection (Raspberry Pi)",
+    "name": "Emerald & Mitchel (Raspberry Pi)",
     "location": {
       "timezone": "America/Boise"
     }
@@ -26,7 +26,7 @@
     "recall-all": true
   },
   "random-actuation": {
-    "delay": 5,
+    "delay": 0,
     "min": 1,
     "max": 80,
     "enabled": true
@@ -35,21 +35,21 @@
     "phases": []
   },
   "default-timing": {
-    "rclr": 1.0,
-    "go": 20.0,
-    "max-go": 40.0,
-    "caution": 6.0,
-    "extend": 10.0,
-    "pclr": 10.0,
-    "walk": 3.0
+    "service-clear": 1.0,
+    "service-min": 5.0,
+    "service-max": 35.0,
+    "caution": 4.0,
+    "gap": 2.0,
+    "gap-reduce": 0.0,
+    "gap-min": 0.0,
+    "gap-max": 25.0,
+    "walk-min": 0.0,
+    "walk-max": 0.0,
+    "ped-clear": 0.0
   },
   "phases": [
     {
       "id": 1,
-      "timing": {
-        "go": 11.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 1
@@ -58,11 +58,11 @@
     {
       "id": 2,
       "timing": {
-        "go": 38.0,
-        "max-go": 58.0,
-        "extend": 20.0,
-        "pclr": 16.0,
-        "walk": 3.0
+        "service-max": 60.0,
+        "gap": 2.5,
+        "gap-max": 40.0,
+        "walk-min": 5.0,
+        "ped-clear": 15.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -72,10 +72,6 @@
     },
     {
       "id": 3,
-      "timing": {
-        "go": 11.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 3
@@ -83,6 +79,12 @@
     },
     {
       "id": 4,
+      "timing": {
+        "service-max": 40.0,
+        "gap-max": 30.0,
+        "walk-min": 5.0,
+        "ped-clear": 17.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 4,
@@ -91,10 +93,6 @@
     },
     {
       "id": 5,
-      "timing": {
-        "go": 11.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 7
@@ -103,11 +101,11 @@
     {
       "id": 6,
       "timing": {
-        "go": 38.0,
-        "max-go": 58.0,
-        "extend": 20.0,
-        "pclr": 16.0,
-        "walk": 3.0
+        "service-max": 60.0,
+        "gap": 2.5,
+        "gap-max": 40.0,
+        "walk-min": 5.0,
+        "ped-clear": 13.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -117,10 +115,6 @@
     },
     {
       "id": 7,
-      "timing": {
-        "go": 11.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 9
@@ -128,6 +122,12 @@
     },
     {
       "id": 8,
+      "timing": {
+        "service-max": 40.0,
+        "gap-max": 30.0,
+        "walk-min": 5.0,
+        "ped-clear": 17.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 10,

@@ -123,7 +123,7 @@
           "type": "boolean"
         },
         "cet-delay": {
-          "type": "integer",
+          "type": "number",
           "minimum": 1
         }
       }
@@ -173,16 +173,20 @@
     "default-timing": {
       "type": "object",
       "required": [
-        "go-min",
-        "gap",
-        "go-max",
+        "service-clear",
+        "service-min",
+        "service-max",
         "caution",
-        "vclr",
-        "walk",
-        "pclr"
+        "gap",
+        "gap-reduce",
+        "gap-min",
+        "gap-max",
+        "walk-min",
+        "walk-max",
+        "ped-clear"
       ],
       "properties": {
-        "^go-min|gap|go-max|caution|vclr|walk|pclr$": {
+        "^service-clear|service-min|service-max|caution|gap|gap-reduce|gap-min|gap-max|walk-min|walk-max|ped-clear$": {
           "type": "number",
           "minimum": 0,
           "maximum": 1000
@@ -207,7 +211,7 @@
           "timing": {
             "type": "object",
             "properties": {
-              "^go-min|gap|go-max|caution|vclr|walk|pclr$": {
+              "^service-clear|service-min|service-max|caution|gap|gap-reduce|gap-min|gap-max|walk-min|walk-max|ped-clear$": {
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1000

@@ -13,7 +13,7 @@
 #  limitations under the License.
 from atsc import constants
 from enum import IntEnum
-from typing import Dict, List, Optional
+from typing import List, Optional
 from atsc.logic import Timer, Flasher, EdgeTrigger
 from jacob.text import csl
 from collections import Counter
@@ -69,108 +69,220 @@ class LoadSwitch(IdentifiableBase):
         self.c = False
 
 
-class PhaseState(IntEnum):
+class PhaseInterval(IntEnum):
     STOP = 0
-    VCLR = 4
+    SCLR = 4
     CAUTION = 6
     GAP = 8
-    GO_MIN = 10
+    GO = 10
     PCLR = 12
     WALK = 14
-    GO_MAX = 32
-    
-    def __repr__(self):
-        return self.name
 
 
-PHASE_RIGID_STATES = (PhaseState.VCLR, PhaseState.CAUTION, PhaseState.PCLR)
+PHASE_FIXED_INTERVALS = (PhaseInterval.SCLR, PhaseInterval.CAUTION, PhaseInterval.PCLR)
 
-PHASE_TIMES_STATES = (PhaseState.VCLR,
-                      PhaseState.CAUTION,
-                      PhaseState.GAP,
-                      PhaseState.GO_MIN,
-                      PhaseState.PCLR,
-                      PhaseState.WALK)
+PHASE_TIMED_INTERVALS = (PhaseInterval.SCLR,
+                         PhaseInterval.CAUTION,
+                         PhaseInterval.GAP,
+                         PhaseInterval.GO,
+                         PhaseInterval.PCLR,
+                         PhaseInterval.WALK)
 
-PHASE_TIMED_STATES_ALL = (PhaseState.VCLR,
-                          PhaseState.CAUTION,
-                          PhaseState.GAP,
-                          PhaseState.GO_MIN,
-                          PhaseState.PCLR,
-                          PhaseState.WALK,
-                          PhaseState.GO_MAX)
-
-PHASE_GO_STATES = (PhaseState.GAP,
-                   PhaseState.GO_MIN,
-                   PhaseState.PCLR,
-                   PhaseState.WALK)
+PHASE_GO_INTERVALS = (PhaseInterval.GAP,
+                      PhaseInterval.GO,
+                      PhaseInterval.PCLR,
+                      PhaseInterval.WALK)
 
 
-def validate_phase_timing(timing: Dict[PhaseState, float],
-                          primary: bool):
-    if not isinstance(timing, dict):
-        raise TypeError()
+class PhaseTiming:
     
-    if len(timing) != len(PHASE_TIMED_STATES_ALL):
-        raise RuntimeError('Timing map mismatched size')
+    @property
+    def service_clear(self):
+        return self._service_clear
     
-    for state, time in timing.items():
-        if not isinstance(state, PhaseState):
-            raise TypeError()
-        if not isinstance(time, float):
-            raise TypeError()
-        if time < 0.0:
-            raise ValueError('state time must be non-negative')
+    @property
+    def service_min(self):
+        return self._service_min
     
-    if timing.get(PhaseState.STOP):
-        raise ValueError('stop state cannot have specified time')
+    @property
+    def service_max(self):
+        return self._service_max
     
-    go = timing.get(PhaseState.GO_MIN, 0.0)
-    max_go = timing.get(PhaseState.GO_MAX, 0.0)
+    @property
+    def caution(self):
+        return self._caution
     
-    if max_go < 1.0:
-        raise ValueError('max go less than 1.0')
+    @property
+    def gap(self):
+        return self._gap
     
-    if go > max_go:
-        raise ValueError('go longer than max go time')
+    @property
+    def gap_reduce(self):
+        return self._gap_reduce
     
-    for state in (PhaseState.CAUTION,
-                  PhaseState.GAP,
-                  PhaseState.GO_MIN,
-                  PhaseState.PCLR,
-                  PhaseState.WALK):
-        time = timing.get(state, 0.0)
-        if 0.0 < time < 1.0:
-            raise ValueError(f'{state.name} must be at least 1.0')
+    @property
+    def gap_min(self):
+        return self._gap_min
     
-    caution = timing.get(PhaseState.CAUTION, 0.0)
-    extend = timing.get(PhaseState.GAP, 0.0)
-    pclr = timing.get(PhaseState.PCLR, 0.0)
-    walk = timing.get(PhaseState.WALK, 0.0)
+    @property
+    def gap_max(self):
+        return self._gap_max
     
-    deductions = caution + extend
-    if primary:
-        deductions += pclr + walk
+    @property
+    def walk_min(self):
+        return self._walk_min
     
-    if deductions - go < 1.0:
-        raise ValueError('invalid gross go time')
+    @property
+    def walk_max(self):
+        return self._walk_max
+    
+    @property
+    def ped_clear(self):
+        return self._ped_clear
+    
+    @property
+    def service_rest(self) -> float:
+        return not self.service_max
+    
+    @property
+    def gap_rest(self) -> float:
+        return not self.gap_max
+    
+    @property
+    def walk_rest(self) -> float:
+        return not self.walk_max
+    
+    @property
+    def ped_service(self) -> float:
+        if self.walk_min:
+            if self.walk_rest:
+                return self.walk_min + self.ped_clear
+            else:
+                return self.walk_max + self.ped_clear
+        else:
+            return 0.0
+        
+    @property
+    def fixed_interval_total(self):
+        return self.service_clear + self.caution + self.ped_clear
+        
+    @property
+    def service_limit(self) -> float:
+        if self.service_rest:
+            return 0.0
+        
+        return self.service_max - self.fixed_interval_total
+    
+    def __init__(self,
+                 service_clear: float = 0.0,
+                 service_min: float = 1.0,
+                 service_max: float = 0.0,
+                 caution: float = 0.0,
+                 gap: float = 0.0,
+                 gap_reduce: float = constants.TIME_BASE,
+                 gap_min: float = 0.0,
+                 gap_max: float = 0.0,
+                 walk_min: float = 0.0,
+                 walk_max: float = 0.0,
+                 ped_clear: float = 0.0):
+        """
+        Collection of timing values needed for a Phase with validation logic.
+        All timing values must be positive or zero.
+        
+        :param service_clear: Clearance interval immediately after stop (0.0+)
+        :param service_min: Minimum movement time overall (1.0+)
+        :param service_max: Maximum movement time overall (0 to disable)
+        :param caution: Fixed caution interval time (0 to skip)
+        :param gap: Time between vehicles (0 to skip)
+        :param gap_reduce: Amount to subtract from gap setpoint every tick (0.0+)
+        :param gap_min: Lowest gap time (0 to ignore)
+        :param gap_max: Maximum gap interval (0 to disable)
+        :param walk_min: Minimum walk time for ped service (0 to disable ped service always)
+        :param walk_max: Enforce fixed walk interval (0 to disable, 1.0+)
+        :param ped_clear: Ped clearance interval (ignored when walk_min 0, 1.0+)
+        """
+        self._service_clear = service_clear
+        self._service_min = service_min
+        self._service_max = service_max
+        self._caution = caution
+        self._gap = gap
+        self._gap_reduce = gap_reduce
+        self._gap_min = gap_min
+        self._gap_max = gap_max
+        self._walk_min = walk_min
+        self._walk_max = walk_max
+        self._ped_clear = ped_clear
+        
+        if any([v < 0.0 for v in (
+            service_clear,
+            service_min,
+            service_max,
+            caution,
+            gap,
+            gap_reduce,
+            gap_min,
+            gap_max,
+            walk_min,
+            walk_max,
+            ped_clear
+        )]):
+            raise ValueError('phase timing value cannot be negative')
+        
+        if self.service_min < 1.0:
+            raise ValueError('service_min must be at least 1.0')
+        
+        if 0.0 < self.service_max < self.service_min:
+            raise ValueError('service_max less than or equal to service_min')
+        
+        if 0.0 < self.caution < 1.0:
+            raise ValueError('caution must be at least 1.0')
+        
+        if 0.0 < gap_max < gap_min:
+            raise ValueError('gap_max less than gap_min')
+        
+        if 0.0 < gap_reduce > gap:
+            raise ValueError('gap_reduce must be less than or equal to gap')
+        
+        if gap > gap_max:
+            raise ValueError('gap must be less than or equal to gap_max')
+        
+        if 0.0 < gap < gap_min:
+            raise ValueError('gap must be at least gap_min')
+        
+        if 0.0 < walk_min < 1.0:
+            raise ValueError('walk_min must be at least 1.0')
+        
+        if 0.0 < walk_max < walk_min:
+            raise ValueError('walk_max must be less than or equal to walk_min')
+
+        if walk_min and ped_clear < 1.0:
+            raise ValueError('ped_clear must be at least 1.0 (walk_min > 0.0)')
+        
+        if self.service_limit < 1.0:
+            raise ValueError('service_limit less than 1.0')
+        
+    def for_interval(self, interval: PhaseInterval) -> float:
+        match interval:
+            case PhaseInterval.SCLR:
+                return self.service_clear
+            case PhaseInterval.CAUTION:
+                return self.caution
+            case PhaseInterval.GAP:
+                return self.gap
+            case PhaseInterval.GO:
+                return self.service_min
+            case PhaseInterval.PCLR:
+                return self.ped_clear
+            case PhaseInterval.WALK:
+                return self.walk_min
+        raise NotImplementedError()
 
 
 class Phase(IdentifiableBase):
     
     @property
-    def default_extend(self):
-        return self.timing[PhaseState.GAP] / 2.0
-    
-    @property
-    def extend_enabled(self):
-        return (self.timing[PhaseState.GAP] > 0.0 and
-                not self.extend_inhibit and
-                self._gap_timer.elapsed < self.default_extend)
-    
-    @property
-    def extend_active(self):
-        return self._state == PhaseState.GAP
+    def timing(self):
+        return self._timing
     
     @property
     def flash_mode(self) -> FlashMode:
@@ -178,61 +290,62 @@ class Phase(IdentifiableBase):
     
     @property
     def active(self) -> bool:
-        return self._state != PhaseState.STOP
+        return self._interval != PhaseInterval.STOP
     
     @property
     def resting(self):
         return self._resting
     
     @property
-    def state(self) -> PhaseState:
-        return self._state
+    def interval(self) -> PhaseInterval:
+        return self._interval
     
     @property
-    def previous_states(self):
-        return self._previous_states
+    def previous_intervals(self):
+        return self._previous_intervals
     
     @property
-    def setpoint(self) -> float:
-        return self._timer.trigger
+    def interval_setpoint(self) -> float:
+        return self._interval_timer.trigger
     
-    @setpoint.setter
-    def setpoint(self, value):
-        self._timer.trigger = value if value > 0.0 else 0.0
+    @interval_setpoint.setter
+    def interval_setpoint(self, value):
+        self._interval_timer.trigger = value if value > 0.0 else 0.0
     
     @property
     def interval_elapsed(self):
-        return self._timer.elapsed
+        return self._interval_timer.elapsed
     
     @property
-    def minimum_service(self):
-        rv = self.timing[PhaseState.CAUTION]
-        if self.primary:
-            rv += self.timing[PhaseState.PCLR]
-        return rv
+    def service_setpoint(self) -> float:
+        return self._interval_timer.trigger
+    
+    @service_setpoint.setter
+    def service_setpoint(self, value):
+        self._service_timer.trigger = value if value > 0.0 else 0.0
+    
+    @property
+    def service_elapsed(self):
+        return self._service_timer.elapsed
     
     @property
     def ped_service(self):
-        return self._ped_service
+        return self._interval == PhaseInterval.WALK or PhaseInterval.WALK in self._previous_intervals
     
     @ped_service.setter
     def ped_service(self, value):
         self._ped_service_request = value
     
     @property
-    def go_override(self):
-        return self._go_override
+    def service_override(self):
+        return self._service_override
     
-    @go_override.setter
-    def go_override(self, value):
+    @service_override.setter
+    def service_override(self, value):
         if value < 0.0:
-            value = 0.0
-        else:
-            max_go = self.timing[PhaseState.GO_MAX]
-            if value > max_go:
-                value = max_go
+            raise ValueError('go override must be positive or zero')
         
-        self._go_override = value
+        self._service_override = min(value, self._timing.service_max)
     
     @property
     def veh_ls(self) -> LoadSwitch:
@@ -242,114 +355,113 @@ class Phase(IdentifiableBase):
     def ped_ls(self) -> Optional[LoadSwitch]:
         return self._pls
     
-    @property
-    def primary(self):
-        return self.ped_ls is not None
-    
     def __init__(self,
                  id_: int,
-                 timing: Dict[PhaseState, float],
+                 timing: PhaseTiming,
                  veh_ls: LoadSwitch,
                  ped_ls: Optional[LoadSwitch],
                  flash_mode: FlashMode = FlashMode.RED):
         super().__init__(id_)
-        self.flasher = Flasher()
+        self._timing = timing
+        self._flasher = Flasher()
+        self._flash_mode = flash_mode
+        self._ped_service_request = False
+        
+        # override the default plan service time
+        self._service_override: float = 0.0
+        
+        self._resting = False
+        self._interval: PhaseInterval = PhaseInterval.STOP
+        
+        # window of PhaseInterval's, the width of len(PhaseIntervals) - 1
+        self._previous_intervals: List[PhaseInterval] = []
+        
+        # stores service timer elapsed at start of gap interval
+        # used in calculating overall gap time elapsed
+        self._gap_marker: Optional[float] = None
+        
+        self._interval_timer = Timer()
+        self._service_timer = Timer()
+        self._vls = veh_ls
+        self._pls = ped_ls
         self.stats = Counter({
             'detections'     : 0,
             'vehicle_service': 0,
             'ped_service'    : 0
         })
-        self.timing = timing
-        self.supress_maximum = False
-        self.extend_inhibit = False
-        self.rest_inhibit = False
         
-        self._ped_service = False
-        self._ped_service_request = False
-        self._go_override: float = 0.0
-        self._resting = False
-        self._flash_mode = flash_mode
-        self._state: PhaseState = PhaseState.STOP
-        self._previous_states: List[PhaseState] = []
-        self._timer = Timer()
-        self._go_timer = Timer()
-        self._gap_timer = Timer()
-        self._vls = veh_ls
-        self._pls = ped_ls
-        validate_phase_timing(timing, self.primary)
+        self.gap_inhibit = False
+        self.rest_inhibit = False
     
-    def get_recycle_state(self, ped_service: bool) -> PhaseState:
-        if self._state in (PhaseState.WALK, PhaseState.GO_MIN, PhaseState.GAP):
+    def get_recycle_interval(self, ped_service: bool) -> PhaseInterval:
+        if self.interval in (PhaseInterval.WALK, PhaseInterval.GO, PhaseInterval.GAP):
             if ped_service:
-                return PhaseState.WALK
+                return PhaseInterval.WALK
             else:
-                return PhaseState.GO_MIN
+                return PhaseInterval.GO
         else:
             raise NotImplementedError()
     
-    def get_next_state(self, ped_service: bool, expedite: bool) -> PhaseState:
-        if self._state == PhaseState.STOP:
-            if self.ped_ls is not None and ped_service:
-                return PhaseState.WALK
+    def get_next_interval(self, ped_service: bool, expedite: bool) -> PhaseInterval:
+        if self.interval == PhaseInterval.STOP:
+            if self.ped_ls is not None and ped_service and not expedite:
+                return PhaseInterval.WALK
             else:
-                return PhaseState.GO_MIN
-        elif self._state == PhaseState.VCLR:
-            return PhaseState.STOP
-        elif self._state == PhaseState.CAUTION:
-            return PhaseState.VCLR
-        elif self._state == PhaseState.GAP:
-            return PhaseState.CAUTION
-        elif self._state == PhaseState.GO_MIN:
-            if self.extend_enabled and not expedite:
-                return PhaseState.GAP
+                return PhaseInterval.GO
+        elif self.interval == PhaseInterval.SCLR:
+            return PhaseInterval.STOP
+        elif self.interval == PhaseInterval.CAUTION:
+            return PhaseInterval.SCLR
+        elif self.interval == PhaseInterval.GAP:
+            return PhaseInterval.CAUTION
+        elif self.interval == PhaseInterval.GO:
+            if self.timing.gap and not expedite:
+                return PhaseInterval.GAP
             else:
-                return PhaseState.CAUTION
-        elif self._state == PhaseState.PCLR:
+                return PhaseInterval.CAUTION
+        elif self.interval == PhaseInterval.PCLR:
             if expedite:
-                return PhaseState.CAUTION
+                return PhaseInterval.CAUTION
             else:
-                return PhaseState.GO_MIN
-        elif self._state == PhaseState.WALK:
-            return PhaseState.PCLR
+                return PhaseInterval.GO
+        elif self.interval == PhaseInterval.WALK:
+            if expedite or not self.timing.ped_clear:
+                return PhaseInterval.CAUTION
+            else:
+                return PhaseInterval.PCLR
         else:
             raise NotImplementedError()
     
-    def get_setpoint(self, state: PhaseState) -> float:
-        return round(self.timing.get(state, 0.0), 1)
+    def get_setpoint(self, interval: PhaseInterval) -> float:
+        return round(self.timing.for_interval(interval), 1)
     
     def estimate_remaining(self) -> Optional[float]:
-        if self.state == PhaseState.STOP:
+        if self.interval == PhaseInterval.STOP:
             return None
         
-        setpoints = 0.0
-        for state in (PhaseState.VCLR,
-                      PhaseState.CAUTION,
-                      PhaseState.GAP,
-                      PhaseState.GO_MIN,
-                      PhaseState.PCLR,
-                      PhaseState.WALK):
-            if self.state.value >= state.value:
-                setpoints += self.get_setpoint(state)
+        setpoints = constants.TIME_BASE
+        for interval in PHASE_TIMED_INTERVALS:
+            if self.interval.value >= interval.value:
+                setpoints += self.get_setpoint(interval)
             else:
                 break
         
         return round(setpoints - self.interval_elapsed, 1)
     
     def gap_reset(self):
-        self._gap_timer.reset()
-        if self.extend_active:
-            self._timer.reset()
+        if self.interval == PhaseInterval.GAP:
+            self._interval_timer.reset()
     
     def activate(self):
-        state = None
+        interval = None
         
         if self.active:
-            if self.state in PHASE_RIGID_STATES:
+            if self.interval in PHASE_FIXED_INTERVALS:
                 raise RuntimeError('Cannot activate active phase during rigidly-timed interval')
             
-            state = self.get_recycle_state(self.ped_service)
+            interval = self.get_recycle_interval(self.ped_service)
         
-        changed = self.change(state=state)
+        changed = self.change(interval=interval)
         assert changed
     
     def update_field(self):
@@ -357,36 +469,37 @@ class Phase(IdentifiableBase):
         pb = False
         pc = False
         
-        if self._state == PhaseState.STOP or self._state == PhaseState.VCLR:
-            self._vls.a = True
-            self._vls.b = False
-            self._vls.c = False
-            pa = True
-            pc = False
-        elif self._state == PhaseState.CAUTION:
-            self._vls.a = False
-            self._vls.b = True
-            self._vls.c = False
-            pa = True
-            pc = False
-        elif self._state == PhaseState.GO_MIN or self._state == PhaseState.GAP:
-            self._vls.a = False
-            self._vls.b = False
-            self._vls.c = True
-            pa = True
-            pc = False
-        elif self._state == PhaseState.PCLR:
-            self._vls.a = False
-            self._vls.b = False
-            self._vls.c = True
-            pa = self.flasher.bit
-            pc = False
-        elif self._state == PhaseState.WALK:
-            self._vls.a = False
-            self._vls.b = False
-            self._vls.c = True
-            pa = False
-            pc = True
+        match self.interval:
+            case PhaseInterval.STOP | PhaseInterval.SCLR:
+                self._vls.a = True
+                self._vls.b = False
+                self._vls.c = False
+                pa = True
+                pc = False
+            case PhaseInterval.CAUTION:
+                self._vls.a = False
+                self._vls.b = True
+                self._vls.c = False
+                pa = True
+                pc = False
+            case PhaseInterval.GO | PhaseInterval.GAP:
+                self._vls.a = False
+                self._vls.b = False
+                self._vls.c = True
+                pa = True
+                pc = False
+            case PhaseInterval.PCLR:
+                self._vls.a = False
+                self._vls.b = False
+                self._vls.c = True
+                pa = self._flasher.bit
+                pc = False
+            case PhaseInterval.WALK:
+                self._vls.a = False
+                self._vls.b = False
+                self._vls.c = True
+                pa = False
+                pc = True
         
         if self._pls is not None:
             self._pls.a = pa
@@ -394,80 +507,96 @@ class Phase(IdentifiableBase):
             self._pls.c = pc
     
     def change(self,
-               state: Optional[PhaseState] = None,
+               interval: Optional[PhaseInterval] = None,
                expedite: bool = False) -> bool:
-        if self._state not in PHASE_GO_STATES:
-            self._ped_service = self._ped_service_request
+        # cannot do or shorthand as STOP is cast to zero
+        if interval is None:
+            next_interval = self.get_next_interval(self._ped_service_request, expedite)
+        else:
+            next_interval = interval
         
-        next_state = state if state is not None else self.get_next_state(self.ped_service, expedite)
-        if next_state != self._state:
+        if next_interval != self._interval:
             self._resting = False
-            self._timer.reset()
+            self._interval_timer.reset()
             
-            if next_state == PhaseState.STOP:
-                self.extend_inhibit = False
-                self.go_override = 0.0
+            match next_interval:
+                case PhaseInterval.STOP:
+                    self._ped_service_request = False
+                    self.gap_inhibit = False
+                    self.service_override = 0.0
+                case PhaseInterval.GO | PhaseInterval.WALK:
+                    self._service_timer.reset()
+                    self.service_setpoint = self.timing.service_max
+                    if next_interval == PhaseInterval.WALK:
+                        self.stats['ped_service'] += 1
+                    self.stats['vehicle_service'] += 1
+                case PhaseInterval.GAP:
+                    self._gap_marker = self.service_elapsed
             
-            if next_state in (PhaseState.GO_MIN, PhaseState.WALK):
-                self._go_timer.reset()
-                self._gap_timer.reset()
-                if next_state == PhaseState.WALK:
-                    self.stats['ped_service'] += 1
-                self.stats['vehicle_service'] += 1
+            if next_interval in PHASE_TIMED_INTERVALS:
+                self.interval_setpoint = self.get_setpoint(next_interval)
+            else:
+                self.interval_setpoint = 0.0
             
-            setpoint = self.get_setpoint(next_state)
-            if next_state in PHASE_TIMED_STATES_ALL:
-                assert setpoint >= 0.0
+            self._previous_intervals.insert(0, self.interval)
+            if len(self._previous_intervals) > len(PHASE_TIMED_INTERVALS) - 1:
+                self._previous_intervals.pop()
             
-            self._previous_states.insert(0, self.state)
-            
-            if len(self._previous_states) > len(PHASE_TIMES_STATES) - 1:
-                self._previous_states.pop()
-            
-            self._state = next_state
-            self.setpoint = setpoint
+            self._interval = next_interval
             return True
         else:
             return False
+        
+    def can_rest(self):
+        if self.interval in PHASE_TIMED_INTERVALS:
+            return False
+        elif self.interval == PhaseInterval.WALK and self._timing.walk_max:
+            return False
+        else:
+            if not self.rest_inhibit:
+                return True
     
     def tick(self) -> bool:
-        self.flasher.poll(self._state == PhaseState.PCLR)
+        self._flasher.poll(self._interval == PhaseInterval.PCLR)
         self.update_field()
         
         changed = False
-        
-        if self._timer.poll(True):
-            if self.active:
-                if (self._state in PHASE_RIGID_STATES) or self.rest_inhibit:
-                    if self._state == PhaseState.WALK:
-                        walk_time = self.timing[PhaseState.WALK]
-                        self.extend_inhibit = self.interval_elapsed - walk_time > self.default_extend
-                    changed = self.change()
-                else:
-                    self._resting = True
-        else:
-            if self.extend_active:
-                self.setpoint -= constants.TIME_INCREMENT
-        
-        go_state = self._state in PHASE_GO_STATES
-        if go_state:
-            if self._go_timer.elapsed > self.timing[PhaseState.GO_MAX]:
-                if self._state not in PHASE_RIGID_STATES:
-                    if not self.supress_maximum or self.rest_inhibit:
-                        changed = self.change(expedite=True)
+        interval_limit = self._interval_timer.poll(True)
+        service_limit = self._service_timer.poll(self.active)
+        if self.active:
+            match self.interval:
+                case PhaseInterval.GAP:
+                    if self.timing.gap:
+                        if self.interval_setpoint >= (self.timing.gap_min + constants.TIME_BASE):
+                            self.interval_setpoint -= self.timing.gap_reduce
+                        gap_elapsed = self.service_elapsed - self._gap_marker
+                        if self.timing.gap_max and gap_elapsed > self.timing.gap_max:
+                            changed = self.change()
                     else:
-                        self._resting = True
-        
-        self._go_timer.poll(go_state)
-        
-        if self.extend_active and not self.extend_enabled:
-            self.change()
+                        changed = self.change()
+                case PhaseInterval.WALK:
+                    if self._timing.walk_max:
+                        if self.interval_elapsed > self._timing.walk_max:
+                            changed = self.change()
+            
+            if interval_limit:
+                if self.can_rest():
+                    self._resting = True
+                else:
+                    if self._service_timer.elapsed > self._timing.service_min:
+                        changed = self.change()
+                        
+            if service_limit and not self._timing.service_rest:
+                service_max = max(self._timing.fixed_interval_total, self._timing.service_limit)
+                if self._service_timer.elapsed > service_max:
+                    if self._interval not in PHASE_FIXED_INTERVALS:
+                        changed = self.change(expedite=True)
         
         return changed
     
     def __repr__(self):
-        return (f'<{self.get_tag()} {self.state.name} '
-                f'{round(self.interval_elapsed, 1)} of {round(self.setpoint, 1)}>')
+        return (f'<{self.get_tag()} {self.interval.name} '
+                f'{round(self.interval_elapsed, 1)} of {round(self.interval_setpoint, 1)}>')
 
 
 class Ring(IdentifiableBase):

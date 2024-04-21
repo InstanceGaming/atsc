@@ -1,14 +1,14 @@
 {
-  "version": 4,
+  "version": 5,
   "device": {
-    "name": "ATSC Development Intersection",
+    "name": "Emerald & Mitchel",
     "location": {
       "timezone": "America/Boise"
     }
   },
   "network": {
     "enabled": true,
-    "interface": "localhost",
+    "interface": "any",
     "monitor": {
       "enabled": true,
       "port": 7801
@@ -22,34 +22,34 @@
   },
   "init": {
     "mode": "cet",
-    "cet-delay": 5,
-    "recall-all": false
+    "cet-delay": 4.0,
+    "recall-all": true
   },
   "random-actuation": {
-    "delay": 5,
+    "delay": 0,
     "min": 1,
-    "max": 60,
+    "max": 30,
     "enabled": true
   },
   "idling": {
-    "phases": [2, 6]
+    "phases": []
   },
   "default-timing": {
-    "rclr": 1.0,
-    "go": 20.0,
-    "max-go": 40.0,
-    "caution": 6.0,
-    "extend": 10.0,
-    "pclr": 10.0,
-    "walk": 3.0
+    "service-clear": 1.0,
+    "service-min": 5.0,
+    "service-max": 35.0,
+    "caution": 4.0,
+    "gap": 2.0,
+    "gap-reduce": 0.0,
+    "gap-min": 0.0,
+    "gap-max": 25.0,
+    "walk-min": 0.0,
+    "walk-max": 0.0,
+    "ped-clear": 0.0
   },
   "phases": [
     {
       "id": 1,
-      "timing": {
-        "go": 11.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 1
@@ -58,11 +58,11 @@
     {
       "id": 2,
       "timing": {
-        "go": 38.0,
-        "max-go": 58.0,
-        "extend": 20.0,
-        "pclr": 16.0,
-        "walk": 3.0
+        "service-max": 60.0,
+        "gap": 2.5,
+        "gap-max": 40.0,
+        "walk-min": 5.0,
+        "ped-clear": 15.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -72,10 +72,6 @@
     },
     {
       "id": 3,
-      "timing": {
-        "go": 11.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 3
@@ -83,6 +79,12 @@
     },
     {
       "id": 4,
+      "timing": {
+        "service-max": 40.0,
+        "gap-max": 30.0,
+        "walk-min": 5.0,
+        "ped-clear": 17.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 4,
@@ -91,10 +93,6 @@
     },
     {
       "id": 5,
-      "timing": {
-        "go": 11.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 7
@@ -103,11 +101,11 @@
     {
       "id": 6,
       "timing": {
-        "go": 38.0,
-        "max-go": 58.0,
-        "extend": 20.0,
-        "pclr": 16.0,
-        "walk": 3.0
+        "service-max": 60.0,
+        "gap": 2.5,
+        "gap-max": 40.0,
+        "walk-min": 5.0,
+        "ped-clear": 13.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -117,10 +115,6 @@
     },
     {
       "id": 7,
-      "timing": {
-        "go": 11.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 9
@@ -128,6 +122,12 @@
     },
     {
       "id": 8,
+      "timing": {
+        "service-max": 40.0,
+        "gap-max": 30.0,
+        "walk-min": 5.0,
+        "ped-clear": 17.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 10,
@@ -168,49 +168,65 @@
       "id": 10,
       "action": "recall",
       "recall-type": "maintain",
-      "targets": [1]
+      "targets": [
+        1
+      ]
     },
     {
       "id": 20,
       "action": "recall",
       "recall-type": "maintain",
-      "targets": [2]
+      "targets": [
+        2
+      ]
     },
     {
       "id": 30,
       "action": "recall",
       "recall-type": "maintain",
-      "targets": [3]
+      "targets": [
+        3
+      ]
     },
     {
       "id": 40,
       "action": "recall",
       "recall-type": "maintain",
-      "targets": [4]
+      "targets": [
+        4
+      ]
     },
     {
       "id": 50,
       "action": "recall",
       "recall-type": "maintain",
-      "targets": [5]
+      "targets": [
+        5
+      ]
     },
     {
       "id": 60,
       "action": "recall",
       "recall-type": "maintain",
-      "targets": [6]
+      "targets": [
+        6
+      ]
     },
     {
       "id": 70,
       "action": "recall",
       "recall-type": "maintain",
-      "targets": [7]
+      "targets": [
+        7
+      ]
     },
     {
       "id": 80,
       "action": "recall",
       "recall-type": "maintain",
-      "targets": [8]
+      "targets": [
+        8
+      ]
     }
   ]
 }

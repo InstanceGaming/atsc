@@ -119,8 +119,8 @@ class Monitor(Thread):
                 phase_pb = control_pb.phase.add()
                 phase_pb.status = 0
                 phase_pb.ped_service = ph.ped_service
-                phase_pb.state = ph.state.value
-                phase_pb.time_upper = ph.setpoint
+                phase_pb.state = ph.interval.value
+                phase_pb.time_upper = ph.interval_setpoint
                 phase_pb.time_lower = ph.interval_elapsed
                 phase_pb.detections = ph.stats['detections']
                 phase_pb.vehicle_calls = ph.stats['vehicle_service']
