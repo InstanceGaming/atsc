@@ -258,7 +258,7 @@ class PhaseTiming:
         if walk_min and ped_clear < 1.0:
             raise ValueError('ped_clear must be at least 1.0 (walk_min > 0.0)')
         
-        if self.service_limit < 1.0:
+        if self._service_max and self.service_limit < 1.0:
             raise ValueError('service_limit less than 1.0')
         
     def for_interval(self, interval: PhaseInterval) -> float:

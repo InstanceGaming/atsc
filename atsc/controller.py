@@ -597,8 +597,7 @@ class Controller:
                          csl([phase.get_tag() for phase in phases]),
                          next_delay)
             
-            ped_service = False
-            # ped_service = bool(round(self.randomizer.random()))
+            ped_service = bool(round(self.randomizer.random()))
             self.detect(phases, ped_service=ped_service, note='random actuation')
             self.random_timer.trigger = next_delay
             self.random_timer.reset()
@@ -680,7 +679,7 @@ class Controller:
             
             for phase in active_phases:
                 if 0 < len(active_phases) < concurrent_phases:
-                    if phase.interval in (PhaseInterval.GO, PhaseInterval.WALK, PhaseInterval.PCLR):
+                    if phase.interval in PHASE_GO_INTERVALS:
                         partners = self.get_phase_partners(phase)
                         if partners:
                             for partner in partners:

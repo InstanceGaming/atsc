@@ -23,16 +23,16 @@
   "init": {
     "mode": "cet",
     "cet-delay": 4.0,
-    "recall-all": true
+    "recall-all": false
   },
   "random-actuation": {
     "delay": 0,
     "min": 1,
-    "max": 30,
+    "max": 80,
     "enabled": true
   },
   "idling": {
-    "phases": []
+    "phases": [2, 6]
   },
   "default-timing": {
     "service-clear": 1.0,
@@ -58,7 +58,7 @@
     {
       "id": 2,
       "timing": {
-        "service-max": 60.0,
+        "service-max": 0.0,
         "gap": 2.5,
         "gap-max": 40.0,
         "walk-min": 5.0,
@@ -101,7 +101,7 @@
     {
       "id": 6,
       "timing": {
-        "service-max": 60.0,
+        "service-max": 0.0,
         "gap": 2.5,
         "gap-max": 40.0,
         "walk-min": 5.0,
