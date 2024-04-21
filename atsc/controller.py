@@ -633,7 +633,7 @@ class Controller:
                     if phase_pool:
                         partners = self.get_phase_partners(phase)
                         for partner in partners:
-                            if partner.interval == PhaseInterval.GO and not partner.resting:
+                            if partner.interval == PhaseInterval.GO:
                                 if not self.check_conflicting_demand(partner, partners):
                                     # partner.gap_inhibit = not phase.extend_enabled
                                     rest_inhibit = False

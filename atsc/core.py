@@ -293,10 +293,6 @@ class Phase(IdentifiableBase):
         return self._interval != PhaseInterval.STOP
     
     @property
-    def resting(self):
-        return self._resting
-    
-    @property
     def interval(self) -> PhaseInterval:
         return self._interval
     
@@ -369,10 +365,7 @@ class Phase(IdentifiableBase):
         
         # override the default plan service time
         self._service_override: float = 0.0
-        
-        self._resting = False
         self._interval: PhaseInterval = PhaseInterval.STOP
-        
         # window of PhaseInterval's, the width of len(PhaseIntervals) - 1
         self._previous_intervals: List[PhaseInterval] = []
         
@@ -390,7 +383,6 @@ class Phase(IdentifiableBase):
             'ped_service'    : 0
         })
         
-        self.gap_inhibit = False
         self.rest_inhibit = False
     
     def get_recycle_interval(self, ped_service: bool) -> PhaseInterval:
@@ -433,7 +425,14 @@ class Phase(IdentifiableBase):
             raise NotImplementedError()
     
     def get_setpoint(self, interval: PhaseInterval) -> float:
-        return round(self.timing.for_interval(interval), 1)
+        default = self.timing.for_interval(interval)
+        
+        if interval == PhaseInterval.GO:
+            rv = max(default - self._service_timer.elapsed, 0.0)
+        else:
+            rv = default
+        
+        return round(rv, 1)
     
     def estimate_remaining(self) -> Optional[float]:
         if self.interval == PhaseInterval.STOP:
@@ -516,13 +515,11 @@ class Phase(IdentifiableBase):
             next_interval = interval
         
         if next_interval != self._interval:
-            self._resting = False
             self._interval_timer.reset()
             
             match next_interval:
                 case PhaseInterval.STOP:
                     self._ped_service_request = False
-                    self.gap_inhibit = False
                     self.service_override = 0.0
                 case PhaseInterval.GO | PhaseInterval.WALK:
                     self._service_timer.reset()
@@ -546,15 +543,6 @@ class Phase(IdentifiableBase):
             return True
         else:
             return False
-        
-    def can_rest(self):
-        if self.interval in PHASE_TIMED_INTERVALS:
-            return False
-        elif self.interval == PhaseInterval.WALK and self._timing.walk_max:
-            return False
-        else:
-            if not self.rest_inhibit:
-                return True
     
     def tick(self) -> bool:
         self._flasher.poll(self._interval == PhaseInterval.PCLR)
@@ -571,19 +559,19 @@ class Phase(IdentifiableBase):
                             self.interval_setpoint -= self.timing.gap_reduce
                         gap_elapsed = self.service_elapsed - self._gap_marker
                         if self.timing.gap_max and gap_elapsed > self.timing.gap_max:
-                            changed = self.change()
+                            if self.rest_inhibit:
+                                changed = self.change()
                     else:
                         changed = self.change()
                 case PhaseInterval.WALK:
                     if self._timing.walk_max:
                         if self.interval_elapsed > self._timing.walk_max:
-                            changed = self.change()
+                            if self.rest_inhibit:
+                                changed = self.change()
             
             if interval_limit:
-                if self.can_rest():
-                    self._resting = True
-                else:
-                    if self._service_timer.elapsed > self._timing.service_min:
+                if self._service_timer.elapsed > self._timing.service_min:
+                    if self.rest_inhibit:
                         changed = self.change()
                         
             if service_limit and not self._timing.service_rest:
