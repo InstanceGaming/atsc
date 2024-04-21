@@ -66,7 +66,7 @@ class Controller:
         
         # control entrance transition timer
         yellow_time = default_timing[PhaseState.CAUTION]
-        cet_delay: float = max(yellow_time, config['init']['cet-delay'] - 1) + 1
+        cet_delay: float = max(yellow_time, config['init']['cet-delay'])
         self.cet_timer = logic.Timer(cet_delay)
         
         # inputs data structure instances

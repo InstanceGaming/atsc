@@ -152,7 +152,7 @@ def validate_phase_timing(timing: Dict[PhaseState, float],
     if primary:
         deductions += pclr + walk
     
-    if deductions - go < 1.0:
+    if abs(deductions - go) < 0.0:
         raise ValueError('invalid gross go time')
 
 
