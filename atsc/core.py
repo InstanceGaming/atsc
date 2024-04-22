@@ -317,15 +317,17 @@ class Phase(IdentifiableBase):
     def get_setpoint(self, state: PhaseState) -> float:
         if state == PhaseState.GO:
             setpoint = self.go_override or self.timing[PhaseState.GO]
+            setpoint -= self.timing[PhaseState.RCLR]
             setpoint -= self.timing[PhaseState.CAUTION]
             setpoint -= self.default_extend
             
             if PhaseState.WALK in self.previous_states:
+                setpoint -= self.timing[PhaseState.PCLR]
                 setpoint -= self.timing[PhaseState.WALK]
         else:
             setpoint = self.timing.get(state, 0.0)
         
-        return round(setpoint, 1)
+        return max(round(setpoint, 1), 0.0)
     
     def estimate_remaining(self) -> Optional[float]:
         if self.state == PhaseState.STOP:
@@ -426,9 +428,6 @@ class Phase(IdentifiableBase):
                 self.stats['vehicle_service'] += 1
             
             setpoint = self.get_setpoint(next_state)
-            if next_state in PHASE_TIMED_STATES_ALL:
-                assert setpoint >= 0.0
-            
             self._previous_states.insert(0, self.state)
             
             if len(self._previous_states) > len(PHASE_TIMES_STATES) - 1:
