@@ -55,6 +55,7 @@ class Controller:
         default_timing = self.get_default_timing(config['default-timing'])
         self.phases: List[Phase] = self.get_phases(config['phases'], default_timing)
         self.phase_pool: List[Phase] = self.phases.copy()
+        self.phase_history: List[Phase] = []
         self.rings: List[Ring] = self.get_rings(config['rings'])
         self.barriers: List[Barrier] = self.get_barriers(config['barriers'])
         self.barrier: Optional[Barrier] = None
@@ -259,6 +260,12 @@ class Controller:
             phases.append(self.get_phase_by_id(item))
         return phases
     
+    def get_highest_phase_id(self) -> int:
+        if not self.phase_history:
+            return 0
+        
+        return max([p.id for p in self.phase_history])
+    
     def sort_calls(self, calls: Iterable[Call]) -> List[Call]:
         return sorted(calls, key=lambda c: min([p.id for p in c.phases]))
     
@@ -340,6 +347,9 @@ class Controller:
             if not phase.active:
                 if phase.state in (PhaseState.CAUTION, PhaseState.EXTEND):
                     continue
+                    
+                if phase.id < self.get_highest_phase_id():
+                    continue
                 
                 conflict = False
                 for active_phase in active_phases:
@@ -401,6 +411,9 @@ class Controller:
     
     def reset_phase_pool(self):
         self.phase_pool = self.phases.copy()
+        self.phase_history = []
+        
+        logger.debug('Reset phase pool')
     
     def end_cycle(self) -> None:
         """End phasing for this control cycle iteration"""
@@ -438,13 +451,16 @@ class Controller:
         except ValueError:
             pass
         
+        if phase not in self.phase_history:
+            self.phase_history.append(phase)
+        
         phase.ped_service = ped_service
         phase.go_override = go_override
         phase.extend_inhibit = extend_inhibit
         phase.activate()
     
     def get_called_phases(self):
-        return chain([call.phases for call in self.calls])
+        return chain(*[call.phases for call in self.calls])
     
     def remove_phase_call(self, phase: Phase) -> bool:
         for call in self.calls:
@@ -600,7 +616,20 @@ class Controller:
                 phase.rest_inhibit = rest_inhibit
             
             available = self.get_available_phases(active_phases)
-            if not len(active_phases):
+            if len(active_phases):
+                if len(active_phases) < concurrent_phases and self.barrier:
+                    barrier_phases = self.get_barrier_phases(self.barrier)
+                    called_phases = set(self.get_called_phases())
+                    # called phases only within the active barrier
+                    if called_phases.issubset(barrier_phases):
+                        # but called phases are not in the available pool
+                        if not called_phases.issubset(available):
+                            logger.debug('Resetting phase pool because the only '
+                                         'remaining calls are within the active '
+                                         'barrier while phases are active')
+                            self.reset_phase_pool()
+                            available = self.get_available_phases(active_phases)
+            else:
                 if not len(self.phase_pool):
                     self.end_cycle()
                 elif not len(available):
