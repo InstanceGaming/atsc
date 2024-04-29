@@ -13,7 +13,7 @@
 #  limitations under the License.
 from atsc import constants
 from enum import IntEnum
-from typing import List, Optional
+from typing import List, Optional, Iterable
 from atsc.logic import Timer, Flasher, EdgeTrigger
 from jacob.text import csl
 from collections import Counter
@@ -571,7 +571,7 @@ class Phase(IdentifiableBase):
             
             if interval_limit:
                 if self._service_timer.elapsed > self._timing.service_min:
-                    if self.rest_inhibit:
+                    if self.rest_inhibit or self._interval in PHASE_FIXED_INTERVALS:
                         changed = self.change()
                         
             if service_limit and not self._timing.service_rest:
@@ -607,8 +607,8 @@ class Call:
     def phase_tags_list(self):
         return csl([phase.get_tag() for phase in self.phases])
     
-    def __init__(self, phases: List[Phase], ped_service: bool = False):
-        self.phases = phases
+    def __init__(self, phases: Iterable[Phase], ped_service: bool = False):
+        self.phases = sorted(phases)
         self.ped_service = ped_service
         self.age = 0.0
     

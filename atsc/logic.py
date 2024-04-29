@@ -105,10 +105,12 @@ class Timer(LogicBase):
         if signal:
             offset = self.step * (1 if self.countdown else -1)
             self.q = abs(self.delta) >= (self.trigger + offset)
-            self.elapsed += self.step
         else:
             if self._falling_edge.poll(signal):
                 self.reset()
+        
+        self.elapsed += self.step
+        
         return self.q
 
 

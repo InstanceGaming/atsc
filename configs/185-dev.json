@@ -29,10 +29,10 @@
     "delay": 5,
     "min": 30,
     "max": 80,
-    "enabled": true
+    "enabled": false
   },
   "idling": {
-    "phases": [2, 6]
+    "phases": []
   },
   "default-timing": {
     "service-clear": 1.0,
