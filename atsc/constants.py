@@ -2,7 +2,6 @@ from jacob.logging import CustomLevel
 
 
 VERSION = '2.0.1'
-TIME_INCREMENT = 0.1
 TIME_BASE = 0.1
 WELCOME_MSG = f'Actuated Traffic Signal Controller v{VERSION} by Jacob Jewett'
 CONFIG_SCHEMA_CHECK = True

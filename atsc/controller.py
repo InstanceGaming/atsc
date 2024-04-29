@@ -37,7 +37,7 @@ class Controller:
         self.name = config['device']['name']
         
         # should place calls on all phases when started?
-        self.recall_all = config['init']['recall-all']
+        self.recall_all_enabled = config['init']['recall-all']
         
         # loop enable flag
         self.running = False
@@ -266,6 +266,10 @@ class Controller:
         
         return max([p.id for p in self.phase_history])
     
+    def cleanup_calls(self):
+        for call in [c for c in self.calls if not len(c.phases)]:
+            self.calls.remove(call)
+    
     def sort_calls(self, calls: Iterable[Call]) -> List[Call]:
         return sorted(calls, key=lambda c: min([p.id for p in c.phases]))
     
@@ -296,19 +300,20 @@ class Controller:
                             break
                 if len(call.phases) >= len(self.rings):
                     break
+            phases -= merged
         
-        remaining = sorted(phases - merged)
-        if remaining:
-            call = Call(remaining, ped_service=ped_service)
+        if phases:
+            call = Call(phases, ped_service=ped_service)
             logger.debug(f'Recalling {call.phase_tags_list}{note_text}')
             self.calls.append(call)
         
         for phase in phases:
             phase.stats['detections'] += 1
         
+        self.cleanup_calls()
         self.sort_calls(self.calls)
     
-    def place_all_call(self):
+    def recall_all(self):
         """Place calls on all phases"""
         self.recall(self.phases, ped_service=True, note='all call')
     
@@ -413,7 +418,7 @@ class Controller:
         self.phase_pool = self.phases.copy()
         self.phase_history = []
         
-        logger.debug('Reset phase pool')
+        logger.verbose('Reset phase pool')
     
     def end_cycle(self) -> None:
         """End phasing for this control cycle iteration"""
@@ -483,32 +488,34 @@ class Controller:
         """Process the bus input bitfield"""
         input_: Input
         for bit_value, input_ in zip(self.input_bitfield, self.inputs.values()):
+            input_.signal = bool(bit_value)
             status = input_.poll()
+            
+            if not input_.recalled and input_.signal and input_.action == InputAction.RECALL:
+                if input_.high_elapsed > input_.recall_delay or not self.get_active_phases():
+                    phases = self.get_phases_by_id(input_.targets)
+                    self.detect(phases,
+                                ped_service=input_.ped_service,
+                                note=f'input {input_.id}')
+                    input_.recalled = True
             
             match status:
                 case 1:
                     logger.verbose('Input {} rising (was low for {}s)',
                                    input_.id,
                                    round(input_.low_elapsed, 1))
-                    if input_.action == InputAction.RECALL:
-                        phases = self.get_phases_by_id(input_.targets)
-                        self.detect(phases,
-                                    ped_service=True,
-                                    note=f'input {input_.id}')
+                    input_.recalled = False
                 case -1:
                     logger.verbose('Input {} falling (was high for {}s)',
                                    input_.id,
                                    round(input_.high_elapsed, 1))
-                    if input_.action == InputAction.RECALL:
-                        if input_.recall_type == RecallType.MAINTAIN:
-                            phases = self.get_phases_by_id(input_.targets)
-                            for phase in phases:
-                                logger.debug('Removing phase {} from calls', phase.get_tag())
-                                self.remove_phase_call(phase)
-                        
-            if input_.action != InputAction.IGNORE:
-                input_.signal = bool(bit_value)
-        
+                    
+                    if input_.action == InputAction.RECALL and input_.recall_type == RecallType.MAINTAIN:
+                        phases = self.get_phases_by_id(input_.targets)
+                        for phase in phases:
+                            logger.debug('Removing phase {} from calls', phase.get_tag())
+                            self.remove_phase_call(phase)
+
     def poll_bus(self):
         frame = self.bus.get()
         
@@ -537,8 +544,8 @@ class Controller:
             
             self.set_barrier(None)
             
-            if self.recall_all:
-                self.place_all_call()
+            if self.recall_all_enabled:
+                self.recall_all()
             
             if self.idle_phases:
                 self.recall(self.idle_phases, ped_service=True, note='idle phases')
@@ -591,15 +598,17 @@ class Controller:
             concurrent_phases = len(self.rings)
             active_phases = self.get_active_phases()
             
-            for phase in self.phases:
-                last_state = phase.previous_states[0] if phase.previous_states else None
-                if (len(active_phases) < concurrent_phases and
-                        phase.state == PhaseState.GO and
-                        last_state != PhaseState.STOP):
-                    phase.change(state=PhaseState.CAUTION)
-                
+            for phase in active_phases:
                 rest_inhibit = self.check_conflicting_demand(phase)
-                if len(active_phases) and self.barrier:
+                
+                if rest_inhibit:
+                    last_state = phase.previous_states[0] if phase.previous_states else None
+                    if (len(active_phases) < concurrent_phases and
+                            phase.state == PhaseState.GO and
+                            last_state != PhaseState.STOP):
+                        phase.change(state=PhaseState.CAUTION)
+                
+                if self.barrier:
                     # if there are still phases left to run in the current barrier
                     phase_pool = set(self.phase_pool).intersection(self.get_barrier_phases(self.barrier))
                     if phase_pool:
@@ -685,8 +694,7 @@ class Controller:
                     except ValueError:
                         pass
             
-            for call in [c for c in self.calls if not len(c.phases)]:
-                self.calls.remove(call)
+            self.cleanup_calls()
         elif self.mode == OperationMode.CET:
             for ph in self.phases:
                 ph.tick()

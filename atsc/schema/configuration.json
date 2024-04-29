@@ -292,6 +292,12 @@
               "latch"
             ]
           },
+          "recall-delay": {
+            "type": "number"
+          },
+          "ped-service": {
+            "type": "boolean"
+          },
           "targets": {
             "type": "array",
             "minItems": 1,

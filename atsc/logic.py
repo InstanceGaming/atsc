@@ -86,7 +86,7 @@ class Timer(LogicBase):
     def delta(self):
         return self.initial - self.elapsed
     
-    def __init__(self, trigger=0.0, step=constants.TIME_INCREMENT):
+    def __init__(self, trigger=0.0, step=constants.TIME_BASE):
         super().__init__()
         self.step = step
         self.trigger = trigger
@@ -104,10 +104,12 @@ class Timer(LogicBase):
         
         if signal:
             self.q = abs(self.delta) >= (self.trigger - self.step)
-            self.elapsed += self.step
         else:
             if self._falling_edge.poll(signal):
                 self.reset()
+        
+        self.elapsed += self.step
+        
         return self.q
 
 

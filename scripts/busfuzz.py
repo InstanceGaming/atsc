@@ -8,7 +8,7 @@ from atsc.serialbus import Bus, DeviceAddress
 
 
 def run():
-    logger = setup_logger('bus;stderr=error', custom_levels=CUSTOM_LOG_LEVELS)
+    logger = setup_logger('debug;stderr=error', custom_levels=CUSTOM_LOG_LEVELS)
     
     rng = random.Random()
     bus = Bus('COM5', 115200)
@@ -18,7 +18,7 @@ def run():
         logger.info(f'Waiting on bus...')
         time.sleep(0.1)
     
-    time.sleep(5.0)
+    time.sleep(1.0)
     bytefield = bytearray(5)
     max_delay = 10
     try:
@@ -31,7 +31,7 @@ def run():
             frame = InputStateFrame(DeviceAddress.CONTROLLER, bytefield)
             bus.send_frame(frame)
             
-            delay = rng.randrange(1, max_delay)
+            delay = 10.0  # rng.randrange(1, max_delay)
             time.sleep(delay)
     except KeyboardInterrupt:
         bus.shutdown()

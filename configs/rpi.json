@@ -172,6 +172,7 @@
       "id": 20,
       "action": "recall",
       "recall-type": "maintain",
+      "ped-service": true,
       "targets": [2]
     },
     {
@@ -184,6 +185,7 @@
       "id": 40,
       "action": "recall",
       "recall-type": "maintain",
+      "ped-service": true,
       "targets": [4]
     },
     {
@@ -196,6 +198,7 @@
       "id": 60,
       "action": "recall",
       "recall-type": "maintain",
+      "ped-service": true,
       "targets": [6]
     },
     {
@@ -208,6 +211,7 @@
       "id": 80,
       "action": "recall",
       "recall-type": "maintain",
+      "ped-service": true,
       "targets": [8]
     }
   ]

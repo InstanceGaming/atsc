@@ -13,7 +13,7 @@
 #  limitations under the License.
 from atsc import constants
 from enum import IntEnum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Iterable
 from atsc.logic import Timer, Flasher, EdgeTrigger
 from jacob.text import csl
 from collections import Counter
@@ -321,12 +321,15 @@ class Phase(IdentifiableBase):
             setpoint -= self.timing[PhaseState.CAUTION]
             setpoint -= self.default_extend
             
-            if PhaseState.WALK in self.previous_states:
+            if PhaseState.PCLR in self.previous_states:
                 setpoint -= self.timing[PhaseState.PCLR]
+            
+            if PhaseState.WALK in self.previous_states:
                 setpoint -= self.timing[PhaseState.WALK]
         else:
             setpoint = self.timing.get(state, 0.0)
         
+        # assert setpoint >= 0.0
         return max(round(setpoint, 1), 0.0)
     
     def estimate_remaining(self) -> Optional[float]:
@@ -336,7 +339,6 @@ class Phase(IdentifiableBase):
         setpoints = 0.0
         for state in (PhaseState.RCLR,
                       PhaseState.CAUTION,
-                      PhaseState.EXTEND,
                       PhaseState.GO,
                       PhaseState.PCLR,
                       PhaseState.WALK):
@@ -430,8 +432,14 @@ class Phase(IdentifiableBase):
             setpoint = self.get_setpoint(next_state)
             self._previous_states.insert(0, self.state)
             
-            if len(self._previous_states) > len(PHASE_TIMES_STATES) - 1:
-                self._previous_states.pop()
+            trim_index = 0
+            for i, state in enumerate(self._previous_states):
+                if state == PhaseState.STOP:
+                    trim_index = i + 1
+                    break
+            
+            if trim_index and trim_index < len(self._previous_states):
+                del self._previous_states[trim_index:-1]
             
             self._state = next_state
             self.setpoint = setpoint
@@ -456,7 +464,7 @@ class Phase(IdentifiableBase):
                     self._resting = True
         else:
             if self.extend_active:
-                self.setpoint -= constants.TIME_INCREMENT
+                self.setpoint -= constants.TIME_BASE
         
         go_state = self._state in PHASE_GO_STATES
         if go_state:
@@ -499,8 +507,8 @@ class Call:
     def phase_tags_list(self):
         return csl([phase.get_tag() for phase in self.phases])
     
-    def __init__(self, phases: List[Phase], ped_service: bool = False):
-        self.phases = phases
+    def __init__(self, phases: Iterable[Phase], ped_service: bool = False):
+        self.phases = sorted(phases)
         self.ped_service = ped_service
         self.age = 0.0
     
@@ -556,6 +564,14 @@ class Input(IdentifiableBase):
         return self._recall_type
     
     @property
+    def recall_delay(self):
+        return self._recall_delay
+    
+    @property
+    def ped_service(self):
+        return self._ped_service
+    
+    @property
     def targets(self):
         return self._targets
     
@@ -566,9 +582,12 @@ class Input(IdentifiableBase):
         super().__init__(id_)
         self.action = action
         self.signal = False
+        self.recalled = False
         
         self._kwargs = kwargs
         self._recall_type = text_to_enum(RecallType, kwargs.get('recall-type'))
+        self._recall_delay = kwargs.get('recall-delay', 0.0)
+        self._ped_service = kwargs.get('ped-service', False)
         self._targets = kwargs.get('targets')
         
         self._high_timer = Timer()
