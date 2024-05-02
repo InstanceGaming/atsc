@@ -93,6 +93,9 @@ PHASE_GO_INTERVALS = (PhaseInterval.GAP,
                       PhaseInterval.PCLR,
                       PhaseInterval.WALK)
 
+PHASE_PED_INTERVALS = (PhaseInterval.PCLR,
+                       PhaseInterval.WALK)
+
 
 class PhaseTiming:
     
@@ -161,17 +164,6 @@ class PhaseTiming:
                 return self.walk_max + self.ped_clear
         else:
             return 0.0
-        
-    @property
-    def fixed_interval_total(self):
-        return self.service_clear + self.caution + self.ped_clear
-        
-    @property
-    def service_limit(self) -> float:
-        if self.service_rest:
-            return 0.0
-        
-        return self.service_max - self.fixed_interval_total
     
     def __init__(self,
                  service_clear: float = 0.0,
@@ -258,9 +250,6 @@ class PhaseTiming:
         if walk_min and ped_clear < 1.0:
             raise ValueError('ped_clear must be at least 1.0 (walk_min > 0.0)')
         
-        if self._service_max and self.service_limit < 1.0:
-            raise ValueError('service_limit less than 1.0')
-        
     def for_interval(self, interval: PhaseInterval) -> float:
         match interval:
             case PhaseInterval.SCLR:
@@ -326,11 +315,8 @@ class Phase(IdentifiableBase):
     
     @property
     def ped_service(self):
-        return self._interval == PhaseInterval.WALK or PhaseInterval.WALK in self._previous_intervals
-    
-    @ped_service.setter
-    def ped_service(self, value):
-        self._ped_service_request = value
+        return (self.interval in PHASE_PED_INTERVALS or
+                set(self._previous_intervals).issuperset(set(PHASE_PED_INTERVALS)))
     
     @property
     def service_override(self):
@@ -342,6 +328,13 @@ class Phase(IdentifiableBase):
             raise ValueError('go override must be positive or zero')
         
         self._service_override = min(value, self._timing.service_max)
+    
+    @property
+    def service_limit(self) -> float:
+        if self.timing.service_rest:
+            return 0.0
+        
+        return self.timing.service_max - self.estimate_minimum()
     
     @property
     def veh_ls(self) -> LoadSwitch:
@@ -361,7 +354,6 @@ class Phase(IdentifiableBase):
         self._timing = timing
         self._flasher = Flasher()
         self._flash_mode = flash_mode
-        self._ped_service_request = False
         
         # override the default plan service time
         self._service_override: float = 0.0
@@ -383,6 +375,8 @@ class Phase(IdentifiableBase):
             'ped_service'    : 0
         })
         
+        self.ped_service_request: bool = False
+        self.sync_lockout = False
         self.rest_inhibit = False
     
     def get_recycle_interval(self, ped_service: bool) -> PhaseInterval:
@@ -441,6 +435,16 @@ class Phase(IdentifiableBase):
         setpoints = constants.TIME_BASE
         for interval in PHASE_TIMED_INTERVALS:
             if self.interval.value >= interval.value:
+                setpoints += self.get_setpoint(interval)
+            else:
+                break
+        
+        return round(setpoints - self.interval_elapsed, 1)
+    
+    def estimate_minimum(self):
+        setpoints = constants.TIME_BASE
+        for interval in PHASE_FIXED_INTERVALS:
+            if self.interval.value <= interval.value:
                 setpoints += self.get_setpoint(interval)
             else:
                 break
@@ -510,7 +514,7 @@ class Phase(IdentifiableBase):
                expedite: bool = False) -> bool:
         # cannot do or shorthand as STOP is cast to zero
         if interval is None:
-            next_interval = self.get_next_interval(self._ped_service_request, expedite)
+            next_interval = self.get_next_interval(self.ped_service_request, expedite)
         else:
             next_interval = interval
         
@@ -519,11 +523,12 @@ class Phase(IdentifiableBase):
             
             match next_interval:
                 case PhaseInterval.STOP:
-                    self._ped_service_request = False
                     self.service_override = 0.0
                 case PhaseInterval.GO | PhaseInterval.WALK:
                     self._service_timer.reset()
                     self.service_setpoint = self.timing.service_max
+                    self.sync_lockout = False
+                    self.rest_inhibit = False
                     if next_interval == PhaseInterval.WALK:
                         self.stats['ped_service'] += 1
                     self.stats['vehicle_service'] += 1
@@ -575,8 +580,7 @@ class Phase(IdentifiableBase):
                         changed = self.change()
                         
             if service_limit and not self._timing.service_rest:
-                service_max = max(self._timing.fixed_interval_total, self._timing.service_limit)
-                if self._service_timer.elapsed > service_max:
+                if self._service_timer.elapsed > self.service_limit:
                     if self._interval not in PHASE_FIXED_INTERVALS:
                         changed = self.change(expedite=True)
         

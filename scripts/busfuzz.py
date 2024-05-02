@@ -18,7 +18,7 @@ def run():
         logger.info(f'Waiting on bus...')
         time.sleep(0.1)
     
-    time.sleep(1.0)
+    time.sleep(2.0)
     bytefield = bytearray(5)
     max_delay = 10
     try:
@@ -31,7 +31,7 @@ def run():
             frame = InputStateFrame(DeviceAddress.CONTROLLER, bytefield)
             bus.send_frame(frame)
             
-            delay = 0.5
+            delay = 5.0
             # delay = rng.randrange(1, max_delay)
             time.sleep(delay)
     except KeyboardInterrupt:
