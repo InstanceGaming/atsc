@@ -1,5 +1,4 @@
-import asyncio
-from typing import Set, List
+from typing import List, TypeVar, Optional, Union, Type, Self, Dict
 from asyncio import Event
 from atsc.common.structs import Context
 from jacob.datetime.timing import millis
@@ -25,16 +24,18 @@ class StopwatchEvent(Event):
 
 
 class Identifiable:
-    _global_identifiers: Set[int] = set()
+    OBJECT_MAP: Dict[int, Self] = {}
     
     @property
     def id(self) -> int:
         return self._id
     
     def __init__(self, id_: int):
-        if id_ in self._global_identifiers:
+        if id_ in self.OBJECT_MAP.keys():
             raise ValueError(f'attempt to redefine reserved identifier {id_}')
-        self._id = id_
+        else:
+            self._id = id_
+            self.OBJECT_MAP.update({id_: self})
     
     def __hash__(self) -> int:
         return self._id
@@ -58,13 +59,34 @@ class Identifiable:
         return f'<{type(self).__name__} #{self.id}>'
 
 
+R_T = TypeVar('R_T', bound=Identifiable)
+
+
+def ref(r: Optional[Union[int, Identifiable]],
+        cls: Type[R_T]) -> Optional[R_T]:
+    if r is None:
+        return None
+    if isinstance(r, Identifiable):
+        return r
+    elif isinstance(r, int):
+        for k, v in Identifiable.OBJECT_MAP.items():
+            if k == r:
+                if type(v) != cls:
+                    raise TypeError(f'type of {r} was not {cls.__name__}')
+                return v
+        raise LookupError(f'failed to find reference {r} (type {cls.__name__})')
+    else:
+        raise TypeError()
+
+
 class Updatable:
     
     def __init__(self):
         self.children: List[Updatable] = []
     
-    async def update(self, context: Context):
-        await asyncio.gather(*[child.update(context) for child in self.children])
+    def update(self, context: Context):
+        for child in self.children:
+            child.update(context)
 
 
 class Timer:
@@ -77,12 +99,12 @@ class Timer:
         self._value = 0.0
     
     def poll(self, context: Context, trigger: float) -> bool:
-        if self._value >= trigger:
-            self.reset()
-            return True
-        else:
-            self._value += context.delay
-            return False
+        rv = self._value >= trigger
+        self._value += context.delay
+        return rv
     
     def reset(self):
         self._value = 0.0
+
+    def __repr__(self):
+        return f'<Timer {self._value:01.1f}>'

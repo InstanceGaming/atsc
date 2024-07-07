@@ -1,4 +1,4 @@
 loguru
 pydantic
-jacobs-boilerplate
+jacob @ git+https://github.com/instancegaming/jacob
 bitarray

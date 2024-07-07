@@ -1,6 +1,6 @@
 loguru
 pydantic
-jacob
+jacob @ git+https://github.com/instancegaming/jacob
 crcmod
 aioserial
 bitarray

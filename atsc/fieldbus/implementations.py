@@ -100,7 +100,7 @@ class SerialBus(AsyncDaemon):
         except serial.SerialTimeoutException:
             pass
         except serial.SerialException as e:
-            logger.bus(f'serial error: {str(e)}')
+            logger.bus('serial error: {}', str(e))
             self.shutdown()
     
     async def _read(self):
@@ -119,7 +119,7 @@ class SerialBus(AsyncDaemon):
                             frame, error = self._hdlc.decode(drydock)
                             
                             if error is not None:
-                                logger.bus(f'framing error {error.name}')
+                                logger.bus('framing error {}', error.name)
                             else:
                                 self._stats[0]['rx_bytes'] += len(drydock)
                                 self._updateStatsRx(frame)
@@ -132,7 +132,7 @@ class SerialBus(AsyncDaemon):
         except serial.SerialTimeoutException:
             pass
         except serial.SerialException as e:
-            logger.bus(f'serial error: {str(e)}')
+            logger.bus('serial error: {}', str(e))
             self.shutdown()
     
     async def send(self, data: bytes):
@@ -152,7 +152,10 @@ class SerialBus(AsyncDaemon):
         self._stats[addr]['tx_frames'][ft][0] += 1
         self._stats[addr]['tx_frames'][ft][1] = millis()
         await self._write(payload)
-        logger.bus(f'sent frame type {f.type.name} to {addr} ({len(payload)}B)')
+        logger.bus('sent frame type {} to {} ({}B)',
+                   f.type.name,
+                   addr,
+                   len(payload))
     
     def get(self) -> Optional[Frame]:
         rv = self._rx_buf
@@ -176,7 +179,7 @@ class SerialBus(AsyncDaemon):
                          f'{str(e)}')
             self.shutdown()
         except serial.SerialException as e:
-            logger.bus(f'serial error: {str(e)}')
+            logger.bus('serial error: {}', str(e))
             self.shutdown()
         
         logger.bus('serial bus connected ({})',

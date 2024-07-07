@@ -14,6 +14,8 @@
 import os
 import signal
 from abc import ABC
+
+from jacob.datetime.timing import seconds
 from loguru import logger
 from typing import List, TextIO, Optional, Coroutine
 from asyncio import (Event,
@@ -43,6 +45,7 @@ class AsyncDaemon(Updatable, ABC):
         self.pid_file = pid_file
         self.shutdown_timeout = shutdown_timeout
         self.context = context
+        self.start_marker: int = seconds()
         self.started_at: Optional[datetime] = None
         
         self.routines: List[Coroutine] = []
@@ -120,16 +123,19 @@ class AsyncDaemon(Updatable, ABC):
                             task.cancel()
                         break
                     
-                    await self.update(self.context)
+                    self.update(self.context)
                     await sleep(self.context.delay)
             await self.after_run()
         finally:
             await self.unlock_pid()
     
     async def after_run(self):
-        logger.info('ran for {} days {} hours {:02d}:{:02d} (since {})',
-                    format_dhms(self.running.elapsed / 1000),
-                    compact_datetime(self.started_at))
+        run_delta = seconds() - self.start_marker
+        ed, eh, em, es = format_dhms(run_delta)
+        formatted_timestamp = compact_datetime(self.started_at)
+        logger.info('runtime of {} days, {} hours, {} minutes and {} seconds '
+                    '(since {})',
+                    ed, eh, em, es, formatted_timestamp)
         self.running.clear()
     
     async def on_terminate(self):

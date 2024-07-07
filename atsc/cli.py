@@ -12,16 +12,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import os
-import sys
 import loguru
 import argparse
-from jacob import logging
-from atsc.controller import Controller
-from jacob.filesystem import fix_path, fix_paths
-from atsc.common.constants import ExitCode
+from jacob.logging import RECOMMENDED_LEVELS, setup_logger
+from atsc.common.constants import CUSTOM_LOG_LEVELS
+from atsc.common.structs import Context
+from atsc.controller.implementations import SimpleController
+from jacob.filesystem import fix_path
 
 
-DEFAULT_LOG_LEVELS = 'INFO,stderr=ERROR,file=WARNING'
+logger = loguru.logger
 
 
 def get_default_pid_path():
@@ -35,7 +35,7 @@ def get_cli_args():
     root.add_argument('-L', '--levels',
                       type=str,
                       dest='log_levels',
-                      default=DEFAULT_LOG_LEVELS,
+                      default=RECOMMENDED_LEVELS,
                       help='Define logging levels.')
     
     root.add_argument('-l', '--log',
@@ -46,17 +46,14 @@ def get_cli_args():
     
     control = subparsers.add_parser('control', description='Control server.')
     
-    default_pid_path = get_default_pid_path()
     control.add_argument('--pid',
                          dest='pid_file',
-                         const=None,
-                         default=default_pid_path,
-                         help=f'Define PID file location. Default is "{default_pid_path}".')
+                         help=f'Use PID file at this path.')
     
-    control.add_argument(dest='config_files',
-                         nargs='+',
-                         help='Path to one or more ATSC controller config files whose '
-                              'contents will be merged.')
+    # control.add_argument(dest='config_files',
+    #                      nargs='+',
+    #                      help='Path to one or more ATSC controller config files whose '
+    #                           'contents will be merged.')
     
     fieldbus = subparsers.add_parser('bus', description='Field bus server.')
     networking = subparsers.add_parser('net', description='Network server.')
@@ -67,24 +64,24 @@ def get_cli_args():
 def run():
     cla = get_cli_args()
     
-    try:
-        log_levels = logging.parse_log_level_shorthand(loguru.logger, cla['log_levels'])
-    except (KeyError, ValueError) as e:
-        print(f'ERROR: failed to parse log level argument ({str(e)})', file=sys.stderr)
-        exit(ExitCode.LOG_LEVEL_PARSE_FAIL)
-    
     log_file = fix_path(cla.get('log_file'))
-    logger = logging.setup_logger(log_levels, log_file)
+    levels_notation = cla['log_levels']
+    try:
+        loguru.logger = setup_logger(levels_notation,
+                                     custom_levels=CUSTOM_LOG_LEVELS,
+                                     log_file=log_file)
+    except ValueError as e:
+        print(f'Malformed logging level specification "{levels_notation}":', e)
+        return 5
     
-    # loguru provides a global logger variable ease of use in other files.
-    # overwrite it now to ensure the global logger is configured as desired.
-    loguru.logger = logger
+    pid_path = fix_path(cla['pid_file'])
+    # config_names = fix_paths(cla['config_names'])
     
-    pid_path = fix_path(cla['pid_path'])
-    config_names = fix_paths(cla['config_names'])
+    context = Context(10.0, 1.0)
     
     # the logger is still passed to daemon instance as it will bind context vars
-    Controller(logger, pid_path=pid_path).start()
+    SimpleController(context,
+                     pid_file=pid_path).start()
 
 
 if __name__ == '__main__':

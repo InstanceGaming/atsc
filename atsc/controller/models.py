@@ -1,7 +1,7 @@
 import asyncio
 from loguru import logger
 from typing import Set, Dict, List, Iterable, Optional
-from asyncio import Lock, Event
+from asyncio import Event
 from itertools import cycle
 from dataclasses import dataclass
 from atsc.common.primitives import Timer, Context, Updatable, Identifiable
@@ -22,23 +22,21 @@ class FieldOutput(Identifiable, Updatable):
     def __init__(self, id_: int, invert: bool = False):
         Identifiable.__init__(self, id_)
         Updatable.__init__(self)
-        self._lock = Lock()
         self._state = FieldState.OFF
         self._scalar = not invert
         self.flash_timer = Timer()
     
-    async def write(self, state: FieldState):
+    def set(self, state: FieldState):
         if state != FieldState.INHERIT:
-            async with self._lock:
-                match state:
-                    case FieldState.OFF:
-                        self._scalar = False
-                    case FieldState.ON | FieldState.FLASHING:
-                        self._scalar = True
-                    case _:
-                        raise NotImplementedError()
-                
-                self._state = state
+            match state:
+                case FieldState.OFF:
+                    self._scalar = False
+                case FieldState.ON | FieldState.FLASHING:
+                    self._scalar = True
+                case _:
+                    raise NotImplementedError()
+            
+            self._state = state
     
     def __bool__(self):
         return self._scalar
@@ -46,45 +44,61 @@ class FieldOutput(Identifiable, Updatable):
     def __int__(self):
         return 1 if self._scalar else 0
     
-    async def update(self, context: Context):
+    def __repr__(self):
+        return f'<FieldOutput #{self.id} {self.state.name}'
+    
+    def update(self, context: Context):
         if self.state == FieldState.FLASHING:
             if self.flash_timer.poll(context, 0.5):
-                async with self._lock:
-                    self._scalar = not self._scalar
+                self.flash_timer.reset()
+                self._scalar = not self._scalar
 
 
 @dataclass()
 class IntervalConfig:
-    field: FieldOutput
+    
+    @property
+    def restable(self):
+        return self.maximum is None
+    
     minimum: float
     maximum: Optional[float] = None
     reduce: bool = False
     flashing: bool = False
-    restable: bool = True
     collect: bool = False
 
 
 class Signal(Identifiable, Updatable):
     
     @property
-    def fields(self):
-        return self._fields
+    def field_outputs(self):
+        rv = set()
+        for field_output in self._mapping.values():
+            rv.add(field_output)
+        return rv
+    
+    @property
+    def field_mapping(self):
+        return self._mapping
     
     def __init__(self,
                  id_: int,
-                 intervals: Dict[SignalState, IntervalConfig]):
+                 intervals: Dict[SignalState, IntervalConfig],
+                 mapping: Dict[SignalState, FieldOutput]):
         Identifiable.__init__(self, id_)
         Updatable.__init__(self)
-        self._state = SignalState.STOP
         self._intervals = intervals
-        self._fields = list(set([c.field for c in intervals.values()]))
+        self._mapping = mapping
         
         self.demand = True
         self.timer = Timer()
         self.conflicting_demand = Event()
         self.safe = Event()
         
-        self.children.extend(self._fields)
+        self.children.extend(self.field_outputs)
+        
+        self._state = SignalState.STOP
+        self.change(specific=SignalState.STOP)
     
     def get_next_state(self) -> SignalState:
         match self._state:
@@ -102,7 +116,7 @@ class Signal(Identifiable, Updatable):
             case SignalState.LS_FLASH:
                 return SignalState.STOP
     
-    async def update(self, context: Context):
+    def update(self, context: Context):
         config = self._intervals[self._state]
         
         if self.timer.poll(context, config.minimum):
@@ -118,28 +132,36 @@ class Signal(Identifiable, Updatable):
                         trigger -= self.timer.value
                     
                     if self.timer.poll(context, trigger):
-                        await self.change()
+                        self.change()
                 else:
-                    await self.change()
+                    self.change()
         
-        await super().update(context)
+        super().update(context)
+    
+    def change(self, specific: Optional[SignalState] = None):
+        self.timer.reset()
         
-    async def change(self, specific: Optional[SignalState] = None):
-        next_state = specific or self.get_next_state()
+        if specific is not None:
+            next_state = specific
+        else:
+            next_state = self.get_next_state()
+        
+        previous_field_output = self._mapping[self._state]
+        previous_field_output.set(FieldState.OFF)
+        
         self._state = next_state
+        interval_config = self._intervals[self._state]
+        field_output = self._mapping[self._state]
         
-        config = self._intervals[self._state]
-        for field in self._fields:
-            if field == config.field:
-                if config.flashing:
-                    await field.write(FieldState.FLASHING)
-                else:
-                    await field.write(FieldState.ON)
-            else:
-                await field.write(FieldState.OFF)
+        if interval_config.flashing:
+            field_output.set(FieldState.FLASHING)
+        else:
+            field_output.set(FieldState.ON)
         
         if self._state == SignalState.STOP:
             self.safe.set()
+        else:
+            self.safe.clear()
     
     def actuation(self):
         if self._intervals[self._state].collect:
@@ -149,7 +171,7 @@ class Signal(Identifiable, Updatable):
     
     async def wait(self):
         if self.demand:
-            await self.change()
+            self.change()
             await self.safe.wait()
         else:
             await asyncio.sleep(0.0)
@@ -162,10 +184,11 @@ class Phase(Identifiable, Updatable):
         return self._active
     
     @property
-    def fields(self):
-        rv = []
+    def field_outputs(self) -> Set[FieldOutput]:
+        rv = set()
         for signal in self.signals:
-          rv.extend(signal.fields)
+            for field_output in signal.field_outputs:
+                rv.add(field_output)
         return rv
     
     def __init__(self,
@@ -181,12 +204,11 @@ class Phase(Identifiable, Updatable):
     async def wait(self):
         if not self.active:
             self._active = True
-            logger.debug('{} activated', self.get_tag())
+            logger.debug('{} active', self.get_tag())
             
             await asyncio.gather(*[s.wait() for s in self.signals])
             
             self._active = False
-            logger.debug('{} deactivated', self.get_tag())
         else:
             raise RuntimeError(f'attempt to reactivate phase {self.get_tag()}')
 
@@ -198,10 +220,11 @@ class Ring(Identifiable, Updatable):
         return self._state
     
     @property
-    def fields(self):
-        rv = []
+    def field_outputs(self):
+        rv = set()
         for phase in self.phases:
-            rv.extend(phase.fields)
+            for field_output in phase.field_outputs:
+                rv.add(field_output)
         return rv
     
     def __init__(self,
@@ -220,19 +243,20 @@ class Ring(Identifiable, Updatable):
         self.cleared = Event()
         self.children.extend(self.phases)
     
-    async def update(self, context: Context):
+    def update(self, context: Context):
         if self._state == RingState.CLEARING:
             if self.timer.poll(context, self.clearance_time):
+                self.timer.reset()
                 self.cleared.set()
         
-        await super().update(context)
+        super().update(context)
     
     async def serve(self, window: List[Phase] = None):
         window = window or self.phases
         assert len(set(window).difference(self.phases)) == 0
         
         if self.enabled:
-            logger.debug('{} activated', self.get_tag())
+            logger.debug('{} active', self.get_tag())
             
             self._state = RingState.SELECTING
             
@@ -244,8 +268,6 @@ class Ring(Identifiable, Updatable):
                 await candidate.wait()
                 self._state = RingState.CLEARING
                 await self.cleared.wait()
-            
-            logger.debug('{} deactivated', self.get_tag())
         
         self._state = RingState.INACTIVE
 
@@ -293,10 +315,11 @@ class RingCycler(Updatable):
         return signals
     
     @property
-    def fields(self):
-        rv = []
-        for ring in self._rings:
-            rv.extend(ring.fields)
+    def field_outputs(self):
+        rv = set()
+        for ring in self.rings:
+            for field_output in ring.field_outputs:
+                rv.add(field_output)
         return rv
     
     def __init__(self, rings: Iterable[Ring], barriers: Iterable[Barrier]):
@@ -305,6 +328,8 @@ class RingCycler(Updatable):
         self._barriers = sorted(barriers)
         self._cycler = cycle(self._barriers)
         self._barrier: Optional[Barrier] = None
+        self._first_barrier: Optional[Barrier] = None
+        self._cycle_count: int = 0
         self.children.extend(self._rings)
     
     async def run(self):
@@ -314,7 +339,15 @@ class RingCycler(Updatable):
             # meaning preferred phases can be recycled.
             
             self._barrier = next(self._cycler)
-            logger.debug('{} is active barrier', self._barrier.get_tag())
+            
+            if self._first_barrier is None:
+                self._first_barrier = self._barrier
+            else:
+                if self._barrier == self._first_barrier:
+                    self._cycle_count += 1
+                    logger.debug('cycle #{}', self._cycle_count)
+            
+            logger.debug('{} active', self._barrier.get_tag())
             
             routines = []
             for ring in self._rings:
