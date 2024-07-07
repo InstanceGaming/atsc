@@ -14,7 +14,6 @@
 import os
 import signal
 from abc import ABC
-
 from jacob.datetime.timing import seconds
 from loguru import logger
 from typing import List, TextIO, Optional, Coroutine

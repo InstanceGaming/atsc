@@ -108,3 +108,17 @@ class Timer:
 
     def __repr__(self):
         return f'<Timer {self._value:01.1f}>'
+
+
+class Flasher:
+    
+    def __init__(self):
+        self._timer = Timer()
+    
+    def poll(self, context: Context, fpm: float):
+        fps = 60.0 / fpm
+        delay = fps / 2
+        t = self._timer.poll(context, delay)
+        if t:
+            self._timer.reset()
+        return t

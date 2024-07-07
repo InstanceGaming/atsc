@@ -8,7 +8,7 @@ from atsc.common.models import AsyncDaemon
 from atsc.common.primitives import ref
 from atsc.common.structs import Context
 from atsc.controller.constants import SignalState, FieldState
-from atsc.controller.models import Ring, Barrier, RingCycler, IntervalConfig, Signal, Phase, FieldOutput
+from atsc.controller.models import Ring, Barrier, RingCycler, IntervalTiming, Signal, Phase, FieldOutput, IntervalConfig
 
 
 class SimpleController(AsyncDaemon):
@@ -23,19 +23,38 @@ class SimpleController(AsyncDaemon):
                              shutdown_timeout,
                              pid_file=pid_file,
                              loop=loop)
-        self.default_timing = {
-            SignalState.LS_FLASH: IntervalConfig(4.0),
-            SignalState.STOP    : IntervalConfig(1.0),
-            SignalState.CAUTION : IntervalConfig(4.0, 4.0),
-            SignalState.REDUCE  : IntervalConfig(2.0, 6.0),
-            SignalState.GO      : IntervalConfig(2.0, 5.0),
-            SignalState.FYA     : IntervalConfig(4.0)
+        self.interval_timing_vehicle = {
+            SignalState.LS_FLASH: IntervalTiming(4.0, rest=True),
+            SignalState.STOP    : IntervalTiming(1.0, rest=True),
+            SignalState.CAUTION : IntervalTiming(4.0),
+            SignalState.REDUCE  : IntervalTiming(2.0, 4.0),
+            SignalState.GO      : IntervalTiming(2.0, 5.0),
+            SignalState.FYA     : IntervalTiming(4.0, rest=True)
         }
-        self.field_outputs = [FieldOutput(100 + i) for i in range(1, 100)]
+        self.interval_config_vehicle = {
+            SignalState.LS_FLASH: IntervalConfig(flashing=True),
+            SignalState.STOP    : IntervalConfig(),
+            SignalState.CAUTION : IntervalConfig(),
+            SignalState.REDUCE  : IntervalConfig(),
+            SignalState.GO      : IntervalConfig(),
+            SignalState.FYA     : IntervalConfig(flashing=True)
+        }
+        self.interval_timing_ped = {
+            SignalState.STOP   : IntervalTiming(1.0, rest=True),
+            SignalState.CAUTION: IntervalTiming(10.0),
+            SignalState.GO     : IntervalTiming(5.0)
+        }
+        self.interval_config_ped = {
+            SignalState.STOP    : IntervalConfig(),
+            SignalState.CAUTION : IntervalConfig(flashing=True),
+            SignalState.GO      : IntervalConfig()
+        }
+        self.field_outputs = [FieldOutput(100 + i) for i in range(1, 49)]
         self.signals = [
             Signal(
                 501,
-                self.default_timing,
+                self.interval_timing_vehicle,
+                self.interval_config_vehicle,
                 {
                     SignalState.LS_FLASH: ref(101, FieldOutput),
                     SignalState.STOP    : ref(101, FieldOutput),
@@ -46,18 +65,20 @@ class SimpleController(AsyncDaemon):
             ),
             Signal(
                 502,
-                self.default_timing,
+                self.interval_timing_vehicle,
+                self.interval_config_vehicle,
                 {
                     SignalState.LS_FLASH: ref(104, FieldOutput),
                     SignalState.STOP    : ref(104, FieldOutput),
                     SignalState.CAUTION : ref(105, FieldOutput),
                     SignalState.REDUCE  : ref(106, FieldOutput),
                     SignalState.GO      : ref(106, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 503,
-                self.default_timing,
+                self.interval_timing_vehicle,
+                self.interval_config_vehicle,
                 {
                     SignalState.LS_FLASH: ref(107, FieldOutput),
                     SignalState.STOP    : ref(107, FieldOutput),
@@ -68,7 +89,8 @@ class SimpleController(AsyncDaemon):
             ),
             Signal(
                 504,
-                self.default_timing,
+                self.interval_timing_vehicle,
+                self.interval_config_vehicle,
                 {
                     SignalState.LS_FLASH: ref(110, FieldOutput),
                     SignalState.STOP    : ref(110, FieldOutput),
@@ -79,7 +101,8 @@ class SimpleController(AsyncDaemon):
             ),
             Signal(
                 505,
-                self.default_timing,
+                self.interval_timing_vehicle,
+                self.interval_config_vehicle,
                 {
                     SignalState.LS_FLASH: ref(113, FieldOutput),
                     SignalState.STOP    : ref(113, FieldOutput),
@@ -90,18 +113,20 @@ class SimpleController(AsyncDaemon):
             ),
             Signal(
                 506,
-                self.default_timing,
+                self.interval_timing_vehicle,
+                self.interval_config_vehicle,
                 {
                     SignalState.LS_FLASH: ref(116, FieldOutput),
                     SignalState.STOP    : ref(116, FieldOutput),
                     SignalState.CAUTION : ref(117, FieldOutput),
                     SignalState.REDUCE  : ref(118, FieldOutput),
                     SignalState.GO      : ref(118, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 507,
-                self.default_timing,
+                self.interval_timing_vehicle,
+                self.interval_config_vehicle,
                 {
                     SignalState.LS_FLASH: ref(119, FieldOutput),
                     SignalState.STOP    : ref(119, FieldOutput),
@@ -112,7 +137,8 @@ class SimpleController(AsyncDaemon):
             ),
             Signal(
                 508,
-                self.default_timing,
+                self.interval_timing_vehicle,
+                self.interval_config_vehicle,
                 {
                     SignalState.LS_FLASH: ref(122, FieldOutput),
                     SignalState.STOP    : ref(122, FieldOutput),
@@ -120,17 +146,57 @@ class SimpleController(AsyncDaemon):
                     SignalState.REDUCE  : ref(124, FieldOutput),
                     SignalState.GO      : ref(124, FieldOutput)
                 }
+            ),
+            Signal(
+                509,
+                self.interval_timing_ped,
+                self.interval_config_ped,
+                {
+                    SignalState.STOP    : ref(125, FieldOutput),
+                    SignalState.CAUTION : ref(125, FieldOutput),
+                    SignalState.GO      : ref(127, FieldOutput)
+                }
+            ),
+            Signal(
+                510,
+                self.interval_timing_ped,
+                self.interval_config_ped,
+                {
+                    SignalState.STOP    : ref(128, FieldOutput),
+                    SignalState.CAUTION : ref(128, FieldOutput),
+                    SignalState.GO      : ref(130, FieldOutput)
+                }
+            ),
+            Signal(
+                511,
+                self.interval_timing_ped,
+                self.interval_config_ped,
+                {
+                    SignalState.STOP    : ref(131, FieldOutput),
+                    SignalState.CAUTION : ref(131, FieldOutput),
+                    SignalState.GO      : ref(133, FieldOutput)
+                }
+            ),
+            Signal(
+                512,
+                self.interval_timing_ped,
+                self.interval_config_ped,
+                {
+                    SignalState.STOP    : ref(134, FieldOutput),
+                    SignalState.CAUTION : ref(134, FieldOutput),
+                    SignalState.GO      : ref(136, FieldOutput)
+                }
             )
         ]
         self.phases = [
             Phase(601, [self.signals[0]]),
-            Phase(602, [self.signals[1]]),
+            Phase(602, [self.signals[1], self.signals[8]]),
             Phase(603, [self.signals[2]]),
-            Phase(604, [self.signals[3]]),
+            Phase(604, [self.signals[3], self.signals[9]]),
             Phase(605, [self.signals[4]]),
-            Phase(606, [self.signals[5]]),
+            Phase(606, [self.signals[5], self.signals[10]]),
             Phase(607, [self.signals[6]]),
-            Phase(608, [self.signals[7]])
+            Phase(608, [self.signals[7], self.signals[11]])
         ]
         self.rings = [
             Ring(701, self.phases[0:4], 1.0),
@@ -144,11 +210,21 @@ class SimpleController(AsyncDaemon):
         self.children.append(self.cycler)
         self.routines.append(self.cycler.run())
         self.routines.append(self.print_fields_debug())
+        
+        for ring in self.rings:
+            ring.recall_all()
+    
+        self._previous_fields_line = ''
+    
+    def update(self, context: Context):
+        # for breakpoint with context
+        super().update(context)
     
     async def print_fields_debug(self):
         while True:
+            label = ''
             line = ''
-            for field_output in self.cycler.field_outputs:
+            for i, field_output in enumerate(self.field_outputs, start=1):
                 match field_output.state:
                     case FieldState.FLASHING:
                         symbol = 'F'
@@ -156,6 +232,12 @@ class SimpleController(AsyncDaemon):
                         symbol = 'S'
                     case _:
                         symbol = '.'
+                label += str(i)[-1]
                 line += symbol
-            logger.fields(line)
-            await asyncio.sleep(0.5)
+            
+            if line != self._previous_fields_line:
+                self._previous_fields_line = line
+                logger.fields(label)
+                logger.fields(line)
+            else:
+                await asyncio.sleep(0.1)
