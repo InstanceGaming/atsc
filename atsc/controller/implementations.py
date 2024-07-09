@@ -31,6 +31,14 @@ class SimpleController(AsyncDaemon):
             SignalState.GO      : IntervalTiming(2.0, 5.0),
             SignalState.FYA     : IntervalTiming(4.0, rest=True)
         }
+        self.interval_timing_vehicle_idle = {
+            SignalState.LS_FLASH: IntervalTiming(4.0, rest=True),
+            SignalState.STOP    : IntervalTiming(1.0, rest=True),
+            SignalState.CAUTION : IntervalTiming(4.0),
+            SignalState.REDUCE  : IntervalTiming(2.0, 4.0),
+            SignalState.GO      : IntervalTiming(2.0, 5.0, rest=True),
+            SignalState.FYA     : IntervalTiming(4.0, rest=True)
+        }
         self.interval_config_vehicle = {
             SignalState.LS_FLASH: IntervalConfig(flashing=True),
             SignalState.STOP    : IntervalConfig(),
@@ -61,7 +69,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.CAUTION : ref(102, FieldOutput),
                     SignalState.REDUCE  : ref(103, FieldOutput),
                     SignalState.GO      : ref(103, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 502,
@@ -85,7 +93,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.CAUTION : ref(108, FieldOutput),
                     SignalState.REDUCE  : ref(109, FieldOutput),
                     SignalState.GO      : ref(109, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 504,
@@ -97,7 +105,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.CAUTION : ref(111, FieldOutput),
                     SignalState.REDUCE  : ref(112, FieldOutput),
                     SignalState.GO      : ref(112, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 505,
@@ -109,7 +117,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.CAUTION : ref(114, FieldOutput),
                     SignalState.REDUCE  : ref(115, FieldOutput),
                     SignalState.GO      : ref(115, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 506,
@@ -133,7 +141,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.CAUTION : ref(120, FieldOutput),
                     SignalState.REDUCE  : ref(121, FieldOutput),
                     SignalState.GO      : ref(121, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 508,
@@ -145,7 +153,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.CAUTION : ref(123, FieldOutput),
                     SignalState.REDUCE  : ref(124, FieldOutput),
                     SignalState.GO      : ref(124, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 509,
@@ -155,7 +163,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.STOP    : ref(125, FieldOutput),
                     SignalState.CAUTION : ref(125, FieldOutput),
                     SignalState.GO      : ref(127, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 510,
@@ -165,7 +173,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.STOP    : ref(128, FieldOutput),
                     SignalState.CAUTION : ref(128, FieldOutput),
                     SignalState.GO      : ref(130, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 511,
@@ -175,7 +183,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.STOP    : ref(131, FieldOutput),
                     SignalState.CAUTION : ref(131, FieldOutput),
                     SignalState.GO      : ref(133, FieldOutput)
-                }
+                }, recall=True
             ),
             Signal(
                 512,
@@ -185,7 +193,7 @@ class SimpleController(AsyncDaemon):
                     SignalState.STOP    : ref(134, FieldOutput),
                     SignalState.CAUTION : ref(134, FieldOutput),
                     SignalState.GO      : ref(136, FieldOutput)
-                }
+                }, recall=True
             )
         ]
         self.phases = [
@@ -207,22 +215,22 @@ class SimpleController(AsyncDaemon):
             Barrier(802, self.phases[2:4] + self.phases[6:8])
         ]
         self.cycler = RingCycler(self.rings, self.barriers)
+        
+        for ring in self.rings:
+            ring.demand = True
+        
         self.children.append(self.cycler)
         self.routines.append(self.cycler.run())
         self.routines.append(self.print_fields_debug())
-        
-        for ring in self.rings:
-            ring.recall_all()
     
         self._previous_fields_line = ''
     
     def update(self, context: Context):
-        # for breakpoint with context
+        # overridden only for a spot to breakpoint that keeps context
         super().update(context)
     
     async def print_fields_debug(self):
         while True:
-            label = ''
             line = ''
             for i, field_output in enumerate(self.field_outputs, start=1):
                 match field_output.state:
@@ -232,12 +240,10 @@ class SimpleController(AsyncDaemon):
                         symbol = 'S'
                     case _:
                         symbol = '.'
-                label += str(i)[-1]
                 line += symbol
             
             if line != self._previous_fields_line:
                 self._previous_fields_line = line
-                logger.fields(label)
                 logger.fields(line)
             else:
                 await asyncio.sleep(0.1)
