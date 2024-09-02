@@ -79,14 +79,14 @@ def ref(r: Optional[Union[int, Identifiable]],
         raise TypeError()
 
 
-class Updatable:
+class Tickable:
     
     def __init__(self):
-        self.children: List[Updatable] = []
+        self.tickables: List[Tickable] = []
     
-    def update(self, context: Context):
-        for child in self.children:
-            child.update(context)
+    def tick(self, context: Context):
+        for tickable in self.tickables:
+            tickable.tick(context)
 
 
 class Timer:

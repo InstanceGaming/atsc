@@ -44,18 +44,15 @@ class FieldState(Enum):
 class SignalState(IntEnum):
     STOP = 1
     CAUTION = 2
-    REDUCE = 3
-    GO = 4
-    FYA = 5
-    LS_FLASH = 6
+    GO = 3
+    FYA = 4
+    LS_FLASH = 5
+    
 
-
-class RingState(Enum):
-    INACTIVE = auto()
-    SELECTING = auto()
-    ACTIVE = auto()
-    CLEARING = auto()
-    BARRIER = auto()
+class PhaseCyclerMode(Enum):
+    PAUSE = auto()
+    SEQUENTIAL = auto()
+    CONCURRENT = auto()
 
 
 class CallSource(Enum):
@@ -88,49 +85,3 @@ class InputActivation(Enum):
     HIGH = auto()
     RISING = auto()
     FALLING = auto()
-
-
-class StandardObjects(IntEnum):
-    CONTROLLER = 1
-    
-    # virtual clocks
-    TIME_TICK = 901
-    INPUTS_TICK = 902
-    BUS_TICK = 903
-    NETWORK_TICK = 904
-    FLASH_TICK = 905
-    
-    # virtual flashers
-    FLASHER1 = 1001
-    FLASHER2 = 1002
-    
-    # rings
-    RING1 = 701
-    RING2 = 702
-    RING3 = 703
-    RING4 = 704
-    
-    # barriers
-    BARRIER1 = 801
-    BARRIER2 = 802
-    BARRIER3 = 803
-    BARRIER4 = 804
-    
-    # parameters
-    P_CONTROLLER_NAME = 8001
-    
-    P_TIME_RATE = 8100
-    P_INPUTS_RATE = 8101
-    P_BUS_RATE = 8102
-    P_NETWORK_RATE = 8103
-    P_FPM = 8104
-    
-    E_CLOCK = 10001
-    E_FLASHER = 10002
-    E_PARAMETER_CHANGED = 10003
-    
-    E_FIELD_OUTPUT_STATE_CHANGED = 10100
-    E_FIELD_OUTPUT_TOGGLED = 10101
-    E_LOAD_SWITCH_UPDATED = 10101
-    E_SIGNAL_CHANGED = 10102
-    E_SIGNAL_IDLE_START = 10103

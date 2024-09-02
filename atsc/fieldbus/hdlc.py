@@ -150,6 +150,7 @@ class HDLCContext:
                 crc_bytes = unescaped_bytes[-2:]
                 
                 # transform the CRC bytes into an integer
+                # noinspection PyTypeChecker
                 remote_crc = int.from_bytes(crc_bytes, byteorder=self._order)
                 
                 # check for CRC match

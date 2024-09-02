@@ -41,10 +41,10 @@ class SerialBus(AsyncDaemon):
         self._port = port
         self._baud = baud
         self._hdlc = HDLCContext(SERIAL_BUS_CRC_POLY,
-                                      SERIAL_BUS_CRC_INIT,
-                                      SERIAL_BUS_CRC_REVERSE,
-                                      SERIAL_BUS_CRC_XOR_OUT,
-                                      byte_order=SERIAL_BUS_BYTE_ORDER)
+                                 SERIAL_BUS_CRC_INIT,
+                                 SERIAL_BUS_CRC_REVERSE,
+                                 SERIAL_BUS_CRC_XOR_OUT,
+                                 byte_order=SERIAL_BUS_BYTE_ORDER)
         
         self._serial = None
         self._rx_buf: Optional[Frame] = None
@@ -162,12 +162,6 @@ class SerialBus(AsyncDaemon):
         self._rx_buf = None
         return rv
     
-    def prepare_output_frame(self):
-        frame = OutputStateFrame(DeviceAddress.TFIB1,
-                                 fields,
-                                 True)
-        return frame
-    
     async def run(self):
         try:
             self._serial = AioSerial(port=self._port,
@@ -188,7 +182,8 @@ class SerialBus(AsyncDaemon):
         while self.enabled:
             if self._tick.is_set() or self._changed.is_set():
                 async with self._tx_lock:
-                    await self.sendFrame(self.prepare_output_frame())
+                    f = OutputStateFrame(DeviceAddress.TFIB1, [], True)
+                    await self.sendFrame(f)
                     self._tick.clear()
                     self._changed.clear()
             

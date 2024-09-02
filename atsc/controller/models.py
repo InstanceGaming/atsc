@@ -1,19 +1,19 @@
 import asyncio
 from loguru import logger
-from typing import Set, Dict, List, Iterable, Optional
+from typing import Set, Dict, List, Optional, Iterable
 from asyncio import Event
-from itertools import cycle, chain
-from dataclasses import dataclass
-from atsc.common.primitives import Timer, Context, Updatable, Identifiable, Flasher
-from atsc.controller.constants import (RingState,
-                                       CallSource,
+from itertools import chain
+from atsc.common.primitives import Timer, Context, Tickable, Identifiable, Flasher
+from atsc.controller import utils
+from atsc.controller.constants import (CallSource,
                                        FieldState,
                                        InputAction,
                                        SignalState,
-                                       InputActivation)
+                                       InputActivation, PhaseCyclerMode)
+from atsc.controller.structs import IntervalTiming, IntervalConfig
 
 
-class FieldOutput(Identifiable, Updatable):
+class FieldOutput(Identifiable, Tickable):
     
     @property
     def state(self):
@@ -21,7 +21,7 @@ class FieldOutput(Identifiable, Updatable):
     
     def __init__(self, id_: int, fpm: float = 60.0):
         Identifiable.__init__(self, id_)
-        Updatable.__init__(self)
+        Tickable.__init__(self)
         self._state = FieldState.OFF
         self._scalar = False
         self._flasher = Flasher()
@@ -34,8 +34,6 @@ class FieldOutput(Identifiable, Updatable):
                     self._scalar = False
                 case FieldState.ON | FieldState.FLASHING:
                     self._scalar = True
-                case _:
-                    raise NotImplementedError()
             
             self._state = state
     
@@ -48,34 +46,61 @@ class FieldOutput(Identifiable, Updatable):
     def __repr__(self):
         return f'<FieldOutput #{self.id} {self.state.name}'
     
-    def update(self, context: Context):
+    def tick(self, context: Context):
         if self.state == FieldState.FLASHING:
             if self._flasher.poll(context, self.fpm):
                 self._scalar = not self._scalar
 
 
-@dataclass()
-class IntervalTiming:
-    minimum: float
-    maximum: Optional[float] = None
-    rest: bool = False
-    reduce: bool = False
-    
-    
-@dataclass()
-class IntervalConfig:
-    flashing: bool = False
-
-
-class Signal(Identifiable, Updatable):
+class Signal(Identifiable, Tickable):
     
     @property
     def active(self):
-        return not self.safe.is_set()
+        return not self.inactive.is_set()
     
     @property
-    def service_enable(self):
-        return self.active or self.demand
+    def field_mapping(self):
+        return self._mapping
+    
+    @property
+    def demand(self):
+        return self._demand
+    
+    @demand.setter
+    def demand(self, value):
+        if value != self._demand:
+            logger.verbose('{} demand = {}', self.get_tag(), value)
+        self._demand = value
+        
+    @property
+    def free(self):
+        return self._free
+    
+    @free.setter
+    def free(self, value):
+        if value != self._free:
+            logger.verbose('{} free = {}', self.get_tag(), value)
+        self._free = value
+        
+    @property
+    def recall(self):
+        return self._recall
+    
+    @recall.setter
+    def recall(self, value):
+        if value != self._recall:
+            logger.verbose('{} recall = {}', self.get_tag(), value)
+        self._recall = value
+        
+    @property
+    def recycle(self):
+        return self._recycle
+    
+    @recycle.setter
+    def recycle(self, value):
+        if value != self._recycle:
+            logger.verbose('{} recycle = {}', self.get_tag(), value)
+        self._recycle = value
     
     @property
     def field_outputs(self):
@@ -84,82 +109,81 @@ class Signal(Identifiable, Updatable):
             rv.add(field_output)
         return sorted(rv)
     
-    @property
-    def field_mapping(self):
-        return self._mapping
-    
     def __init__(self,
                  id_: int,
                  timings: Dict[SignalState, IntervalTiming],
                  configs: Dict[SignalState, IntervalConfig],
                  mapping: Dict[SignalState, FieldOutput],
                  recall: bool = False,
-                 recycle: bool = False):
+                 recycle: bool = False,
+                 rest: bool = False,
+                 demand: bool = False,
+                 initial_state: SignalState = SignalState.STOP):
         Identifiable.__init__(self, id_)
-        Updatable.__init__(self)
+        Tickable.__init__(self)
         self._timings = timings
         self._configs = configs
         self._mapping = mapping
+        self._state = SignalState.STOP
+        self._initial_state = initial_state
+        self._free = rest
         self._recall = recall
         self._recycle = recycle
-        self._state = SignalState.STOP
+        self._demand = demand
         
-        self.demand = False
-        self.conflicting_demand = False
         self.timer = Timer()
-        self.safe = Event()
+        self.inactive = Event()
         
-        self.children.extend(self.field_outputs)
-        self.change(specific=SignalState.STOP)
+        if initial_state == SignalState.STOP:
+            self.inactive.set()
+        
+        self.tickables.extend(self.field_outputs)
+        self.change(force_state=initial_state)
     
     def get_next_state(self) -> SignalState:
         match self._state:
             case SignalState.STOP:
+                # todo: go to FYA if conditions are met
                 return SignalState.GO
             case SignalState.CAUTION:
                 return SignalState.STOP
-            case SignalState.REDUCE | SignalState.FYA:
+            case SignalState.FYA:
+                # todo: go to green if next up
                 return SignalState.CAUTION
             case SignalState.GO:
-                if SignalState.REDUCE in self._timings:
-                    return SignalState.REDUCE
-                else:
-                    return SignalState.CAUTION
+                return SignalState.CAUTION
             case SignalState.LS_FLASH:
-                return SignalState.STOP
+                return self._initial_state
     
-    def update(self, context: Context):
-        config = self._timings[self._state]
+    def tick(self, context: Context):
+        interval = self._timings[self._state]
         
-        if self._state == SignalState.STOP:
-            timing = self.demand and self._recycle
-        else:
-            timing = True
-        
-        if timing and self.timer.poll(context, config.minimum):
-            conflicting_demand = config.rest and self.conflicting_demand
-            rigid_interval = not config.rest
-            lacking_demand = not self.demand
-            
-            if conflicting_demand or rigid_interval or lacking_demand:
-                if config.maximum:
-                    trigger = config.maximum
-                    
-                    if config.reduce:
-                        trigger -= self.timer.value
-                    
-                    if self.timer.poll(context, trigger):
+        if self.timer.poll(context, interval.minimum):
+            if self._state == SignalState.STOP:
+                if self.recall and not self.demand:
+                    self.demand = True
+                    logger.debug('{} recalled', self.get_tag())
+                self.inactive.set()
+            else:
+                if not interval.rest or not self.free:
+                    if interval.maximum:
+                        trigger = interval.maximum
+                        
+                        if interval.reduce:
+                            trigger -= self.timer.value
+                        
+                        if self.timer.poll(context, trigger):
+                            self.change()
+                    else:
                         self.change()
-                else:
-                    self.change()
         
-        super().update(context)
+        super().tick(context)
     
-    def change(self, specific: Optional[SignalState] = None):
+    def change(self, force_state: Optional[SignalState] = None):
         self.timer.reset()
         
-        if specific is not None:
-            next_state = specific
+        if force_state is not None:
+            next_state = force_state
         else:
             next_state = self.get_next_state()
         
@@ -170,48 +194,27 @@ class Signal(Identifiable, Updatable):
         field_output = self._mapping[self._state]
         interval_config = self._configs[self._state]
         
-        if interval_config.flashing > 0.0:
+        if interval_config.flashing:
             field_output.set(FieldState.FLASHING)
         else:
             field_output.set(FieldState.ON)
         
-        if self._state == SignalState.STOP:
-            if self._recall:
-                self.demand = True
-            else:
-                self.demand = False
-            self.conflicting_demand = False
-            self.safe.set()
-        else:
-            self.safe.clear()
+        if self._state != SignalState.STOP:
+            self.inactive.clear()
     
-    async def wait(self):
-        if not self.service_enable:
-            raise RuntimeError(f'nothing to service for {self.get_tag()}')
-        
-        logger.debug('{} activated', self.get_tag())
-        
-        self.change()
-        await self.safe.wait()
+    async def serve(self):
+        if self.demand:
+            logger.debug('{} activated', self.get_tag())
+            self.change()
+            await self.inactive.wait()
+            logger.debug('{} deactivated', self.get_tag())
 
 
-class Phase(Identifiable, Updatable):
+class Phase(Identifiable, Tickable):
     
     @property
-    def service_enable(self):
-        return any([s.service_enable for s in self.signals])
-    
-    @property
-    def active(self):
-        return self._active
-    
-    @property
-    def field_outputs(self):
-        rv = set()
-        for signal in self.signals:
-            for field_output in signal.field_outputs:
-                rv.add(field_output)
-        return sorted(rv)
+    def active_signals(self):
+        return [s for s in self.signals if s.active]
     
     @property
     def demand(self):
@@ -223,46 +226,74 @@ class Phase(Identifiable, Updatable):
             signal.demand = value
     
     @property
-    def conflicting_demand(self):
-        return any([s.conflicting_demand for s in self.signals])
+    def free(self):
+        return any([s.free for s in self.signals])
     
-    @conflicting_demand.setter
-    def conflicting_demand(self, value):
+    @free.setter
+    def free(self, value):
         for signal in self.signals:
-            signal.conflicting_demand = value
+            signal.free = value
+    
+    @property
+    def field_outputs(self):
+        rv = set()
+        for signal in self.signals:
+            for field_output in signal.field_outputs:
+                rv.add(field_output)
+        return sorted(rv)
     
     def __init__(self,
                  id_: int,
-                 signals: Iterable[Signal]):
+                 signals: List[Signal]):
         Identifiable.__init__(self, id_)
-        Updatable.__init__(self)
+        Tickable.__init__(self)
         self._active = False
-        
-        self.signals = sorted(signals)
-        self.children.extend(self.signals)
+        self.signals = signals
+        self.tickables.extend(self.signals)
     
-    async def wait(self):
-        if not self.service_enable:
-            raise RuntimeError(f'nothing to service for {self.get_tag()}')
+    async def serve(self):
+        if self.active_signals:
+            raise RuntimeError(f'phase {self.get_tag()} already active')
         
-        if not self.active:
+        if self.demand:
             self._active = True
             logger.debug('{} activated', self.get_tag())
-            await asyncio.gather(*[s.wait() for s in self.signals if s.service_enable])
+            
+            signals = self.signals
+            tasks = [asyncio.create_task(s.serve()) for s in signals]
+            
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            while pending:
+                for i, task in enumerate(tasks):
+                    signal = signals[i]
+                    if signal.free and signal.recycle and not signal.active:
+                        logger.debug('{} recycling', signal.get_tag())
+                        tasks[i] = asyncio.create_task(signal.serve())
+                
+                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            
             self._active = False
-        else:
-            raise RuntimeError(f'attempt to reactivate phase {self.get_tag()}')
+            logger.debug('{} deactivated', self.get_tag())
 
 
-class Ring(Identifiable, Updatable):
+class Ring(Identifiable):
     
     @property
-    def service_enable(self):
-        return any([p.service_enable for p in self.phases])
+    def active_phases(self):
+        return [p for p in self.phases if p.active_signals]
     
     @property
-    def state(self):
-        return self._state
+    def waiting_phases(self):
+        return [p for p in self.phases if p.demand and not p.active_signals]
+    
+    @property
+    def demand(self):
+        return any([p.demand for p in self.phases])
+    
+    @demand.setter
+    def demand(self, value):
+        for phase in self.phases:
+            phase.demand = value
     
     @property
     def field_outputs(self):
@@ -272,75 +303,27 @@ class Ring(Identifiable, Updatable):
                 rv.add(field_output)
         return sorted(rv)
     
-    @property
-    def demand(self):
-        return any([p.demand for p in self.phases])
-    
-    @demand.setter
-    def demand(self, value):
-        for phase in self.phases:
-            phase.demand = value
-    
-    @property
-    def conflicting_demand(self):
-        return any([p.conflicting_demand for p in self.phases])
-    
-    @conflicting_demand.setter
-    def conflicting_demand(self, value):
-        for phase in self.phases:
-            phase.conflicting_demand = value
-    
     def __init__(self,
                  id_: int,
-                 phases: Iterable[Phase],
-                 clearance_time: float):
-        Identifiable.__init__(self, id_)
-        Updatable.__init__(self)
-        self._state = RingState.INACTIVE
-        
-        self.clearance_time = clearance_time
-        self.phases = sorted(phases)
-        self.timer = Timer()
-        self.cleared = Event()
-        self.children.extend(self.phases)
-
-    def update(self, context: Context):
-        match self._state:
-            case RingState.CLEARING:
-                if self.timer.poll(context, self.clearance_time):
-                    self.timer.reset()
-                    self.cleared.set()
-            case RingState.ACTIVE:
-                conflicting_demand = any([not p.active and p.demand for p in self.phases])
-                for phase in [p for p in self.phases if p.active]:
-                    phase.conflicting_demand = conflicting_demand
-        
-        super().update(context)
+                 phases: List[Phase]):
+        super().__init__(id_)
+        self.phases = phases
     
     def intersection(self, barrier: 'Barrier') -> Set[Phase]:
         return set(self.phases).intersection(barrier.phases)
-    
-    async def serve(self, barrier: 'Barrier'):
-        if self.service_enable:
-            self._state = RingState.SELECTING
-            
-            window = sorted(self.intersection(barrier))
-            while len(window):
-                candidate = window.pop(0)
-                if candidate.service_enable:
-                    logger.debug('{} active', self.get_tag())
-                    self._state = RingState.ACTIVE
-                    self.cleared.clear()
-                    await candidate.wait()
-                    self._state = RingState.CLEARING
-                    await self.cleared.wait()
-        
-        self._state = RingState.INACTIVE
 
 
 class Barrier(Identifiable):
     
     @property
+    def active_phases(self):
+        return [p for p in self.phases if p.active_signals]
+    
+    @property
+    def waiting_phases(self):
+        return [p for p in self.phases if p.demand and not p.active_signals]
+    
+    @property
     def demand(self):
         return any([p.demand for p in self.phases])
     
@@ -350,43 +333,50 @@ class Barrier(Identifiable):
             phase.demand = value
     
     @property
-    def conflicting_demand(self):
-        return any([p.conflicting_demand for p in self.phases])
+    def free(self):
+        return any([p.free for p in self.phases])
     
-    @conflicting_demand.setter
-    def conflicting_demand(self, value):
+    @free.setter
+    def free(self, value):
         for phase in self.phases:
-            phase.conflicting_demand = value
+            phase.free = value
     
-    def __init__(self, id_: int, phases: Iterable[Phase]):
+    def __init__(self, id_: int, phases: List[Phase]):
         super().__init__(id_)
         self.phases = phases
-    
-    def intersection(self, ring: Ring) -> Set[Phase]:
-        return set(self.phases).intersection(ring.phases)
 
 
-class RingCycler(Updatable):
+class PhaseCycler(Tickable):
     
     @property
-    def rings(self):
-        return self._rings
+    def phases(self):
+        return list(chain(*[r.phases for r in self.rings]))
     
     @property
-    def barriers(self):
-        return self._barriers
+    def active_phases(self):
+        return [p for p in self.phases if p.active_signals]
     
     @property
-    def barrier(self):
-        return self._barrier
+    def waiting_phases(self):
+        return [p for p in self.phases if p.demand and not p.active_signals]
     
     @property
-    def phases(self) -> Iterable[Phase]:
-        return chain(*[r.phases for r in self.rings])
+    def last_phase(self):
+        if len(self.cycle_phases):
+            return self.cycle_phases[-1]
+        else:
+            return None
     
     @property
-    def signals(self) -> Iterable[Signal]:
-        return chain(*[p.signals for p in self.phases])
+    def active_barrier(self):
+        if len(self.cycle_barriers):
+            return self.cycle_barriers[-1]
+        else:
+            return None
+    
+    @property
+    def signals(self):
+        return list(chain(*[p.signals for p in self.phases]))
     
     @property
     def field_outputs(self):
@@ -396,33 +386,139 @@ class RingCycler(Updatable):
                 rv.add(field_output)
         return sorted(rv)
     
-    def __init__(self, rings: Iterable[Ring], barriers: Iterable[Barrier]):
+    @property
+    def mode(self):
+        return self._mode
+    
+    def __init__(self,
+                 rings: List[Ring],
+                 barriers: List[Barrier],
+                 mode: PhaseCyclerMode = PhaseCyclerMode.PAUSE):
         super().__init__()
-        self._rings = sorted(rings)
-        self._barriers = sorted(barriers)
-        self._cycler = cycle(self._barriers)
-        self._barrier: Optional[Barrier] = None
-        self._first_barrier: Optional[Barrier] = None
+        self.rings = rings
+        self.barriers = barriers
+        self.cycle_barriers: List[Barrier] = []
+        self.cycle_phases: List[Phase] = []
+        
+        self._mode = PhaseCyclerMode.PAUSE
         self._cycle_count: int = 0
-        self.children.extend(self._rings)
+        
+        # sequential mode only
+        self._phase_sequence = utils.cycle(self.phases)
+        
+        # concurrent mode only
+        self._barrier_sequence = utils.cycle(self.barriers)
+        
+        for barrier in self.barriers:
+            barrier.ring_count = len(self.rings)
+        
+        self.tickables.extend(self.phases)
+        self.set_mode(mode)
+    
+    def tick(self, context: Context):
+        free = not self.waiting_phases
+        for phase in self.active_phases:
+            phase.free = free
+        
+        super().tick(context)
+    
+    def change_barrier(self, b: Barrier):
+        if len(self.cycle_barriers) == len(self.barriers):
+            del self.cycle_barriers[0]
+            cycled = True
+        else:
+            cycled = False
+        
+        self.cycle_barriers.append(b)
+        logger.debug('{} active', b.get_tag())
+        
+        return cycled
+    
+    def set_mode(self, mode: PhaseCyclerMode):
+        if mode == self.mode:
+            return
+        
+        match self.mode:
+            case PhaseCyclerMode.SEQUENTIAL:
+                phase_index = self.phases.index(self.last_phase) if self.last_phase else 0
+                self._phase_sequence = utils.cycle(self.phases,
+                                                   initial=phase_index)
+            case PhaseCyclerMode.CONCURRENT:
+                barrier_index = 0
+                if self.active_barrier is not None:
+                    barrier_index = self.barriers.index(self.active_barrier) + 1
+                elif self.last_phase is not None:
+                    phase_barriers = get_phase_barriers(self.barriers, self.last_phase)
+                    if phase_barriers:
+                        phase_barrier = phase_barriers[0]
+                        barrier_index = self.barriers.index(phase_barrier)
+                        self.last_phase.skip_once = True
+                
+                self._barrier_sequence = utils.cycle(self.barriers,
+                                                     initial=barrier_index)
+        
+        self._mode = mode
+    
+    async def serve(self, phases: List[Phase]):
+        assert len(phases)
+        phases.sort()
+        
+        tasks = []
+        for phase in phases:
+            self.cycle_phases.append(phase)
+            tasks.append(phase.serve())
+        
+        await asyncio.gather(*tasks)
     
     async def run(self):
         while True:
-            # todo: count phases ran per cycle.
-            # if zero phases were served, the controller is in idle,
-            # meaning preferred phases can be recycled.
+            match self.mode:
+                case PhaseCyclerMode.PAUSE:
+                    await asyncio.sleep(0.0)
+                    continue
+                case PhaseCyclerMode.SEQUENTIAL:
+                    while not self.waiting_phases:
+                        await asyncio.sleep(0.0)
+                    
+                    for _ in range(len(self.phases)):
+                        phase = next(self._phase_sequence)
+                        if phase not in self.cycle_phases and phase in self.waiting_phases:
+                            await self.serve([phase])
+                case PhaseCyclerMode.CONCURRENT:
+                    while True:
+                        while not self.waiting_phases:
+                            await asyncio.sleep(0.0)
+                        
+                        selected_phases = []
+                        
+                        if self.active_barrier:
+                            for ring in self.rings:
+                                intersection_phases = ring.intersection(self.active_barrier)
+                                for phase in intersection_phases:
+                                    if phase not in self.cycle_phases and phase in self.waiting_phases:
+                                        selected_phases.append(phase)
+                                        break
+                        
+                        if selected_phases:
+                            await self.serve(selected_phases)
+                        else:
+                            if self.change_barrier(next(self._barrier_sequence)):
+                                break
             
-            self._barrier = next(self._cycler)
+            self._cycle_count += 1
+            self.cycle_phases.clear()
+            logger.debug('cycle #{}', self._cycle_count)
             
-            if self._first_barrier is None:
-                self._first_barrier = self.barrier
-            else:
-                if self.barrier == self._first_barrier:
-                    self._cycle_count += 1
-                    logger.debug('cycle #{}', self._cycle_count)
-            
-            logger.debug('{} active', self.barrier.get_tag())
-            await asyncio.gather(*[r.serve(self.barrier) for r in self.rings])
+            if self._cycle_count:
+                self.set_mode(PhaseCyclerMode.CONCURRENT)
+
+
+def get_phase_barriers(barriers: Iterable[Barrier], phase: Phase) -> List[Barrier]:
+    rv = []
+    for barrier in barriers:
+        if phase in barrier.phases:
+            rv.append(barrier)
+    return rv
 
 
 class Call(Identifiable):
@@ -456,7 +552,7 @@ class Call(Identifiable):
     
     async def run(self):
         async with self._served:
-            await self._served.wait_for(lambda _: self.target.active)
+            await self._served.wait_for(lambda _: self.target.active_signals)
             self._controller.removeCall(self)
     
     def __lt__(self, other):
@@ -470,32 +566,52 @@ class Call(Identifiable):
         return f'<Call #{self._id:02d} {self._target.get_tag()} A{self._age:0>5.2f}>'
 
 
-@dataclass
 class Input(Identifiable):
-    trigger: InputActivation
-    action: InputAction
-    targets: List[Phase]
     
-    state: bool = False
-    last_state: bool = False
-    changed: bool = False
+    @property
+    def state(self):
+        return self._state
+    
+    @property
+    def last_state(self):
+        return self._last_state
+    
+    @property
+    def changed(self):
+        return self._changed
+    
+    def __init__(self,
+                 id_: int,
+                 activation: InputActivation,
+                 action: InputAction,
+                 targets: List[Phase]):
+        super().__init__(id_)
+    
+        self.activation = activation
+        self.action = action
+        self.targets = targets
+        
+        self._state: bool = False
+        self._last_state: bool = False
+        self._changed: bool = False
     
     def activated(self) -> bool:
-        if self.trigger == InputActivation.LOW:
-            if not self.state and not self.last_state:
-                return True
-        elif self.trigger == InputActivation.HIGH:
-            if self.state and self.last_state:
-                return True
-        elif self.trigger == InputActivation.RISING:
-            if self.state and not self.last_state:
-                return True
-        elif self.trigger == InputActivation.FALLING:
-            if not self.state and self.last_state:
-                return True
+        match self.activation:
+            case InputActivation.LOW:
+                if not self.state and not self.last_state:
+                    return True
+            case InputActivation.HIGH:
+                if self.state and self.last_state:
+                    return True
+            case InputActivation.RISING:
+                if self.state and not self.last_state:
+                    return True
+            case InputActivation.FALLING:
+                if not self.state and self.last_state:
+                    return True
         return False
     
     def __repr__(self):
-        return f'<Input {self.trigger.name} {self.action.name} ' \
+        return f'<Input {self.activation.name} {self.action.name} ' \
                f'{"ACTIVE" if self.state else "INACTIVE"}' \
                f'{" CHANGED" if self.changed else ""}>'

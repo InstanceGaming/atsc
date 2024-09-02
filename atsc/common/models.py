@@ -28,11 +28,11 @@ from pathlib import Path
 from datetime import datetime
 from atsc.common.structs import Context
 from atsc.common.constants import ExitCode
-from atsc.common.primitives import Updatable, StopwatchEvent
+from atsc.common.primitives import Tickable, StopwatchEvent
 from jacob.datetime.formatting import format_ms, format_dhms, compact_datetime
 
 
-class AsyncDaemon(Updatable, ABC):
+class AsyncDaemon(Tickable, ABC):
     
     def __init__(self,
                  context: Context,
@@ -122,7 +122,7 @@ class AsyncDaemon(Updatable, ABC):
                             task.cancel()
                         break
                     
-                    self.update(self.context)
+                    self.tick(self.context)
                     await sleep(self.context.delay)
             await self.after_run()
         finally:
