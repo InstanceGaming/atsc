@@ -4,8 +4,7 @@ from typing import List, TypeVar, Iterator
 C_T = TypeVar('C_T')
 
 
-def cycle(v: List[C_T],
-          initial=0) -> Iterator[C_T]:
+def cycle(v: List[C_T], initial=0) -> Iterator[C_T]:
     """
     Repeat the items within list v indefinitely, in order.
     

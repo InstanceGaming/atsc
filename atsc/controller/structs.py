@@ -6,10 +6,10 @@ from typing import Optional
 class IntervalTiming:
     minimum: float
     maximum: Optional[float] = None
-    rest: bool = False
-    reduce: bool = False
 
 
 @dataclass()
 class IntervalConfig:
+    rest: bool = False
+    reduce: bool = False
     flashing: bool = False

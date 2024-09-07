@@ -34,30 +34,24 @@ class SimpleController(AsyncDaemon):
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.GO      : IntervalTiming(5.0),
-            SignalState.FYA     : IntervalTiming(4.0, rest=True)
-        }
-        self.interval_timing_vehicle_idle = {
-            SignalState.LS_FLASH: IntervalTiming(16.0),
-            SignalState.STOP    : IntervalTiming(1.0),
-            SignalState.CAUTION : IntervalTiming(4.0),
-            SignalState.GO      : IntervalTiming(15.0, rest=True)
-        }
-        self.interval_config_vehicle = {
-            SignalState.LS_FLASH: IntervalConfig(flashing=True),
-            SignalState.STOP    : IntervalConfig(),
-            SignalState.CAUTION : IntervalConfig(),
-            SignalState.GO      : IntervalConfig(),
-            SignalState.FYA     : IntervalConfig(flashing=True)
+            SignalState.FYA     : IntervalTiming(4.0)
         }
         self.interval_timing_ped = {
             SignalState.STOP   : IntervalTiming(1.0),
             SignalState.CAUTION: IntervalTiming(5.0),
             SignalState.GO     : IntervalTiming(5.0)
         }
+        self.interval_config_vehicle = {
+            SignalState.LS_FLASH: IntervalConfig(flashing=True),
+            SignalState.STOP    : IntervalConfig(),
+            SignalState.CAUTION : IntervalConfig(),
+            SignalState.GO      : IntervalConfig(rest=True),
+            SignalState.FYA     : IntervalConfig(flashing=True, rest=True)
+        }
         self.interval_config_ped = {
             SignalState.STOP    : IntervalConfig(),
             SignalState.CAUTION : IntervalConfig(flashing=True),
-            SignalState.GO      : IntervalConfig()
+            SignalState.GO      : IntervalConfig(rest=True)
         }
         self.field_outputs = [FieldOutput(100 + i) for i in range(1, 49)]
         self.signals = [
@@ -210,7 +204,7 @@ class SimpleController(AsyncDaemon):
         ]
         self.cycler = PhaseCycler(self.rings,
                                   self.barriers,
-                                  mode=PhaseCyclerMode.CONCURRENT)
+                                  PhaseCyclerMode.CONCURRENT)
         
         for ring in self.rings:
             ring.demand = True

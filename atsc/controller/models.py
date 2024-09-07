@@ -156,20 +156,21 @@ class Signal(Identifiable, Tickable):
                 return self._initial_state
     
     def tick(self, context: Context):
-        interval = self._timings[self._state]
+        timing = self._timings[self._state]
+        config = self._configs[self._state]
         
-        if self.timer.poll(context, interval.minimum):
+        if self.timer.poll(context, timing.minimum):
             if self._state == SignalState.STOP:
                 if self.recall and not self.demand:
                     self.demand = True
                     logger.debug('{} recalled', self.get_tag())
                 self.inactive.set()
             else:
-                if not interval.rest or not self.free:
-                    if interval.maximum:
-                        trigger = interval.maximum
+                if not config.rest or not self.free:
+                    if timing.maximum:
+                        trigger = timing.maximum
                         
-                        if interval.reduce:
+                        if config.reduce:
                             trigger -= self.timer.value
                         
                         if self.timer.poll(context, trigger):
@@ -393,7 +394,7 @@ class PhaseCycler(Tickable):
     def __init__(self,
                  rings: List[Ring],
                  barriers: List[Barrier],
-                 mode: PhaseCyclerMode = PhaseCyclerMode.PAUSE):
+                 mode: PhaseCyclerMode):
         super().__init__()
         self.rings = rings
         self.barriers = barriers
@@ -422,7 +423,7 @@ class PhaseCycler(Tickable):
         
         super().tick(context)
     
-    def change_barrier(self, b: Barrier):
+    def try_change_barrier(self, b: Barrier):
         if len(self.cycle_barriers) == len(self.barriers):
             del self.cycle_barriers[0]
             cycled = True
@@ -441,8 +442,7 @@ class PhaseCycler(Tickable):
         match self.mode:
             case PhaseCyclerMode.SEQUENTIAL:
                 phase_index = self.phases.index(self.last_phase) if self.last_phase else 0
-                self._phase_sequence = utils.cycle(self.phases,
-                                                   initial=phase_index)
+                self._phase_sequence = utils.cycle(self.phases, initial=phase_index)
             case PhaseCyclerMode.CONCURRENT:
                 barrier_index = 0
                 if self.active_barrier is not None:
@@ -454,8 +454,7 @@ class PhaseCycler(Tickable):
                         barrier_index = self.barriers.index(phase_barrier)
                         self.last_phase.skip_once = True
                 
-                self._barrier_sequence = utils.cycle(self.barriers,
-                                                     initial=barrier_index)
+                self._barrier_sequence = utils.cycle(self.barriers, initial=barrier_index)
         
         self._mode = mode
     
@@ -502,7 +501,7 @@ class PhaseCycler(Tickable):
                         if selected_phases:
                             await self.serve(selected_phases)
                         else:
-                            if self.change_barrier(next(self._barrier_sequence)):
+                            if self.try_change_barrier(next(self._barrier_sequence)):
                                 break
             
             self._cycle_count += 1
