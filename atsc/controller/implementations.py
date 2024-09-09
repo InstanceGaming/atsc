@@ -1,17 +1,25 @@
-import asyncio
-from typing import Optional
+import shutil
+from typing import Optional, List
 from asyncio import AbstractEventLoop, get_event_loop
-
-from loguru import logger
-
 from atsc.common.models import AsyncDaemon
 from atsc.common.primitives import ref
 from atsc.common.structs import Context
-from atsc.controller.constants import SignalState, FieldState, PhaseCyclerMode
-from atsc.controller.models import Ring, Barrier, PhaseCycler, IntervalTiming, Signal, Phase, FieldOutput, IntervalConfig
+from atsc.controller.constants import SignalState, PhaseCyclerMode
+from atsc.controller.models import (Ring, Barrier, PhaseCycler, IntervalTiming,
+                                    Signal, Phase, FieldOutput, IntervalConfig)
 
 
-class SimpleController(AsyncDaemon):
+# Helper function to move cursor to a specific terminal position
+def move_cursor(row: int, col: int = 0):
+    print(f'\033[{row};{col}H', end='')
+
+
+# Helper function to clear the current terminal line
+def clear_line():
+    print('\033[K', end='')
+
+
+class Controller(AsyncDaemon):
     
     def __init__(self,
                  context: Context,
@@ -211,29 +219,30 @@ class SimpleController(AsyncDaemon):
         
         self.tickables.append(self.cycler)
         self.routines.append(self.cycler.run())
-        self.routines.append(self.print_fields_debug())
-    
-        self._previous_fields_line = ''
+        
+        self._console_size = shutil.get_terminal_size()
+        self._console_lines: List[List[str]] = []
+        self._console_line_count = max([len(p.field_outputs) - 1 for p in self.phases])
+        self.init_console()
     
     def tick(self, context: Context):
         # overridden only for a spot to breakpoint that keeps context
         super().tick(context)
+        self.update_console()
     
-    async def print_fields_debug(self):
-        while True:
-            line = ''
-            for i, field_output in enumerate(self.field_outputs, start=1):
-                match field_output.state:
-                    case FieldState.FLASHING:
-                        symbol = 'F'
-                    case FieldState.ON:
-                        symbol = 'S'
-                    case _:
-                        symbol = '.'
-                line += symbol
-            
-            if line != self._previous_fields_line:
-                self._previous_fields_line = line
-                logger.fields(line)
-            else:
-                await asyncio.sleep(0.1)
+    def init_console(self):
+        for i in range(self._console_line_count + 1):
+            self._console_lines.append(['.'] * min(len(self.phases), self._console_size.columns))
+    
+    def update_console(self):
+        for pi, phase in enumerate(self.phases):
+            for fi, fo in enumerate(phase.field_outputs):
+                self._console_lines[fi][pi] = 'X' if fo else '.'
+        
+        for li, line in enumerate(reversed(self._console_lines)):
+            move_cursor(self._console_size.lines - li)
+            line_text = ''.join(line)
+            clear_line()
+            print(line_text, end='')
+        
+        move_cursor(self._console_size.lines - (self._console_line_count + 1))

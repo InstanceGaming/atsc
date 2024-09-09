@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 import os
 import signal
 from abc import ABC
@@ -18,12 +19,11 @@ from jacob.datetime.timing import seconds
 from loguru import logger
 from typing import List, TextIO, Optional, Coroutine
 from asyncio import (Event,
-                     TaskGroup,
                      AbstractEventLoop,
                      sleep,
                      wait_for,
                      create_task,
-                     get_event_loop)
+                     get_event_loop, Task)
 from pathlib import Path
 from datetime import datetime
 from atsc.common.structs import Context
@@ -48,6 +48,7 @@ class AsyncDaemon(Tickable, ABC):
         self.started_at: Optional[datetime] = None
         
         self.routines: List[Coroutine] = []
+        self.tasks: List[Task] = []
         self.running = StopwatchEvent()
         self.request_shutdown = StopwatchEvent()
         self.shutdown_clean = Event()
@@ -106,35 +107,37 @@ class AsyncDaemon(Tickable, ABC):
     async def before_run(self):
         self.started_at = datetime.now()
         self.running.set()
+        
+        for routine in self.routines:
+            self.tasks.append(asyncio.create_task(routine))
     
     async def run(self):
         await self.lock_pid()
         try:
             await self.before_run()
-            async with TaskGroup() as task_group:
-                tasks = []
-                for routine in self.routines:
-                    tasks.append(task_group.create_task(routine))
+            while self.running.is_set():
+                if self.request_shutdown.is_set():
+                    break
                 
-                while self.running.is_set():
-                    if self.request_shutdown.is_set():
-                        for task in tasks:
-                            task.cancel()
-                        break
-                    
-                    self.tick(self.context)
-                    await sleep(self.context.delay)
+                self.tick(self.context)
+                await sleep(self.context.delay)
             await self.after_run()
         finally:
             await self.unlock_pid()
     
     async def after_run(self):
+        logger.debug('canceling {} tasks', len(self.tasks))
+        
+        for task in self.tasks:
+            task.cancel()
+        
         run_delta = seconds() - self.start_marker
         ed, eh, em, es = format_dhms(run_delta)
         formatted_timestamp = compact_datetime(self.started_at)
         logger.info('runtime of {} days, {} hours, {} minutes and {} seconds '
                     '(since {})',
                     ed, eh, em, es, formatted_timestamp)
+        
         self.running.clear()
     
     async def on_terminate(self):

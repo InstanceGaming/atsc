@@ -17,7 +17,7 @@ import argparse
 from jacob.logging import RECOMMENDED_LEVELS, setup_logger
 from atsc.common.constants import CUSTOM_LOG_LEVELS
 from atsc.common.structs import Context
-from atsc.controller.implementations import SimpleController
+from atsc.controller.implementations import Controller
 from jacob.filesystem import fix_path
 
 
@@ -30,7 +30,7 @@ def get_default_pid_path():
 
 def get_cli_args():
     root = argparse.ArgumentParser(description='Actuated Traffic Signal SimpleController CLI tool.')
-    subparsers = root.add_subparsers(dest='subsystem')
+    subparsers = root.add_subparsers(dest='subsystem', required=True)
     
     root.add_argument('-L', '--levels',
                       type=str,
@@ -74,14 +74,16 @@ def run():
         print(f'Malformed logging level specification "{levels_notation}":', e)
         return 5
     
-    pid_path = fix_path(cla['pid_file'])
-    # config_names = fix_paths(cla['config_names'])
-    
-    context = Context(10.0, 1.0)
-    
-    # the logger is still passed to daemon instance as it will bind context vars
-    SimpleController(context,
-                     pid_file=pid_path).start()
+    subsystem = cla['subsystem']
+    match subsystem.lower():
+        case 'control':
+            pid_path = fix_path(cla['pid_file'])
+            # config_names = fix_paths(cla['config_names'])
+            
+            context = Context(10.0, 1.0)
+            
+            # the logger is still passed to daemon instance as it will bind context vars
+            Controller(context, pid_file=pid_path).start()
 
 
 if __name__ == '__main__':

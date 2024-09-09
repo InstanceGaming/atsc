@@ -24,18 +24,18 @@ class StopwatchEvent(Event):
 
 
 class Identifiable:
-    OBJECT_MAP: Dict[int, Self] = {}
+    global_objects_mapping: Dict[int, Self] = {}
     
     @property
     def id(self) -> int:
         return self._id
     
     def __init__(self, id_: int):
-        if id_ in self.OBJECT_MAP.keys():
+        if id_ in self.global_objects_mapping.keys():
             raise ValueError(f'attempt to redefine reserved identifier {id_}')
         else:
             self._id = id_
-            self.OBJECT_MAP.update({id_: self})
+            self.global_objects_mapping.update({id_: self})
     
     def __hash__(self) -> int:
         return self._id
@@ -69,7 +69,7 @@ def ref(r: Optional[Union[int, Identifiable]],
     if isinstance(r, Identifiable):
         return r
     elif isinstance(r, int):
-        for k, v in Identifiable.OBJECT_MAP.items():
+        for k, v in Identifiable.global_objects_mapping.items():
             if k == r:
                 if type(v) != cls:
                     raise TypeError(f'type of {r} was not {cls.__name__}')

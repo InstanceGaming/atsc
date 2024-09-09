@@ -48,9 +48,9 @@ class SerialBus(AsyncDaemon):
         
         self._serial = None
         self._rx_buf: Optional[Frame] = None
-        self._stats: Dict[int, dict] = defaultdict(self._statsPopulator)
+        self._stats: Dict[int, dict] = defaultdict(self._stats_populator)
     
-    def _statsPopulator(self) -> dict:
+    def _stats_populator(self) -> dict:
         tx_map: Dict[FrameType, List[int, Optional[int]]] = {}
         
         for ft in FrameType:
@@ -65,7 +65,7 @@ class SerialBus(AsyncDaemon):
             'tx_bytes': 0, 'rx_bytes': 0, 'tx_frames': tx_map, 'rx_frames': rx_map
         }
     
-    def _updateStatsRx(self, f: Frame):
+    def _update_rx_stats(self, f: Frame):
         data = f.data
         size = len(data)
         addr = data[0]
@@ -90,7 +90,7 @@ class SerialBus(AsyncDaemon):
             self._stats[addr]['rx_frames'][ft][0] += 1
             self._stats[addr]['rx_frames'][ft][1] = millis()
     
-    def _formatParameterText(self):
+    def _format_param_text(self):
         return f'port={self._port}, baud={self._baud}'
     
     async def _write(self, data: bytes):
@@ -122,7 +122,7 @@ class SerialBus(AsyncDaemon):
                                 logger.bus('framing error {}', error.name)
                             else:
                                 self._stats[0]['rx_bytes'] += len(drydock)
-                                self._updateStatsRx(frame)
+                                self._update_rx_stats(frame)
                                 self._rx_buf = frame
                             drydock = bytearray()
                         else:
@@ -138,7 +138,7 @@ class SerialBus(AsyncDaemon):
     async def send(self, data: bytes):
         await self._write(data)
     
-    async def sendFrame(self, f: GenericFrame):
+    async def send_frame(self, f: GenericFrame):
         addr = f.address
         ft = f.type
         
@@ -169,7 +169,7 @@ class SerialBus(AsyncDaemon):
                                      loop=self.loop)
         except ValueError as e:
             logger.error('invalid settings configured for serial bus '
-                         f'({self._formatParameterText()}): '
+                         f'({self._format_param_text()}): '
                          f'{str(e)}')
             self.shutdown()
         except serial.SerialException as e:
@@ -177,13 +177,13 @@ class SerialBus(AsyncDaemon):
             self.shutdown()
         
         logger.bus('serial bus connected ({})',
-                   self._formatParameterText())
+                   self._format_param_text())
         
         while self.enabled:
             if self._tick.is_set() or self._changed.is_set():
                 async with self._tx_lock:
                     f = OutputStateFrame(DeviceAddress.TFIB1, [], True)
-                    await self.sendFrame(f)
+                    await self.send_frame(f)
                     self._tick.clear()
                     self._changed.clear()
             

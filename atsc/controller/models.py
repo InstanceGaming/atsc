@@ -1,7 +1,7 @@
 import asyncio
 from loguru import logger
-from typing import Set, Dict, List, Optional, Iterable
-from asyncio import Event
+from typing import Set, Dict, List, Optional, Iterable, Self
+from asyncio import Event, Task
 from itertools import chain
 from atsc.common.primitives import Timer, Context, Tickable, Identifiable, Flasher
 from atsc.controller import utils
@@ -53,6 +53,11 @@ class FieldOutput(Identifiable, Tickable):
 
 
 class Signal(Identifiable, Tickable):
+    global_field_output_mapping: Dict[FieldOutput, Self] = {}
+    
+    @classmethod
+    def by_field_output(cls, fo: FieldOutput) -> Optional[Self]:
+        return cls.global_field_output_mapping.get(fo)
     
     @property
     def active(self):
@@ -124,6 +129,10 @@ class Signal(Identifiable, Tickable):
         self._timings = timings
         self._configs = configs
         self._mapping = mapping
+        
+        for fo in mapping.values():
+            self.global_field_output_mapping.update({fo: self})
+        
         self._state = SignalState.STOP
         self._initial_state = initial_state
         self._free = rest
@@ -212,6 +221,11 @@ class Signal(Identifiable, Tickable):
 
 
 class Phase(Identifiable, Tickable):
+    global_field_output_mapping: Dict[FieldOutput, Self] = {}
+    
+    @classmethod
+    def by_field_output(cls, fo: FieldOutput) -> Optional[Self]:
+        return cls.global_field_output_mapping.get(fo)
     
     @property
     def active_signals(self):
@@ -250,6 +264,11 @@ class Phase(Identifiable, Tickable):
         Tickable.__init__(self)
         self._active = False
         self.signals = signals
+        
+        for signal in signals:
+            for fo in signal.field_outputs:
+                self.global_field_output_mapping.update({fo: self})
+        
         self.tickables.extend(self.signals)
     
     async def serve(self):
@@ -426,14 +445,20 @@ class PhaseCycler(Tickable):
     def try_change_barrier(self, b: Barrier):
         if len(self.cycle_barriers) == len(self.barriers):
             del self.cycle_barriers[0]
-            cycled = True
+            last_barrier = self.cycle_barriers[-1]
         else:
-            cycled = False
+            last_barrier = None
         
         self.cycle_barriers.append(b)
-        logger.debug('{} active', b.get_tag())
         
-        return cycled
+        if last_barrier is not None:
+            logger.debug('crossed to {} from {}',
+                         b.get_tag(),
+                         last_barrier.get_tag())
+        else:
+            logger.debug('{} active', b.get_tag())
+        
+        return last_barrier is not None
     
     def set_mode(self, mode: PhaseCyclerMode):
         if mode == self.mode:
@@ -458,18 +483,30 @@ class PhaseCycler(Tickable):
         
         self._mode = mode
     
-    async def serve(self, phases: List[Phase]):
-        assert len(phases)
-        phases.sort()
+    def serve_phase(self, phase: Phase) -> Task:
+        self.cycle_phases.append(phase)
+        return asyncio.create_task(phase.serve())
+    
+    def select_phases(self):
+        assert self.active_barrier
         
-        tasks = []
-        for phase in phases:
-            self.cycle_phases.append(phase)
-            tasks.append(phase.serve())
+        selected_phases = []
         
-        await asyncio.gather(*tasks)
+        for ring in self.rings:
+            if ring.active_phases:
+                continue
+            
+            intersection_phases = sorted(ring.intersection(self.active_barrier))
+            for phase in intersection_phases:
+                if phase not in self.cycle_phases and phase in self.waiting_phases:
+                    selected_phases.append(phase)
+                    break
+                    
+        return selected_phases
     
     async def run(self):
+        self.try_change_barrier(next(self._barrier_sequence))
+        
         while True:
             match self.mode:
                 case PhaseCyclerMode.PAUSE:
@@ -482,28 +519,28 @@ class PhaseCycler(Tickable):
                     for _ in range(len(self.phases)):
                         phase = next(self._phase_sequence)
                         if phase not in self.cycle_phases and phase in self.waiting_phases:
-                            await self.serve([phase])
+                            await self.serve_phase(phase)
                 case PhaseCyclerMode.CONCURRENT:
                     while True:
-                        while not self.waiting_phases:
-                            await asyncio.sleep(0.0)
-                        
-                        selected_phases = []
-                        
-                        if self.active_barrier:
-                            for ring in self.rings:
-                                intersection_phases = ring.intersection(self.active_barrier)
-                                for phase in intersection_phases:
-                                    if phase not in self.cycle_phases and phase in self.waiting_phases:
-                                        selected_phases.append(phase)
-                                        break
-                        
+                        selected_phases = self.select_phases()
                         if selected_phases:
-                            await self.serve(selected_phases)
+                            phase_tasks = [self.serve_phase(p) for p in selected_phases]
+                            done, pending = await asyncio.wait(phase_tasks, return_when=asyncio.FIRST_COMPLETED)
+                            
+                            if len(done) != len(phase_tasks):
+                                while pending:
+                                    selected_phases = self.select_phases()
+                                    if selected_phases:
+                                        phase_tasks.extend([self.serve_phase(p) for p in selected_phases])
+                                    else:
+                                        await asyncio.sleep(0.0)
+                                    
+                                    done, pending = await asyncio.wait(phase_tasks,
+                                                                       return_when=asyncio.FIRST_COMPLETED)
                         else:
                             if self.try_change_barrier(next(self._barrier_sequence)):
                                 break
-            
+                
             self._cycle_count += 1
             self.cycle_phases.clear()
             logger.debug('cycle #{}', self._cycle_count)
