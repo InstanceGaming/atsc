@@ -1,0 +1,4 @@
+
+
+class FieldBusError(Exception):
+    pass

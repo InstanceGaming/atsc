@@ -1,12 +1,15 @@
 import shutil
 from typing import Optional, List
 from asyncio import AbstractEventLoop, get_event_loop
+from atsc import fieldbus
 from atsc.common.models import AsyncDaemon
 from atsc.common.primitives import ref
 from atsc.common.structs import Context
 from atsc.controller.constants import SignalState, PhaseCyclerMode
 from atsc.controller.models import (Ring, Barrier, PhaseCycler, IntervalTiming,
                                     Signal, Phase, FieldOutput, IntervalConfig)
+from atsc.fieldbus.constants import DeviceAddress
+from atsc.fieldbus.frames import OutputStateFrame
 
 
 # Helper function to move cursor to a specific terminal position
@@ -31,6 +34,8 @@ class Controller(AsyncDaemon):
                              shutdown_timeout,
                              pid_file=pid_file,
                              loop=loop)
+        self.fieldbus = fieldbus.SerialBus(context, 'COM4', 115200, loop=loop)
+        
         self.interval_timing_vehicle = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
@@ -218,7 +223,11 @@ class Controller(AsyncDaemon):
             ring.demand = True
         
         self.tickables.append(self.cycler)
-        self.routines.append(self.cycler.run())
+        self.routines.extend((
+            self.cycler.run(),
+            self.fieldbus.receive(),
+            self.fieldbus.transmit()
+        ))
         
         self._console_size = shutil.get_terminal_size()
         self._console_lines: List[List[str]] = []
@@ -226,9 +235,11 @@ class Controller(AsyncDaemon):
         self.init_console()
     
     def tick(self, context: Context):
-        # overridden only for a spot to breakpoint that keeps context
         super().tick(context)
         self.update_console()
+        
+        f = OutputStateFrame(DeviceAddress.TFIB1, self.field_outputs, True)
+        self.fieldbus.enqueue_frame(f)
     
     def init_console(self):
         for i in range(self._console_line_count + 1):
@@ -245,4 +256,8 @@ class Controller(AsyncDaemon):
             clear_line()
             print(line_text, end='')
         
-        move_cursor(self._console_size.lines - (self._console_line_count + 1))
+        move_cursor(self._console_size.lines - (self._console_line_count + 2))
+
+    def shutdown(self):
+        self.fieldbus.close()
+        super().shutdown()

@@ -170,10 +170,11 @@ class Signal(Identifiable, Tickable):
         
         if self.timer.poll(context, timing.minimum):
             if self._state == SignalState.STOP:
-                if self.recall and not self.demand:
-                    self.demand = True
-                    logger.debug('{} recalled', self.get_tag())
-                self.inactive.set()
+                if self.active:
+                    if self.recall and not self.demand:
+                        self.demand = True
+                        logger.debug('{} recalled', self.get_tag())
+                    self.inactive.set()
             else:
                 if not config.rest or not self.free:
                     if timing.maximum:
