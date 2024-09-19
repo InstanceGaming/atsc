@@ -1,4 +1,4 @@
-#  Copyright 2022 Jacob Jewett
+#  Copyright 2024 Jacob Jewett
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -11,23 +11,24 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import asyncio
 import os
 import signal
+import asyncio
 from abc import ABC
-from jacob.datetime.timing import seconds
 from loguru import logger
 from typing import List, TextIO, Optional, Coroutine
-from asyncio import (Event,
+from asyncio import (Task,
+                     Event,
                      AbstractEventLoop,
                      sleep,
                      wait_for,
                      create_task,
-                     get_event_loop, Task)
+                     get_event_loop)
 from pathlib import Path
 from datetime import datetime
 from atsc.common.structs import Context
 from atsc.common.constants import ExitCode
+from jacob.datetime.timing import seconds
 from atsc.common.primitives import Tickable, StopwatchEvent
 from jacob.datetime.formatting import format_ms, format_dhms, compact_datetime
 

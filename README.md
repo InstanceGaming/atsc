@@ -9,13 +9,10 @@ Do note, this software is NOT anywhere near complete or stable and is regularly 
 ### Currently implemented
 
 - Async IO design
-- Basic event bus
 - Ring & barrier
 - Actuation with recycle
 - Vehicle and pedestrian signals
-- Flexible parameterization allowing for live-editing of most values
 - Red clearance timing
-- Configurable flash mode (red or yellow) per channel
 - Serial bus interface with custom HDLC frame protocol
 
 ### Associated software
@@ -27,9 +24,8 @@ Do note, this software is NOT anywhere near complete or stable and is regularly 
 
 For demonstration setup, configure a virtual environment with Python >=3.11. Then install the packages listed in `requirements.txt` (`pip install -r requirements.txt`).
 
-Entrypoint for the control loop is `atsc.main`.
-Entrypoint for the CLI utility is `atsc.cli`.
+Entrypoint is `atsc.cli`.
 
 You can use the argument `-h` to view command line option help texts for all entrypoints.
 
-_This readme last updated Sep 27th, 2023_
+_This readme last updated Sep 18th, 2024_

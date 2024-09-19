@@ -1,16 +1,34 @@
+#  Copyright 2024 Jacob Jewett
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 import asyncio
 from loguru import logger
-from typing import Set, Dict, List, Optional, Iterable, Self
-from asyncio import Event, Task
+from typing import Set, Dict, List, Self, Iterable, Optional
+from asyncio import Task, Event
 from itertools import chain
-from atsc.common.primitives import Timer, Context, Tickable, Identifiable, Flasher
 from atsc.controller import utils
+from atsc.common.primitives import (Timer,
+                                    Context,
+                                    Flasher,
+                                    Tickable,
+                                    Identifiable)
+from atsc.controller.structs import IntervalConfig, IntervalTiming
 from atsc.controller.constants import (CallSource,
                                        FieldState,
                                        InputAction,
                                        SignalState,
-                                       InputActivation, PhaseCyclerMode)
-from atsc.controller.structs import IntervalTiming, IntervalConfig
+                                       InputActivation,
+                                       PhaseCyclerMode)
 
 
 class FieldOutput(Identifiable, Tickable):
@@ -443,24 +461,6 @@ class PhaseCycler(Tickable):
         
         super().tick(context)
     
-    def try_change_barrier(self, b: Barrier):
-        if len(self.cycle_barriers) == len(self.barriers):
-            del self.cycle_barriers[0]
-            last_barrier = self.cycle_barriers[-1]
-        else:
-            last_barrier = None
-        
-        self.cycle_barriers.append(b)
-        
-        if last_barrier is not None:
-            logger.debug('crossed to {} from {}',
-                         b.get_tag(),
-                         last_barrier.get_tag())
-        else:
-            logger.debug('{} active', b.get_tag())
-        
-        return last_barrier is not None
-    
     def set_mode(self, mode: PhaseCyclerMode):
         if mode == self.mode:
             return
@@ -504,6 +504,24 @@ class PhaseCycler(Tickable):
                     break
                     
         return selected_phases
+    
+    def try_change_barrier(self, b: Barrier):
+        if len(self.cycle_barriers) == len(self.barriers):
+            del self.cycle_barriers[0]
+            last_barrier = self.cycle_barriers[-1]
+        else:
+            last_barrier = None
+        
+        self.cycle_barriers.append(b)
+        
+        if last_barrier is not None:
+            logger.debug('crossed to {} from {}',
+                         b.get_tag(),
+                         last_barrier.get_tag())
+        else:
+            logger.debug('{} active', b.get_tag())
+        
+        return last_barrier is not None
     
     async def run(self):
         self.try_change_barrier(next(self._barrier_sequence))

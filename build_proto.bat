@@ -1,3 +1,2 @@
 @echo off
-
-protoc -I=src\proto --python_out=src\proto src\proto\*.proto
+protoc -I=atsc\proto --python_out=atsc\proto atsc\proto\*.proto

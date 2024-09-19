@@ -1,24 +1,8 @@
 Specification of ID references:
 
-0-100           special
-    CONTROLLER = 1
+1               controller
 101-200         field outputs
-201-300         outputs
-301-400         load switches
-401-500         inputs
 501-600         signals
 601-700         phases
 701-800         rings
 801-900         barriers
-901-1000        virtual clocks
-    TIME_TICK = 901
-    INPUTS_TICK = 902
-    BUS_TICK = 903
-    NETWORK_TICK = 904
-1001-2000       virtual flashers
-    FLASHER_A = 1001
-    FLASHER_B = 1002
-2001-3000       call sources
-3001-3001       calls
-8001-10000      parameters
-10001-12000     events

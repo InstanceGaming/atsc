@@ -1,4 +1,4 @@
-#  Copyright 2022 Jacob Jewett
+#  Copyright 2024 Jacob Jewett
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -11,25 +11,20 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import os
 import loguru
 import argparse
 from jacob.logging import RECOMMENDED_LEVELS, setup_logger
-from atsc.common.constants import CUSTOM_LOG_LEVELS
-from atsc.common.structs import Context
-from atsc.controller.implementations import Controller
 from jacob.filesystem import fix_path
+from atsc.common.structs import Context
+from atsc.common.constants import CUSTOM_LOG_LEVELS
+from atsc.controller.implementations import Controller
 
 
 logger = loguru.logger
 
 
-def get_default_pid_path():
-    return os.path.join(os.getcwd(), 'atsc.pid')
-
-
 def get_cli_args():
-    root = argparse.ArgumentParser(description='Actuated Traffic Signal SimpleController CLI tool.')
+    root = argparse.ArgumentParser(description='Actuated Traffic Signal CLI.')
     subparsers = root.add_subparsers(dest='subsystem', required=True)
     
     root.add_argument('-L', '--levels',
@@ -37,26 +32,21 @@ def get_cli_args():
                       dest='log_levels',
                       default=RECOMMENDED_LEVELS,
                       help='Define logging levels.')
-    
     root.add_argument('-l', '--log',
                       type=str,
                       dest='log_file',
                       default=None,
                       help='Define log file path.')
     
-    control = subparsers.add_parser('control', description='Control server.')
-    
-    control.add_argument('--pid',
-                         dest='pid_file',
-                         help=f'Use PID file at this path.')
+    control_ap = subparsers.add_parser('control', description='Control server.')
+    control_ap.add_argument('--pid',
+                            dest='pid_file',
+                            help=f'Use PID file at this path.')
     
     # control.add_argument(dest='config_files',
     #                      nargs='+',
     #                      help='Path to one or more ATSC controller config files whose '
     #                           'contents will be merged.')
-    
-    fieldbus = subparsers.add_parser('bus', description='Field bus server.')
-    networking = subparsers.add_parser('net', description='Network server.')
     
     return vars(root.parse_args())
 
