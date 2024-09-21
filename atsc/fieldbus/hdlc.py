@@ -48,12 +48,16 @@ class HDLCContext:
         self._crc_func = crcmod.mkCrcFun(polynomial, initial, reverse, xor_out)
         self._order = byte_order
     
-    def encode(self, data: bytes, frame=True) -> bytearray:
+    def encode(self,
+               data: bytes,
+               frame=True,
+               max_length=HDLC_MAX_FRAME_LENGTH) -> bytearray:
         """
         Encode bytes into HDLC format.
 
         :param data: bytes
         :param frame: include the start and end flag bytes to form a valid frame
+        :param max_length: ValueError if frame length exceeds this many bytes
         :return: bytes
         """
         # calculate 16-bit checksum
@@ -84,9 +88,13 @@ class HDLCContext:
             # add end flag
             escaped.append(HDLC_FLAG)
         
+        if max_length:
+            if len(escaped) > max_length:
+                raise ValueError('frame grater than maximum length')
+        
         return escaped
     
-    def decode(self, data: bytes, max_length=256) -> Tuple[Optional[Frame], Optional[HDLCError]]:
+    def decode(self, data: bytes, max_length=HDLC_MAX_FRAME_LENGTH) -> Tuple[Optional[Frame], Optional[HDLCError]]:
         """
         Decode captured bytes into an HDLC frame.
 

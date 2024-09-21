@@ -30,6 +30,10 @@ CUSTOM_LOG_LEVELS = {
 }
 
 
+DEFAULT_LEVELS = 'info,warning;stderr=error,critical;file=info,critical'
+DEBUG_LEVELS = 'verbose,warning;stderr=error,critical;file=debug,critical'
+
+
 class ExitCode(IntEnum):
     DIRECT_CALL_REQUIRED = 1
     LOG_LEVEL_PARSE_FAIL = 2

@@ -13,11 +13,12 @@
 #  limitations under the License.
 import loguru
 import argparse
-from jacob.logging import RECOMMENDED_LEVELS, setup_logger
+from jacob.logging import setup_logger
 from jacob.filesystem import fix_path
 from atsc.common.structs import Context
-from atsc.common.constants import CUSTOM_LOG_LEVELS
+from atsc.common.constants import CUSTOM_LOG_LEVELS, DEFAULT_LEVELS, DEBUG_LEVELS
 from atsc.controller.implementations import Controller
+from atsc.jigs.busfuzz import BusFuzzer
 
 
 logger = loguru.logger
@@ -27,10 +28,15 @@ def get_cli_args():
     root = argparse.ArgumentParser(description='Actuated Traffic Signal CLI.')
     subparsers = root.add_subparsers(dest='subsystem', required=True)
     
+    if __debug__:
+        log_levels = DEBUG_LEVELS
+    else:
+        log_levels = DEFAULT_LEVELS
+    
     root.add_argument('-L', '--levels',
                       type=str,
                       dest='log_levels',
-                      default=RECOMMENDED_LEVELS,
+                      default=log_levels,
                       help='Define logging levels.')
     root.add_argument('-l', '--log',
                       type=str,
@@ -43,10 +49,7 @@ def get_cli_args():
                             dest='pid_file',
                             help=f'Use PID file at this path.')
     
-    # control.add_argument(dest='config_files',
-    #                      nargs='+',
-    #                      help='Path to one or more ATSC controller config files whose '
-    #                           'contents will be merged.')
+    busfuzz_ap = subparsers.add_parser('busfuzz', description='Field bus serial test jig.')
     
     return vars(root.parse_args())
 
@@ -68,12 +71,13 @@ def run():
     match subsystem.lower():
         case 'control':
             pid_path = fix_path(cla['pid_file'])
-            # config_names = fix_paths(cla['config_names'])
-            
             context = Context(10.0, 1.0)
-            
-            # the logger is still passed to daemon instance as it will bind context vars
             Controller(context, pid_file=pid_path).start()
+        case 'busfuzz':
+            context = Context(10.0, 1.0)
+            BusFuzzer(context).start()
+        case _:
+            raise NotImplementedError()
 
 
 if __name__ == '__main__':

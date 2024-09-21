@@ -12,6 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import shutil
+
+from loguru import logger
+
 from atsc import fieldbus
 from typing import List, Optional
 from asyncio import AbstractEventLoop, get_event_loop
@@ -245,7 +248,8 @@ class Controller(AsyncDaemon):
         self.routines.extend((
             self.cycler.run(),
             self.fieldbus.receive(),
-            self.fieldbus.transmit()
+            self.fieldbus.transmit(),
+            self.fieldbus_frame_handler()
         ))
         
         self._console_size = shutil.get_terminal_size()
@@ -253,9 +257,16 @@ class Controller(AsyncDaemon):
         self._console_line_count = max([len(p.field_outputs) - 1 for p in self.phases])
         self.init_console()
     
+    async def fieldbus_frame_handler(self):
+        while True:
+            async with self.fieldbus.frames_unread:
+                await self.fieldbus.frames_unread.wait()
+                for frame in self.fieldbus.process_frames():
+                    logger.bus('handling frame type {}', frame.type)
+    
     def tick(self, context: Context):
         super().tick(context)
-        self.update_console()
+        # self.update_console()
         
         f = OutputStateFrame(DeviceAddress.TFIB1, self.field_outputs, True)
         self.fieldbus.enqueue_frame(f)
