@@ -1,3 +1,16 @@
+#  Copyright 2024 Jacob Jewett
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 import enum
 import random
 from typing import List
@@ -67,10 +80,14 @@ class ApproachSimulator(Identifiable):
 
 class IntersectionSimulator:
     
-    def __init__(self, signals: List[Signal], seed=None):
+    def __init__(self,
+                 signals: List[Signal],
+                 seed=None,
+                 enabled=True):
         self.rng = random.Random(seed)
         self.signals = signals
         self.approaches = []
+        self.enabled = enabled
         
         for i in range(len(signals)):
             signal = signals[i]
@@ -78,8 +95,10 @@ class IntersectionSimulator:
             self.approaches.append(ApproachSimulator(i + 7001,
                                                      self.rng,
                                                      signal,
-                                                     permissive=permissive))
+                                                     permissive=permissive,
+                                                     enabled=enabled))
     
     def tick(self, context: Context):
-        for approach in self.approaches:
-            approach.tick(context)
+        if self.enabled:
+            for approach in self.approaches:
+                approach.tick(context)

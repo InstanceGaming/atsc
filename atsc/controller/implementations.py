@@ -72,7 +72,7 @@ class ConsoleManager:
                 clear_line()
                 print(line_text, end='')
             
-            move_cursor(self._console_size.lines - (self._console_rows + 1))
+            move_cursor(self._console_size.lines - (self._console_rows + 2))
 
 
 class Controller(AsyncDaemon):
@@ -287,7 +287,6 @@ class Controller(AsyncDaemon):
             self.fieldbus_frame_handler()
         ))
         
-        self._console = ConsoleManager(self.phases, enable=True)
         self._simulator = IntersectionSimulator(self.signals)
     
     async def fieldbus_frame_handler(self):
@@ -309,7 +308,6 @@ class Controller(AsyncDaemon):
     def tick(self, context: Context):
         super().tick(context)
         self._simulator.tick(context)
-        self._console.update()
         
         f = OutputStateFrame(DeviceAddress.TFIB1, self.field_outputs, True)
         self.fieldbus.enqueue_frame(f)

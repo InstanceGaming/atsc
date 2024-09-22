@@ -530,9 +530,8 @@ class PhaseCycler(Tickable):
         self.set_mode(mode)
     
     def tick(self, context: Context):
-        free = not self.waiting_phases
         for phase in self.active_phases:
-            phase.rest = free
+            phase.rest = not self.waiting_phases
         
         super().tick(context)
     

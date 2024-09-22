@@ -172,7 +172,10 @@ class MonitoredBit(Tickable):
     def tick(self, context: Context):
         self._rising.poll(self._bit)
         self._falling.poll(self._bit)
-        
+    
+    def __eq__(self, other):
+        return self._bit == bool(other)
+    
     def __bool__(self):
         return self._bit
 
