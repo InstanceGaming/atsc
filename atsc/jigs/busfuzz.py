@@ -2,6 +2,7 @@ import asyncio
 import random
 from asyncio import AbstractEventLoop, get_event_loop
 from typing import Optional
+
 from loguru import logger
 
 from atsc import fieldbus
@@ -40,7 +41,7 @@ class BusFuzzer(AsyncDaemon):
             async with self.fieldbus.frames_unread:
                 await self.fieldbus.frames_unread.wait()
                 for frame in self.fieldbus.process_frames():
-                    logger.bus('handling frame type {}', frame.type)
+                    logger.bus('handled frame type {}', frame.type)
     
     async def fuzz(self):
         try:

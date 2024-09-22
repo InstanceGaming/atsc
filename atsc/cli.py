@@ -67,14 +67,13 @@ def run():
         print(f'Malformed logging level specification "{levels_notation}":', e)
         return 5
     
+    context = Context(10.0, 1.0)
     subsystem = cla['subsystem']
     match subsystem.lower():
         case 'control':
             pid_path = fix_path(cla['pid_file'])
-            context = Context(10.0, 1.0)
             Controller(context, pid_file=pid_path).start()
         case 'busfuzz':
-            context = Context(10.0, 1.0)
             BusFuzzer(context).start()
         case _:
             raise NotImplementedError()

@@ -18,7 +18,7 @@ from jacob.text import format_binary_literal
 
 from atsc.fieldbus.constants import *
 from loguru import logger
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Iterator
 from asyncio import AbstractEventLoop, get_event_loop
 from aioserial import AioSerial
 from collections import defaultdict
@@ -99,10 +99,6 @@ class SerialBus:
         data = f.data
         size = len(data)
         addr = data[0]
-        try:
-            da = DeviceAddress(addr)
-        except ValueError:
-            da = DeviceAddress.UNKNOWN
         self._stats[addr]['rx_bytes'] += size
         
         if size >= 3:
@@ -155,35 +151,35 @@ class SerialBus:
         adjacent_flags = 0
         while True:
             if self.enabled and self._serial.is_open:
-                try:
-                    byte = await self._serial.read_async()
-                    if ord(byte) == HDLC_FLAG:
-                        adjacent_flags += 1
-                        if adjacent_flags > 1 or inside_frame:
-                            frame, error = self._hdlc.decode(drydock)
-                            
-                            if error is not None:
-                                logger.bus('framing error {}', error.name)
+                async with self.frames_unread:
+                    try:
+                        byte = await self._serial.read_async()
+                        if ord(byte) == HDLC_FLAG:
+                            adjacent_flags += 1
+                            if adjacent_flags > 1 or inside_frame:
+                                frame, error = self._hdlc.decode(drydock)
+                                
+                                if error is not None:
+                                    logger.bus('framing error {}', error.name)
+                                else:
+                                    self._stats[0]['rx_bytes'] += len(drydock)
+                                    self._update_rx_stats(frame)
+                                    decoded_frame = self.decode_frame(frame)
+                                    self._receive_queue.append(decoded_frame)
+                                    self.frames_unread.notify()
+                                
+                                inside_frame = False
+                                drydock.clear()
+                                adjacent_flags = 0
                             else:
-                                self._stats[0]['rx_bytes'] += len(drydock)
-                                self._update_rx_stats(frame)
-                                decoded_frame = self.decode_frame(frame)
-                                self._receive_queue.append(decoded_frame)
-                                async with self.frames_unread:
-                                    self.frames_unread.notify_all()
-                            
-                            inside_frame = False
-                            drydock.clear()
-                            adjacent_flags = 0
+                                inside_frame = True
                         else:
-                            inside_frame = True
-                    else:
-                        drydock.extend(byte)
-                        adjacent_flags = 0
-                except serial.SerialTimeoutException:
-                    pass
-                except serial.SerialException as e:
-                    raise FieldBusError(f'serial bus error: {str(e)}')
+                            drydock.extend(byte)
+                            adjacent_flags = 0
+                    except serial.SerialTimeoutException:
+                        pass
+                    except serial.SerialException as e:
+                        raise FieldBusError(f'serial bus error: {str(e)}')
             else:
                 await asyncio.sleep(self.context.delay)
     
@@ -220,7 +216,7 @@ class SerialBus:
                                    frame.crc,
                                    length)
     
-    def process_frames(self):
+    def process_frames(self) -> Iterator[DecodedBusFrame]:
         for frame in iter(self._receive_queue):
             yield frame
         self._receive_queue.clear()
