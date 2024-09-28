@@ -280,7 +280,6 @@ class Signal(Identifiable, Tickable):
                 case SignalState.STOP:
                     if self.active:
                         self.inactive_event.set()
-                        self.service_timer.value = 0.0
                         self.recall()
                 case SignalState.CAUTION | SignalState.GO | SignalState.EXTEND:
                     self.change()
@@ -313,6 +312,8 @@ class Signal(Identifiable, Tickable):
                 if self.service_maximum:
                     if self.service_timer.poll(context, self.service_maximum):
                         self.change(state=SignalState.CAUTION)
+            case _:
+                self.service_timer.value = 0.0
         
         super().tick(context)
     

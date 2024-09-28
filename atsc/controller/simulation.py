@@ -20,6 +20,25 @@ from atsc.controller.constants import SignalType
 from atsc.controller.models import Signal
 
 
+def random_range_biased(start: int,
+                        end: int,
+                        bias: float,
+                        rng: random.Random | None = None) -> int:
+    """
+    Generates a random number biased toward the higher or lower end of the range,
+    using a normalized bias between 0.0 and 1.0.
+    """
+    assert 0.0 <= bias <= 1.0
+    
+    rng = rng or random.Random()
+    
+    random_float = rng.random()
+    biased_float = random_float ** (1 - bias)
+    result = start + int(biased_float * (end - start))
+    
+    return result
+
+
 class ApproachState(enum.Enum):
     IDLE = enum.auto()
     PRESENCE = enum.auto()
@@ -48,12 +67,15 @@ class ApproachSimulator(Identifiable):
         self.trigger = self.get_idle_time(first=True)
         self.timer = Timer()
     
+    def random_range_biased(self, start: int, end: int, bias: float):
+        return random_range_biased(start, end, bias, rng=self.rng)
+    
     def get_idle_time(self, first: bool = False):
         match self.signal.type:
             case SignalType.VEHICLE:
-                return self.rng.randrange(0 if first else 1, 30)
+                return self.rng.randrange(0 if first else 1, 60)
             case SignalType.PEDESTRIAN:
-                return self.rng.randrange(0 if first else 1, 300)
+                return self.random_range_biased(0 if first else 1, 900, 0.75)
             case _:
                 raise NotImplementedError()
     
@@ -61,11 +83,11 @@ class ApproachSimulator(Identifiable):
         match self.signal.type:
             case SignalType.VEHICLE:
                 if after_idle:
-                    return self.rng.randrange(2, 30)
+                    return self.random_range_biased(2, 10, 0.3)
                 else:
-                    return self.rng.randrange(1, 6)
+                    return self.random_range_biased(1, 6, 0.25)
             case SignalType.PEDESTRIAN:
-                return self.rng.randrange(1, 5)
+                return self.random_range_biased(1, 5, 0.1)
             case _:
                 raise NotImplementedError()
     
@@ -79,7 +101,7 @@ class ApproachSimulator(Identifiable):
                 match self.signal.type:
                     case SignalType.VEHICLE:
                         self.state = ApproachState.GAP
-                        self.trigger = self.rng.randrange(1, 5)
+                        self.trigger = self.random_range_biased(1, 5, 0.3)
                     case SignalType.PEDESTRIAN:
                         self.state = ApproachState.IDLE
                     case _:
@@ -98,7 +120,7 @@ class ApproachSimulator(Identifiable):
     def tick(self, context: Context):
         if not self.signal.active and self.state == ApproachState.PRESENCE:
             if self.turn_on_red:
-                if self.timer.poll(context, self.rng.randrange(4, 12)):
+                if self.timer.poll(context, self.random_range_biased(4, 12, 0.5)):
                     self.change(context)
             else:
                 self.timer.value = 0.0

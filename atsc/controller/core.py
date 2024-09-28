@@ -76,7 +76,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
-            SignalState.GO      : IntervalTiming(5.0, 15.0),
+            SignalState.GO      : IntervalTiming(3.0, 15.0),
             SignalState.FYA     : IntervalTiming(4.0)
         }
         self.interval_timing_ped = {
