@@ -1,0 +1,438 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="refactoring">
+      <change afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/atsc/common/utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/atsc/tui/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/protobufs/controller.proto" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/protobufs/field_output.proto" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/protobufs/phase.proto" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/stop.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc.service" beforeDir="false" afterPath="$PROJECT_DIR$/atsc.service" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/primitives.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/structs.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/structs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/implementations.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/structs.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/structs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/frames.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/frames.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/implementations.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/jigs/busfuzz.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/jigs/busfuzz.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/jigs/implementations.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/networking/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/networking/implementations.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build_proto.bat" beforeDir="false" afterPath="$PROJECT_DIR$/compile-pb.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements/control-only.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements/full.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/run.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/run_s.sh" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="async" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;InstanceGaming&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">
+    <option name="selectedUrlAndAccountId">
+      <UrlAndAccount>
+        <option name="accountId" value="89ddba76-b6e3-44b4-9e10-a186016b8bb9" />
+        <option name="url" value="https://github.com/instancegaming/atsc" />
+      </UrlAndAccount>
+    </option>
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="rrfrprgl" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="NamedScopeManager">
+    <order>
+      <scope name="Compiled Python Protobufs" />
+    </order>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="2fQlG930uhGXUuBWemA69hE5Koi" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
+    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc/protobufs&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.IDE.editor.colors.Python&quot;,
+    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="F:\Projects\Code\Python\atsc\protobufs" />
+      <recent name="F:\Projects\Code\Python\atsc\atsc\fieldbus" />
+      <recent name="F:\Projects\Code\Python\atsc" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="F:\Projects\Code\Python\atsc" />
+      <recent name="F:\Projects\Code\Python\atsc\atsc\fieldbus" />
+      <recent name="F:\Projects\Code\Python\atsc\protobufs" />
+      <recent name="F:\Projects\Code\Python\atsc\atsc\controller" />
+      <recent name="F:\Projects\Code\Python\atsc\atsc\rpc\v1" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Python.Controller">
+    <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
+      <module name="atsc" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="atsc.jigs.busfuzz" />
+      <option name="PARAMETERS" value="-L 0;stderr=error" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Controller" type="PythonConfigurationType" factoryName="Python">
+      <module name="atsc" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.11 (atsc)" />
+      <option name="WORKING_DIRECTORY" value="F:\Projects\Code\Python\atsc" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="atsc.controller.main" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="true" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Field Bus" type="PythonConfigurationType" factoryName="Python">
+      <module name="atsc" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.11 (atsc)" />
+      <option name="WORKING_DIRECTORY" value="F:\Projects\Code\Python\atsc" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="atsc.fieldbus.main" />
+      <option name="PARAMETERS" value="-L 0;stderr=error COM4" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="TUI" type="PythonConfigurationType" factoryName="Python">
+      <module name="atsc" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.11 (atsc)" />
+      <option name="WORKING_DIRECTORY" value="F:\Projects\Code\Python\atsc" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="atsc.tui.main" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="true" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Python.Busfuzz" />
+      <item itemvalue="Python.Controller" />
+      <item itemvalue="Python.Field Bus" />
+      <item itemvalue="Python.TUI" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.Busfuzz" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-c69650fc56ca-d3b881c8e49f-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-233.15619.17" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task id="LOCAL-00001" summary="re-ignore .idea folder">
+      <option name="closed" value="true" />
+      <created>1713740327238</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1713740327238</updated>
+    </task>
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="re-ignore .idea folder" />
+      <created>1713741084440</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1713741084440</updated>
+    </task>
+    <task id="LOCAL-00002" summary="re-ignore .idea folder">
+      <option name="closed" value="true" />
+      <created>1713741121893</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1713741121893</updated>
+    </task>
+    <task id="LOCAL-00003" summary="update timing, cet delay calc, phase timing validation deductions">
+      <option name="closed" value="true" />
+      <created>1713743223030</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1713743223030</updated>
+    </task>
+    <task id="LOCAL-00004" summary="correct phase go time deduction">
+      <option name="closed" value="true" />
+      <created>1713745359616</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1713745359616</updated>
+    </task>
+    <task id="LOCAL-00005" summary="enforce sequential phase serve order">
+      <option name="closed" value="true" />
+      <created>1714330960159</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1714330960160</updated>
+    </task>
+    <task id="LOCAL-00006" summary="update Timer() elapsed always, input ped-service,">
+      <option name="closed" value="true" />
+      <created>1714365217152</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1714365217152</updated>
+    </task>
+    <task id="LOCAL-00007" summary="enforce phase order, timer elapse, fixed interval change">
+      <option name="closed" value="true" />
+      <created>1714373277240</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1714373277240</updated>
+    </task>
+    <task id="LOCAL-00008" summary="phase and call sorting">
+      <option name="closed" value="true" />
+      <created>1720292347374</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1720292347374</updated>
+    </task>
+    <task id="LOCAL-00009" summary="basic phase cycling working draft, refactoring">
+      <option name="closed" value="true" />
+      <created>1720322081747</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1720322081747</updated>
+    </task>
+    <task id="LOCAL-00010" summary="ring conflicting demand logic, refactor">
+      <option name="closed" value="true" />
+      <created>1720508900635</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1720508900636</updated>
+    </task>
+    <task id="LOCAL-00011" summary="refactor, cycler modes">
+      <option name="closed" value="true" />
+      <created>1725251741813</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1725251741813</updated>
+    </task>
+    <task id="LOCAL-00012" summary="rest, reduce in IntervalConfig">
+      <option name="closed" value="true" />
+      <created>1725738467611</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1725738467611</updated>
+    </task>
+    <task id="LOCAL-00013" summary="continuous cycling, console formatting">
+      <option name="closed" value="true" />
+      <created>1725869723476</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1725869723476</updated>
+    </task>
+    <task id="LOCAL-00014" summary="serial bus working">
+      <option name="closed" value="true" />
+      <created>1726721299275</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1726721299276</updated>
+    </task>
+    <task id="LOCAL-00015" summary="refactoring, license comments">
+      <option name="closed" value="true" />
+      <created>1726722644002</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1726722644002</updated>
+    </task>
+    <task id="LOCAL-00016" summary="busfuzz.py, field bus impl">
+      <option name="closed" value="true" />
+      <created>1726896934904</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1726896934904</updated>
+    </task>
+    <task id="LOCAL-00017" summary="simulator, presence, edge detection">
+      <option name="closed" value="true" />
+      <created>1726984204496</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1726984204496</updated>
+    </task>
+    <task id="LOCAL-00018" summary="refactoring">
+      <option name="closed" value="true" />
+      <created>1726986685912</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1726986685912</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="HEAD" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="phase rest inhibit" />
+    <MESSAGE value="re-ignore .idea folder" />
+    <MESSAGE value="update timing, cet delay calc, phase timing validation deductions" />
+    <MESSAGE value="correct phase go time deduction" />
+    <MESSAGE value="enforce sequential phase serve order" />
+    <MESSAGE value="update Timer() elapsed always, input ped-service," />
+    <MESSAGE value="enforce phase order, timer elapse, fixed interval change" />
+    <MESSAGE value="phase and call sorting" />
+    <MESSAGE value="basic phase cycling working draft, refactoring" />
+    <MESSAGE value="ring conflicting demand logic, refactor" />
+    <MESSAGE value="refactor, cycler modes" />
+    <MESSAGE value="rest, reduce in IntervalConfig" />
+    <MESSAGE value="continuous cycling, console formatting" />
+    <MESSAGE value="serial bus working" />
+    <MESSAGE value="refactoring, license comments" />
+    <MESSAGE value="busfuzz.py, field bus impl" />
+    <MESSAGE value="simulator, presence, edge detection" />
+    <MESSAGE value="refactoring" />
+    <option name="LAST_COMMIT_MESSAGE" value="refactoring" />
+  </component>
+</project>

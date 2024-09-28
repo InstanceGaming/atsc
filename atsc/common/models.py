@@ -13,7 +13,6 @@
 #  limitations under the License.
 import os
 import signal
-import asyncio
 from abc import ABC
 from loguru import logger
 from typing import List, TextIO, Optional, Coroutine
@@ -27,7 +26,7 @@ from asyncio import (Task,
 from pathlib import Path
 from datetime import datetime
 from atsc.common.structs import Context
-from atsc.common.constants import ExitCode
+from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT, ExitCode
 from jacob.datetime.timing import seconds
 from atsc.common.primitives import Tickable, StopwatchEvent
 from jacob.datetime.formatting import format_ms, format_dhms, compact_datetime
@@ -35,9 +34,13 @@ from jacob.datetime.formatting import format_ms, format_dhms, compact_datetime
 
 class AsyncDaemon(Tickable, ABC):
     
+    @property
+    def started_at_monotonic_delta(self):
+        return seconds() - self.started_at_monotonic
+    
     def __init__(self,
                  context: Context,
-                 shutdown_timeout: float,
+                 shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
                  pid_file: Optional[str] = None,
                  loop: AbstractEventLoop = get_event_loop()):
         super().__init__()
@@ -45,8 +48,8 @@ class AsyncDaemon(Tickable, ABC):
         self.pid_file = pid_file
         self.shutdown_timeout = shutdown_timeout
         self.context = context
-        self.start_marker: int = seconds()
         self.started_at: Optional[datetime] = None
+        self.started_at_monotonic: Optional[int] = None
         
         self.routines: List[Coroutine] = []
         self.tasks: List[Task] = []
@@ -81,10 +84,11 @@ class AsyncDaemon(Tickable, ABC):
                 self.pid_file = file
             except FileExistsError:
                 logger.error('process already running ({})', abs_path)
-                exit(ExitCode.PID_EXISTS)
+                return ExitCode.PID_EXISTS
             except OSError as e:
                 logger.error('could not create process lock at {}: {}', abs_path, str(e))
-                exit(ExitCode.PID_CREATE_FAIL)
+                return ExitCode.PID_CREATE_FAIL
+        return ExitCode.OK
     
     async def unlock_pid(self):
         if self.pid_file is not None:
@@ -98,22 +102,25 @@ class AsyncDaemon(Tickable, ABC):
                 os.remove(pid_path)
             except OSError as e:
                 logger.error('could not remove PID file at {}: {}', pid_path, str(e))
-                exit(ExitCode.PID_REMOVE_FAIL)
+                return ExitCode.PID_REMOVE_FAIL
             
             logger.info('removed PID file at {}', pid_path)
-    
-    def start(self):
-        self.loop.run_until_complete(self.run())
+        return ExitCode.OK
     
     async def before_run(self):
         self.started_at = datetime.now()
+        self.started_at_monotonic = seconds()
         self.running.set()
         
         for routine in self.routines:
-            self.tasks.append(asyncio.create_task(routine))
+            self.tasks.append(self.loop.create_task(routine))
     
-    async def run(self):
-        await self.lock_pid()
+    async def run(self) -> int:
+        pid_lock_result = await self.lock_pid()
+        
+        if pid_lock_result is not ExitCode.OK:
+            return pid_lock_result
+        
         try:
             await self.before_run()
             while self.running.is_set():
@@ -124,7 +131,13 @@ class AsyncDaemon(Tickable, ABC):
                 await sleep(self.context.delay)
             await self.after_run()
         finally:
-            await self.unlock_pid()
+            pid_unlock_result = await self.unlock_pid()
+            
+            if pid_unlock_result is not ExitCode.OK:
+                return pid_unlock_result
+        
+        self.shutdown_clean.set()
+        return ExitCode.OK
     
     async def after_run(self):
         logger.debug('canceling {} tasks', len(self.tasks))
@@ -132,8 +145,8 @@ class AsyncDaemon(Tickable, ABC):
         for task in self.tasks:
             task.cancel()
         
-        run_delta = seconds() - self.start_marker
-        ed, eh, em, es = format_dhms(run_delta)
+        monotonic_delta = seconds() - self.started_at_monotonic
+        ed, eh, em, es = format_dhms(monotonic_delta)
         formatted_timestamp = compact_datetime(self.started_at)
         logger.info('runtime of {} days, {} hours, {} minutes and {} seconds '
                     '(since {})',
@@ -153,8 +166,7 @@ class AsyncDaemon(Tickable, ABC):
         except TimeoutError:
             delta = self.request_shutdown.elapsed - (self.shutdown_timeout / 1000)
             logger.error('exceeded shutdown timeout by {}', format_ms(delta))
-            self.stop()
-    
+        
     def shutdown(self):
         if not self.request_shutdown.is_set():
             logger.info('shutdown requested')
@@ -163,7 +175,3 @@ class AsyncDaemon(Tickable, ABC):
             create_task(self._shutdown_wait())
         else:
             logger.warning('shutdown already pending')
-    
-    def stop(self):
-        logger.info('loop stopped')
-        self.loop.stop()

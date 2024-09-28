@@ -1,6 +1,4 @@
 env/
-**/__pycache__/
-.idea/
-*.zip
-picp.bat
-profiling/
+*.egg-info/
+**/__pycache__
+__init__.py

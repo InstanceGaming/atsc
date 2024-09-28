@@ -16,7 +16,7 @@ import math
 from typing import List, Union, Optional
 from bitarray import bitarray
 from atsc.fieldbus.hdlc import HDLCContext
-from atsc.controller.models import FieldOutput
+from atsc.rpc.field_output import FieldOutput as rpc_FieldOutput
 from atsc.fieldbus.constants import FrameType
 
 
@@ -40,7 +40,7 @@ class GenericFrame(abc.ABC):
         self._type = fr_type
         self._awk_type = awk_type
     
-    def getHeader(self) -> bytearray:
+    def get_header(self) -> bytearray:
         """
         Get the bytes that form the header structure.
 
@@ -49,18 +49,18 @@ class GenericFrame(abc.ABC):
         return bytearray([self._address, self._version, self._type])
     
     @abc.abstractmethod
-    def getPayload(self) -> bytearray:
+    def get_payload(self) -> bytearray:
         """
         Get the data to be included after the header in the frame.
         """
         pass
     
-    def getContent(self) -> bytearray:
+    def get_content(self) -> bytearray:
         """
         Get the bytes that form the overall frame data.
         """
-        header = self.getHeader()
-        payload = self.getPayload()
+        header = self.get_header()
+        payload = self.get_payload()
         
         if payload is not None:
             header.extend(payload)
@@ -73,7 +73,7 @@ class GenericFrame(abc.ABC):
 
         :return: Frame bytes
         """
-        return hdlc.encode(self.getContent())
+        return hdlc.encode(self.get_content())
     
     def __repr__(self):
         return f'<GenericFrame type={self._type} address={self._address} ' \
@@ -86,7 +86,7 @@ class BeaconFrame(GenericFrame):
     def __init__(self, address: int):
         super(BeaconFrame, self).__init__(address, self.VERSION, FrameType.BEACON, FrameType.AWK)
     
-    def getPayload(self):
+    def get_payload(self):
         return None
 
 
@@ -95,22 +95,26 @@ class OutputStateFrame(GenericFrame):
     
     def __init__(self,
                  address: int,
-                 fields: List[FieldOutput],
+                 fields: List[rpc_FieldOutput],
                  transfer: bool):
         super(OutputStateFrame, self).__init__(address, self.VERSION, FrameType.OUTPUTS, FrameType.INPUTS)
-        self._fields = fields
-        self._transfer = transfer
+        self.field_outputs = fields
+        self.transfer_flag = transfer
     
-    def getPayload(self):
-        bytes_count = math.ceil(len(self._fields) / 6)
-        payload = bytearray([128 if self._transfer else 0] + ([0] * bytes_count))
+    def get_payload(self):
+        # 6 field outputs per byte, last and fourth bits not used in each byte
+        bytes_count = math.ceil(len(self.field_outputs) / 6)
+        
+        # first byte is for special outputs, last bit is for FTR relay
+        payload = bytearray([128 if self.transfer_flag else 0] + ([0] * bytes_count))
         
         i = 0
         for byte in range(bytes_count):
             for bit in (64, 32, 16, 4, 2, 1):
-                field = self._fields[i]
+                field = self.field_outputs[i]
                 if field is not None:
-                    payload[byte + 1] += int(field) * bit
+                    if field.value:
+                        payload[byte + 1] += bit
                 i += 1
         
         return payload
@@ -134,5 +138,5 @@ class InputStateFrame(GenericFrame):
         
         self._bitfield: bitarray = bitfield
     
-    def getPayload(self):
+    def get_payload(self):
         return self._bitfield

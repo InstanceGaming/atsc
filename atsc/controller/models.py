@@ -12,26 +12,28 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-
-from jacob.datetime.formatting import format_ms
-from jacob.datetime.timing import millis
 from loguru import logger
-from typing import Set, Dict, List, Self, Iterable, Optional
+from typing import Set, Dict, List, Self, Optional
 from asyncio import Task, Event
 from itertools import chain
 from atsc.controller import utils
+from jacob.datetime.timing import millis
 from atsc.common.primitives import (Timer,
                                     Context,
                                     Flasher,
                                     Tickable,
-                                    Identifiable, MonitoredBit)
+                                    Identifiable,
+                                    MonitoredBit)
 from atsc.controller.structs import IntervalConfig, IntervalTiming
 from atsc.controller.constants import (CallSource,
-                                       FieldState,
+                                       FieldOutputState,
                                        InputAction,
                                        SignalState,
                                        InputActivation,
-                                       PhaseCyclerMode)
+                                       PhaseCyclerMode, RecallMode, RecallState, SignalType)
+from jacob.datetime.formatting import format_ms
+from atsc.rpc.field_output import FieldOutput as rpc_FieldOutput
+from atsc.rpc.phase import Phase as rpc_Phase
 
 
 class FieldOutput(Identifiable, Tickable):
@@ -43,34 +45,40 @@ class FieldOutput(Identifiable, Tickable):
     def __init__(self, id_: int, fpm: float = 60.0):
         Identifiable.__init__(self, id_)
         Tickable.__init__(self)
-        self._state = FieldState.OFF
-        self._scalar = False
+        self._state = FieldOutputState.OFF
+        self._bit = False
         self._flasher = Flasher()
         self.fpm: float = fpm
     
-    def set(self, state: FieldState):
-        if state != FieldState.INHERIT:
+    def set(self, state: FieldOutputState):
+        if state != FieldOutputState.INHERIT:
             match state:
-                case FieldState.OFF:
-                    self._scalar = False
-                case FieldState.ON | FieldState.FLASHING:
-                    self._scalar = True
+                case FieldOutputState.OFF:
+                    self._bit = False
+                case FieldOutputState.ON | FieldOutputState.FLASHING:
+                    self._bit = True
             
             self._state = state
     
     def __bool__(self):
-        return self._scalar
+        return self._bit
     
     def __int__(self):
-        return 1 if self._scalar else 0
+        return 1 if self._bit else 0
     
     def __repr__(self):
         return f'<FieldOutput #{self.id} {self.state.name}'
     
     def tick(self, context: Context):
-        if self.state == FieldState.FLASHING:
+        if self.state == FieldOutputState.FLASHING:
             if self._flasher.poll(context, self.fpm):
-                self._scalar = not self._scalar
+                self._bit = not self._bit
+    
+    def rpc_model(self) -> rpc_FieldOutput:
+        return rpc_FieldOutput(self.id,
+                               state=self.state,
+                               value=self._bit,
+                               fpm=self.fpm)
 
 
 class Signal(Identifiable, Tickable):
@@ -79,6 +87,10 @@ class Signal(Identifiable, Tickable):
     @classmethod
     def by_field_output(cls, fo: FieldOutput) -> Optional[Self]:
         return cls.global_field_output_mapping.get(fo)
+    
+    @property
+    def type(self):
+        return self._type
     
     @property
     def active(self):
@@ -131,17 +143,22 @@ class Signal(Identifiable, Tickable):
         if value != self._rest:
             logger.verbose('{} rest = {}', self.get_tag(), value)
         self._rest.bit = value
+    
+    @property
+    def recall_mode(self):
+        return self._recall_mode
+    
+    @recall_mode.setter
+    def recall_mode(self, value):
+        assert isinstance(value, RecallMode)
+        if value != self._recall_mode:
+            logger.verbose('{} recall_mode = {}', self.get_tag(), value.name)
+        self._recall_mode = value
         
     @property
-    def recall(self):
-        return self._recall
+    def recall_state(self):
+        return self._recall_state
     
-    @recall.setter
-    def recall(self, value):
-        if value != self._recall:
-            logger.verbose('{} recall = {}', self.get_tag(), value)
-        self._recall.bit = value
-        
     @property
     def recycle(self):
         return self._recycle
@@ -151,6 +168,15 @@ class Signal(Identifiable, Tickable):
         if value != self._recycle:
             logger.verbose('{} recycle = {}', self.get_tag(), value)
         self._recycle.bit = value
+        
+    @property
+    def service_maximum(self):
+        go_timing = self._timings.get(SignalState.GO)
+        
+        if go_timing and go_timing.maximum and go_timing.maximum >= 1.0:
+            return go_timing.maximum
+        else:
+            return None
     
     @property
     def field_outputs(self):
@@ -164,17 +190,19 @@ class Signal(Identifiable, Tickable):
                  timings: Dict[SignalState, IntervalTiming],
                  configs: Dict[SignalState, IntervalConfig],
                  mapping: Dict[SignalState, FieldOutput],
-                 recall: bool = False,
+                 recall: RecallMode = RecallMode.OFF,
                  recycle: bool = False,
                  rest: bool = False,
                  demand: bool = False,
                  latch: bool = False,
+                 type: SignalType = SignalType.GENERIC,
                  initial_state: SignalState = SignalState.STOP):
         Identifiable.__init__(self, id_)
         Tickable.__init__(self)
         self._timings = timings
         self._configs = configs
         self._mapping = mapping
+        self._type = type
         
         for fo in mapping.values():
             self.global_field_output_mapping.update({fo: self})
@@ -183,29 +211,31 @@ class Signal(Identifiable, Tickable):
         self._initial_state = initial_state
         
         self._rest = MonitoredBit(rest)
-        self._recall = MonitoredBit(recall)
+        self._recall_mode = recall
+        self._recall_state = RecallState.NORMAL
         self._recycle = MonitoredBit(recycle)
         self._demand = MonitoredBit(demand)
         self._latch = MonitoredBit(latch)
         self._presence = MonitoredBit(False)
         self.tickables.extend((self._rest,
-                               self._recall,
                                self._recycle,
                                self._demand,
                                self._latch,
                                self._presence))
         
-        self.timer = Timer()
+        self.service_timer = Timer()
+        self.interval_timer = Timer()
         self.inactive_event = Event()
         
         if initial_state == SignalState.STOP:
             self.inactive_event.set()
         
         self.tickables.extend(self.field_outputs)
-        self.change(force_state=initial_state)
+        self.change(state=initial_state)
+        self.recall()
     
     def get_next_state(self) -> SignalState:
-        match self._state:
+        match self.state:
             case SignalState.STOP:
                 # todo: go to FYA if conditions are met
                 return SignalState.GO
@@ -214,66 +244,97 @@ class Signal(Identifiable, Tickable):
             case SignalState.FYA:
                 # todo: go to green if next up
                 return SignalState.CAUTION
-            case SignalState.GO:
+            case SignalState.EXTEND:
                 return SignalState.CAUTION
+            case SignalState.GO:
+                if SignalState.EXTEND in self._timings:
+                    return SignalState.EXTEND
+                else:
+                    return SignalState.CAUTION
             case SignalState.LS_FLASH:
                 return self._initial_state
+            case _:
+                raise NotImplementedError()
+    
+    def recall(self):
+        match self.recall_mode:
+            case RecallMode.OFF:
+                self._recall_state = RecallState.NORMAL
+            case RecallMode.MINIMUM:
+                self._recall_state = RecallState.MINIMUM
+                self.demand.bit = True
+                logger.debug('{} minimum recall', self.get_tag())
+            case RecallMode.MINIMUM:
+                self._recall_state = RecallState.MINIMUM
+                self.demand.bit = True
+                logger.debug('{} maximum recall', self.get_tag())
+            case _:
+                raise NotImplementedError()
     
     def tick(self, context: Context):
         timing = self._timings[self.state]
-        config = self._configs[self.state]
+        config = self._configs.get(self.state)
         
-        if self.timer.poll(context, timing.minimum):
-            if self.state == SignalState.STOP:
-                if self.active:
-                    if self.recall:
-                        self.demand.bit = True
-                        logger.debug('{} recalled', self.get_tag())
-                    self.inactive_event.set()
-            else:
-                if not config.rest or not self.rest:
-                    if timing.maximum:
-                        trigger = timing.maximum
-                        
-                        if config.reduce:
-                            trigger -= self.timer.value
-                        
-                        if self.timer.poll(context, trigger):
-                            self.change()
-                    else:
-                        self.change()
+        if self.interval_timer.poll(context, timing.minimum):
+            match self.state:
+                case SignalState.STOP:
+                    if self.active:
+                        self.inactive_event.set()
+                        self.service_timer.value = 0.0
+                        self.recall()
+                case SignalState.CAUTION | SignalState.GO | SignalState.EXTEND:
+                    self.change()
+                case _:
+                    raise NotImplementedError()
         
         match self.state:
             case SignalState.STOP | SignalState.CAUTION:
-                self.demand.bit = self.demand or self.presence
-            case SignalState.GO | SignalState.FYA:
+                if not self.latch and self.presence.falling:
+                    self.demand.bit = False
+                else:
+                    self.demand.bit = self.demand or self.presence
+            case SignalState.EXTEND:
                 self.demand.bit = False
+                
+                if self.presence.bit:
+                    self.interval_timer.value = 0.0
+            case SignalState.GO:
+                self.demand.bit = False
+            case _:
+                raise NotImplementedError()
         
-        if self.state == SignalState.STOP:
-            if not self.latch and self.presence.falling:
-                self.demand.bit = False
+        resting = config.rest and self.rest if config else self.rest
+        if timing.maximum and not resting:
+            if self.interval_timer.value > timing.maximum:
+                self.change()
+        
+        match self.state:
+            case SignalState.GO | SignalState.EXTEND:
+                if self.service_maximum:
+                    if self.service_timer.poll(context, self.service_maximum):
+                        self.change(state=SignalState.CAUTION)
         
         super().tick(context)
     
-    def change(self, force_state: Optional[SignalState] = None):
-        self.timer.reset()
+    def change(self, state: Optional[SignalState] = None):
+        self.interval_timer.value = 0.0
         
-        if force_state is not None:
-            next_state = force_state
+        if state is not None:
+            next_state = state
         else:
             next_state = self.get_next_state()
         
         previous_field_output = self._mapping[self._state]
-        previous_field_output.set(FieldState.OFF)
+        previous_field_output.set(FieldOutputState.OFF)
         
         self._state = next_state
         field_output = self._mapping[self._state]
-        interval_config = self._configs[self._state]
+        interval_config = self._configs.get(self._state)
         
-        if interval_config.flashing:
-            field_output.set(FieldState.FLASHING)
+        if interval_config and interval_config.flashing:
+            field_output.set(FieldOutputState.FLASHING)
         else:
-            field_output.set(FieldState.ON)
+            field_output.set(FieldOutputState.ON)
         
         if self._state != SignalState.STOP:
             self.inactive_event.clear()
@@ -284,11 +345,11 @@ class Signal(Identifiable, Tickable):
             self.change()
             await self.inactive_event.wait()
             logger.debug('{} deactivated', self.get_tag())
-
+    
     def __repr__(self):
-        return (f'<Signal #{self.id} {self.state.name} {self.timer.value:.1f} '
+        return (f'<Signal #{self.id} {self.state.name} {self.interval_timer.value:.1f} '
                 f'demand={self.demand} presence={self.presence} rest={self.rest} '
-                f'recall={self.recall} recycle={self.recycle}>')
+                f'recall={self.recall_mode.name} recycle={self.recycle}>')
 
 
 class Phase(Identifiable, Tickable):
@@ -319,6 +380,23 @@ class Phase(Identifiable, Tickable):
     def rest(self, value):
         for signal in self.signals:
             signal.rest = value
+    
+    @property
+    def presence(self):
+        return any([s.presence for s in self.signals])
+    
+    @presence.setter
+    def presence(self, value):
+        for signal in self.signals:
+            signal.presence.bit = value
+            
+    @property
+    def interval_time(self):
+        return max([s.interval_timer.value for s in self.signals])
+    
+    @property
+    def service_time(self):
+        return max([s.service_timer.value for s in self.signals])
     
     @property
     def field_outputs(self):
@@ -365,9 +443,19 @@ class Phase(Identifiable, Tickable):
             
             self._active = False
             logger.debug('{} deactivated', self.get_tag())
-
+    
     def __repr__(self):
         return f'<Phase #{self.id} active={len(self.active_signals)} demand={self.demand} rest={self.rest}>'
+    
+    def rpc_model(self) -> rpc_Phase:
+        field_outputs = [fo.rpc_model() for fo in self.field_outputs]
+        return rpc_Phase(self.id,
+                         presence=self.presence,
+                         demand=self.demand,
+                         rest=self.rest,
+                         field_outputs=field_outputs,
+                         interval_time=self.interval_time,
+                         service_time=self.service_time)
 
 
 class Ring(Identifiable):
@@ -454,7 +542,7 @@ class Barrier(Identifiable):
     def __init__(self, id_: int, phases: List[Phase]):
         super().__init__(id_)
         self.phases = phases
-        
+    
     def __repr__(self):
         return f'<Barrier #{self.id} active={len(self.active_phases)} waiting={len(self.waiting_phases)}>'
 
@@ -548,7 +636,7 @@ class PhaseCycler(Tickable):
                 if self.active_barrier is not None:
                     barrier_index = self.barriers.index(self.active_barrier) + 1
                 elif self.last_phase is not None:
-                    phase_barriers = get_phase_barriers(self.barriers, self.last_phase)
+                    phase_barriers = [b for b in self.barriers if self.last_phase in b]
                     if phase_barriers:
                         phase_barrier = phase_barriers[0]
                         barrier_index = self.barriers.index(phase_barrier)
@@ -576,7 +664,7 @@ class PhaseCycler(Tickable):
                 if phase not in self.cycle_phases and phase in self.waiting_phases:
                     selected_phases.append(phase)
                     break
-                    
+        
         return selected_phases
     
     def try_change_barrier(self, b: Barrier):
@@ -608,7 +696,7 @@ class PhaseCycler(Tickable):
             return True
         else:
             return False
-        
+    
     async def try_pause(self):
         if self.mode == PhaseCyclerMode.PAUSE:
             logger.debug('paused')
@@ -661,14 +749,6 @@ class PhaseCycler(Tickable):
             
             if self._cycle_count:
                 self.set_mode(PhaseCyclerMode.CONCURRENT)
-
-
-def get_phase_barriers(barriers: Iterable[Barrier], phase: Phase) -> List[Barrier]:
-    rv = []
-    for barrier in barriers:
-        if phase in barrier.phases:
-            rv.append(barrier)
-    return rv
 
 
 class Call(Identifiable):
@@ -736,7 +816,7 @@ class Input(Identifiable):
                  action: InputAction,
                  targets: List[Phase]):
         super().__init__(id_)
-    
+        
         self.activation = activation
         self.action = action
         self.targets = targets

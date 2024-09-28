@@ -25,6 +25,20 @@ SERIAL_BUS_CRC_REVERSE = True
 SERIAL_BUS_CRC_XOR_OUT = 0
 SERIAL_BUS_BYTE_ORDER = 'big'
 
+SERIAL_BUS_BAUD_RATE = 115200
+SERIAL_BUS_BAUD_RATES = (9600,
+                         19200,
+                         38400,
+                         57600,
+                         115200,
+                         230400,
+                         460800,
+                         500000,
+                         576000,
+                         921600,
+                         1000000,
+                         1152000)
+
 
 class DeviceAddress(IntEnum):
     UNKNOWN = 0x00

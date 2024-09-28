@@ -14,8 +14,9 @@
 import enum
 import random
 from typing import List
-from atsc.common.primitives import Timer, Identifiable
 from atsc.common.structs import Context
+from atsc.common.primitives import Timer, Identifiable
+from atsc.controller.constants import SignalType
 from atsc.controller.models import Signal
 
 
@@ -42,35 +43,69 @@ class ApproachSimulator(Identifiable):
         self.signal = signal
         self.enabled = enabled
         self.permissive = permissive
+        self.turn_on_red = False
         self.state = ApproachState.IDLE
-        self.trigger = self.rng.randrange(1, 60)
+        self.trigger = self.get_idle_time(first=True)
         self.timer = Timer()
     
-    def tick(self, context: Context):
+    def get_idle_time(self, first: bool = False):
+        match self.signal.type:
+            case SignalType.VEHICLE:
+                return self.rng.randrange(0 if first else 1, 30)
+            case SignalType.PEDESTRIAN:
+                return self.rng.randrange(0 if first else 1, 300)
+            case _:
+                raise NotImplementedError()
+    
+    def get_presence_time(self, after_idle: bool = False):
+        match self.signal.type:
+            case SignalType.VEHICLE:
+                if after_idle:
+                    return self.rng.randrange(2, 30)
+                else:
+                    return self.rng.randrange(1, 6)
+            case SignalType.PEDESTRIAN:
+                return self.rng.randrange(1, 5)
+            case _:
+                raise NotImplementedError()
+    
+    def change(self, context: Context):
         match self.state:
+            case ApproachState.IDLE:
+                self.turn_on_red = round(self.rng.random()) ^ self.permissive
+                self.state = ApproachState.PRESENCE
+                self.trigger = self.get_presence_time(after_idle=True)
             case ApproachState.PRESENCE:
-                if not self.signal.active:
-                    if not self.permissive or self.permissive and round(self.rng.random()):
-                        self.timer.reset()
+                match self.signal.type:
+                    case SignalType.VEHICLE:
+                        self.state = ApproachState.GAP
+                        self.trigger = self.rng.randrange(1, 5)
+                    case SignalType.PEDESTRIAN:
+                        self.state = ApproachState.IDLE
+                    case _:
+                        raise NotImplementedError()
+            case ApproachState.GAP:
+                self.trigger /= 2
+                
+                if self.trigger > (context.delay * 2):
+                    self.turn_on_red = round(self.rng.random()) ^ self.permissive
+                    self.state = ApproachState.PRESENCE
+                    self.trigger = self.get_presence_time()
+                else:
+                    self.state = ApproachState.IDLE
+                    self.trigger = self.get_idle_time()
+    
+    def tick(self, context: Context):
+        if not self.signal.active and self.state == ApproachState.PRESENCE:
+            if self.turn_on_red:
+                if self.timer.poll(context, self.rng.randrange(4, 12)):
+                    self.change(context)
+            else:
+                self.timer.value = 0.0
         
         if self.timer.poll(context, self.trigger):
-            self.timer.reset()
-            match self.state:
-                case ApproachState.PRESENCE:
-                    self.state = ApproachState.GAP
-                    self.trigger = self.rng.randrange(1, 4)
-                case ApproachState.GAP:
-                    self.trigger /= 2
-                    
-                    if self.trigger > (context.delay * 2):
-                        self.state = ApproachState.PRESENCE
-                        self.trigger = self.rng.randrange(1, 6)
-                    else:
-                        self.state = ApproachState.IDLE
-                        self.trigger = self.rng.randrange(1, 60)
-                case ApproachState.IDLE:
-                    self.state = ApproachState.PRESENCE
-                    self.trigger = self.rng.randrange(3, 6)
+            self.timer.value = 0.0
+            self.change(context)
         
         self.signal.presence = self.state == ApproachState.PRESENCE
     

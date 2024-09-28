@@ -15,13 +15,14 @@ from typing import Optional
 from dataclasses import dataclass
 
 
-@dataclass()
+@dataclass(slots=True)
 class IntervalTiming:
     minimum: float
     maximum: Optional[float] = None
+    revert: Optional[float] = None
 
 
-@dataclass()
+@dataclass(slots=True)
 class IntervalConfig:
     rest: bool = False
     reduce: bool = False

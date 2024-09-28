@@ -178,6 +178,9 @@ class MonitoredBit(Tickable):
     
     def __bool__(self):
         return self._bit
+    
+    def __repr__(self):
+        return f'<Bit {self._bit}>'
 
 
 class Timer:
@@ -186,17 +189,20 @@ class Timer:
     def value(self):
         return self._value
     
-    def __init__(self):
+    @value.setter
+    def value(self, value):
+        assert value is None or value >= 0.0
+        self._value = value or 0.0
+    
+    def __init__(self, value=None):
         self._value = 0.0
+        self.value = value
     
     def poll(self, context: Context, trigger: float) -> bool:
         rv = self._value >= trigger
         self._value += context.delay
         return rv
     
-    def reset(self):
-        self._value = 0.0
-
     def __repr__(self):
         return f'<Timer {self._value:01.1f}>'
 
@@ -211,5 +217,5 @@ class Flasher:
         delay = fps / 2
         t = self._timer.poll(context, delay)
         if t:
-            self._timer.reset()
+            self._timer.value = 0.0
         return t

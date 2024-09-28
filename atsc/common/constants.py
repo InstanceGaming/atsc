@@ -15,6 +15,14 @@ from enum import IntEnum
 from jacob.logging import CustomLevel
 
 
+CONTROLLER_RPC_PORT = 7833
+DEFAULT_TICK_RATE = 10.0
+DEFAULT_TICK_SCALE = 1.0
+DAEMON_SHUTDOWN_TIMEOUT = 5.0
+DEFAULT_LEVELS = 'info,warning;stderr=error;file=info,error'
+DEBUG_LEVELS = 'verbose,warning;stderr=error;file=debug,error'
+
+
 CUSTOM_LOG_LEVELS = {
     CustomLevel(10, 'bus_tx'),
     CustomLevel(11, 'bus_rx'),
@@ -30,11 +38,8 @@ CUSTOM_LOG_LEVELS = {
 }
 
 
-DEFAULT_LEVELS = 'info,warning;stderr=error,critical;file=info,critical'
-DEBUG_LEVELS = 'verbose,warning;stderr=error,critical;file=debug,critical'
-
-
 class ExitCode(IntEnum):
+    OK = 0
     DIRECT_CALL_REQUIRED = 1
     LOG_LEVEL_PARSE_FAIL = 2
     LOG_FILE_STRUCTURE_FAIL = 3

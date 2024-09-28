@@ -22,10 +22,19 @@ Do note, this software is NOT anywhere near complete or stable and is regularly 
 
 ### Use
 
-For demonstration setup, configure a virtual environment with Python >=3.11. Then install the packages listed in `requirements.txt` (`pip install -r requirements.txt`).
+For demonstration setup, configure a virtual environment with Python >=3.11. Then install, like `pip install .`, with desired extras, `fieldbus`, `tui` or `dev`.
 
-Entrypoint is `atsc.cli`.
+Entrypoints are:
+- `atsc.controller.main`
+- `atsc.fieldbus.main`
+- `atsc.networking.main`
+
+Extras:
+
+- `fieldbus` is a separate process which interconnects the `TFIB` device over serial link.
+- `tui` is a text-based interface for viewing and interacting with the state of the controller.
+- `dev` is for additional tooling like gRPC compiler, etc.
 
 You can use the argument `-h` to view command line option help texts for all entrypoints.
 
-_This readme last updated Sep 18th, 2024_
+_This readme last updated Sep 22nd, 2024_

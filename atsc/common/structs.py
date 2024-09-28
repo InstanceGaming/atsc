@@ -11,10 +11,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from typing import Optional
+from pathlib import Path
 from dataclasses import dataclass
 
 
-@dataclass()
+@dataclass(slots=True)
 class Context:
     rate: float
     scale: float
@@ -22,3 +24,13 @@ class Context:
     @property
     def delay(self):
         return self.scale / self.rate
+
+
+@dataclass(slots=True, frozen=True)
+class CommonCommandLineArguments:
+    log_levels_notation: str
+    rpc_port: int
+    log_path: Optional[Path] = None
+    pid_path: Optional[Path] = None
+    tick_rate: Optional[float] = None
+    tick_scale: Optional[float] = None

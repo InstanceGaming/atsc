@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from atsc.fieldbus.constants import FrameType
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class DecodedBusFrame:
     address: int
     control: int

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+
+import "protobufs/field_output.proto";
+
+
+package atsc.rpc.phase;
+
+
+message Phase {
+  uint32 id = 1;
+
+  bool presence = 2;
+  bool demand = 3;
+  bool rest = 4;
+
+  repeated atsc.rpc.field_output.FieldOutput field_outputs = 10;
+
+  float interval_time = 20;
+  float service_time = 21;
+}

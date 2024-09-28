@@ -1,0 +1,49 @@
+[project]
+name = "atsc"
+version = "0.0.1"
+description = "Actuated traffic signal controller suite."
+authors = [
+    { name = "Jacob Jewett", email = "jacoblj3333@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "asyncio",
+    "blinker",
+    "grpclib",
+    "protobuf",
+    "betterproto",
+    "pydantic",
+    "loguru",
+    "jacob[loguru] @ git+https://github.com/InstanceGaming/jacob"
+]
+
+[project.optional-dependencies]
+fieldbus = [
+    "aioserial",
+    "crcmod",
+    "bitarray"
+]
+tui = [
+    "textual"
+]
+dev = [
+    "grpcio-tools",
+    "betterproto[compiler]"
+]
+all = [
+    "aioserial",
+    "crcmod",
+    "bitarray",
+    "textual",
+    "grpcio-tools",
+    "betterproto[compiler]"
+]
+
+[project.scripts]
+atsc = "atsc.controller.main:run"
+atsc-tui = "atsc.tui.main:run"
+atsc-fb = "atsc.fieldbus.main:run"
+atsc-net = "atsc.networking.main:run"
+
+[tool.setuptools]
+packages = ["atsc"]

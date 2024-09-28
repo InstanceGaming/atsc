@@ -1,4 +1,0 @@
-loguru
-pydantic
-jacob @ git+https://github.com/instancegaming/jacob
-bitarray

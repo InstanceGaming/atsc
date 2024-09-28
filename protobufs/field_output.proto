@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+
+package atsc.rpc.field_output;
+
+
+enum FieldOutputState {
+  OFF = 0;
+  ON = 1;
+  FLASHING = 2;
+}
+
+message FieldOutput {
+  uint32 id = 1;
+  FieldOutputState state = 2;
+  bool value = 3;
+  float fpm = 4;
+}
