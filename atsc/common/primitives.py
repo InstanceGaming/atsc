@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Dict, List, Self, Type, TypeVar
+from typing import Dict, List, Self, Type, TypeVar, Optional
 from asyncio import Event
 from atsc.common.structs import Context
 from jacob.datetime.timing import millis
@@ -141,48 +141,6 @@ class EdgeTrigger:
         return self._triggered
 
 
-class MonitoredBit(Tickable):
-    
-    @property
-    def rising(self):
-        return self._rising.triggered
-    
-    @property
-    def falling(self):
-        return self._falling.triggered
-    
-    @property
-    def edge(self):
-        return self.rising or self.falling
-    
-    @property
-    def bit(self):
-        return self._bit
-    
-    @bit.setter
-    def bit(self, v):
-        self._bit = bool(v)
-    
-    def __init__(self, v):
-        super().__init__()
-        self._bit = bool(v)
-        self._rising = EdgeTrigger(True)
-        self._falling = EdgeTrigger(False)
-    
-    def tick(self, context: Context):
-        self._rising.poll(self._bit)
-        self._falling.poll(self._bit)
-    
-    def __eq__(self, other):
-        return self._bit == bool(other)
-    
-    def __bool__(self):
-        return self._bit
-    
-    def __repr__(self):
-        return f'<Bit {self._bit}>'
-
-
 class Timer:
     
     @property
@@ -198,8 +156,10 @@ class Timer:
         self._value = 0.0
         self.value = value
     
-    def poll(self, context: Context, trigger: float) -> bool:
-        rv = self._value >= trigger
+    def poll(self, context: Context, trigger: Optional[float] = None) -> bool:
+        rv = False
+        if trigger:
+            rv = self._value >= (trigger - context.delay)
         self._value += context.delay
         return rv
     

@@ -16,13 +16,15 @@ import signal
 from abc import ABC
 from loguru import logger
 from typing import List, TextIO, Optional, Coroutine
-from asyncio import (Task,
-                     Event,
-                     AbstractEventLoop,
-                     sleep,
-                     wait_for,
-                     create_task,
-                     get_event_loop)
+from asyncio import (
+    Task,
+    Event,
+    AbstractEventLoop,
+    sleep,
+    wait_for,
+    create_task,
+    get_event_loop
+)
 from pathlib import Path
 from datetime import datetime
 from atsc.common.structs import Context

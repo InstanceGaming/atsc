@@ -11,8 +11,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from collections import defaultdict
-
 from atsc import __version__ as atsc_version
 from typing import Optional
 from asyncio import AbstractEventLoop, get_event_loop
@@ -21,16 +19,24 @@ from atsc.common.models import AsyncDaemon
 from atsc.common.structs import Context
 from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT
 from atsc.common.primitives import ref, refs
-from atsc.controller.models import (Ring,
-                                    Phase,
-                                    Signal,
-                                    Barrier,
-                                    FieldOutput,
-                                    PhaseCycler,
-                                    IntervalConfig,
-                                    IntervalTiming)
-from atsc.controller.constants import SignalState, PhaseCyclerMode, RecallMode, SignalType
+from atsc.controller.models import (
+    Ring,
+    Phase,
+    Signal,
+    Barrier,
+    FieldOutput,
+    PhaseCycler,
+    IntervalConfig,
+    IntervalTiming
+)
+from atsc.controller.constants import (
+    RecallMode,
+    SignalType,
+    SignalState,
+    PhaseCyclerMode
+)
 from atsc.controller.simulation import IntersectionSimulator
+from atsc.rpc import controller as rpc_controller
 
 
 def vehicle_signal_field_mapping(stop_field_id: int):
@@ -68,8 +74,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
-            SignalState.EXTEND  : IntervalTiming(3.0, 30.0),
-            SignalState.GO      : IntervalTiming(5.0)
+            SignalState.EXTEND  : IntervalTiming(3.0),
+            SignalState.GO      : IntervalTiming(5.0, 30.0)
         }
         self.interval_timing_vehicle_turn = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
@@ -86,12 +92,14 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         }
         self.interval_config_vehicle = {
             SignalState.LS_FLASH: IntervalConfig(flashing=True, rest=True),
+            SignalState.STOP    : IntervalConfig(rest=True),
             SignalState.GO      : IntervalConfig(rest=True),
             SignalState.FYA     : IntervalConfig(flashing=True, rest=True)
         }
         self.interval_config_ped = {
-            SignalState.CAUTION: IntervalConfig(flashing=True),
-            SignalState.GO     : IntervalConfig(rest=True)
+            SignalState.STOP    : IntervalConfig(rest=True),
+            SignalState.CAUTION : IntervalConfig(flashing=True),
+            SignalState.GO      : IntervalConfig(rest=True)
         }
         self.field_outputs = [FieldOutput(100 + i) for i in range(1, 97)]
         self.signals = [
@@ -211,8 +219,18 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                                   PhaseCyclerMode.CONCURRENT)
         
         self.tickables.append(self.cycler)
-        self.routines.append(self.cycler.run())
+        self.routines.extend((
+            self.test_rpc_calls(),
+            self.cycler.run()
+        ))
         self.simulator = IntersectionSimulator(self.signals)
+    
+    async def test_rpc_calls(self):
+        await self.get_metadata(rpc_controller.ControllerMetadataRequest())
+        await self.get_runtime_info(rpc_controller.ControllerRuntimeInfoRequest())
+        await self.get_field_outputs(rpc_controller.ControllerFieldOutputsRequest())
+        await self.get_signals(rpc_controller.ControllerSignalsRequest())
+        await self.get_phases(rpc_controller.ControllerPhasesRequest())
     
     def tick(self, context: Context):
         super().tick(context)
@@ -224,7 +242,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     async def get_metadata(
         self,
         controller_metadata_request: controller.ControllerMetadataRequest
-    ) -> controller.ControllerMetadataReply:
+    ):
         return controller.ControllerMetadataReply(
             version=atsc_version,
             supports_time_freeze=False,
@@ -243,7 +261,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     async def get_runtime_info(
         self,
         controller_runtime_info_request: controller.ControllerRuntimeInfoRequest
-    ) -> controller.ControllerRuntimeInfoReply:
+    ):
         return controller.ControllerRuntimeInfoReply(
             started_at=self.started_at,
             run_seconds=self.started_at_monotonic_delta,
@@ -264,7 +282,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     async def get_field_outputs(
         self,
         controller_field_outputs_request: controller.ControllerFieldOutputsRequest
-    ) -> controller.ControllerFieldOutputsReply:
+    ):
         rpc_field_outputs = []
         
         for field_output in self.field_outputs:
@@ -272,10 +290,21 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         
         return controller.ControllerFieldOutputsReply(rpc_field_outputs)
     
+    async def get_signals(
+        self,
+        controller_signals_request: controller.ControllerSignalsRequest
+    ):
+        rpc_signals = []
+        
+        for signal in self.signals:
+            rpc_signals.append(signal.rpc_model())
+            
+        return controller.ControllerSignalsReply(rpc_signals)
+    
     async def get_phases(
         self,
         controller_phases_request: controller.ControllerPhasesRequest
-    ) -> controller.ControllerPhasesReply:
+    ):
         rpc_phases = []
         
         for phase in self.phases:

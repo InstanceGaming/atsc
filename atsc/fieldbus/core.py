@@ -13,11 +13,8 @@
 #  limitations under the License.
 import serial
 import asyncio
-
-from grpc import RpcError
-from grpclib.metadata import Deadline
-
 from atsc.fieldbus.constants import *
+from grpc import RpcError
 from loguru import logger
 from typing import List, Iterator, Optional
 from asyncio import AbstractEventLoop, get_event_loop
@@ -25,6 +22,7 @@ from atsc.rpc import controller
 from aioserial import AioSerial
 from jacob.text import format_binary_literal
 from collections import Counter
+from grpclib.metadata import Deadline
 from atsc.common.models import AsyncDaemon
 from atsc.fieldbus.hdlc import HDLC_FLAG, Frame, HDLCContext
 from atsc.common.structs import Context

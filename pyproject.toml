@@ -28,7 +28,8 @@ tui = [
 ]
 dev = [
     "grpcio-tools",
-    "betterproto[compiler]"
+    "betterproto[compiler]",
+    "textual-dev"
 ]
 all = [
     "aioserial",

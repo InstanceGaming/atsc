@@ -16,8 +16,8 @@ import random
 from typing import List
 from atsc.common.structs import Context
 from atsc.common.primitives import Timer, Identifiable
-from atsc.controller.constants import SignalType
 from atsc.controller.models import Signal
+from atsc.controller.constants import SignalType
 
 
 def random_range_biased(start: int,
@@ -71,11 +71,12 @@ class ApproachSimulator(Identifiable):
         return random_range_biased(start, end, bias, rng=self.rng)
     
     def get_idle_time(self, first: bool = False):
+        min_idle = 0 if first else 1
         match self.signal.type:
             case SignalType.VEHICLE:
-                return self.rng.randrange(0 if first else 1, 60)
+                return self.rng.randrange(min_idle, 60)
             case SignalType.PEDESTRIAN:
-                return self.random_range_biased(0 if first else 1, 900, 0.75)
+                return self.random_range_biased(min_idle, 900, 0.75)
             case _:
                 raise NotImplementedError()
     

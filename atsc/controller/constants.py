@@ -23,17 +23,18 @@ class FieldOutputState(IntEnum):
 
 class SignalType(IntEnum):
     GENERIC         = 0
-    VEHICLE         = 10
-    PEDESTRIAN      = 20
+    VEHICLE         = 1
+    PEDESTRIAN      = 2
 
 
 class SignalState(IntEnum):
-    STOP            = 10
-    CAUTION         = 20
-    EXTEND          = 25
-    GO              = 30
-    FYA             = 40
-    LS_FLASH        = 50
+    DARK            = 0
+    STOP            = 1
+    CAUTION         = 2
+    EXTEND          = 3
+    GO              = 4
+    FYA             = 5
+    LS_FLASH        = 6
 
 
 class RecallState(IntEnum):

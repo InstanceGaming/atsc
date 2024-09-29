@@ -14,12 +14,12 @@
 import loguru
 import asyncio
 from atsc.common import cli
+from atsc.tui.core import TUI
 from grpclib.client import Channel
 from atsc.common.utils import setup_logger
 from atsc.common.structs import Context
 from atsc.rpc.controller import ControllerStub
 from atsc.common.constants import ExitCode
-from atsc.tui.core import TUI
 
 
 logger = loguru.logger

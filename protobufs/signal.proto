@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+
+package atsc.rpc.signal;
+
+
+enum SignalState {
+  DARK          = 0;
+  STOP          = 1;
+  CAUTION       = 2;
+  EXTEND        = 3;
+  GO            = 4;
+  FYA           = 5;
+  LS_FLASH      = 6;
+}
+
+enum SignalType {
+  GENERIC       = 0;
+  VEHICLE       = 1;
+  PEDESTRIAN    = 2;
+}
+
+message Signal {
+  uint32 id = 1;
+
+  bool presence = 2;
+  bool demand = 3;
+  bool rest = 4;
+  bool resting = 5;
+
+  SignalType type = 9;
+
+  repeated uint32 field_output_ids = 10;
+
+  float interval_time = 20;
+  float service_time = 21;
+
+  SignalState state = 30;
+}

@@ -2,11 +2,13 @@ from pathlib import Path
 from argparse import ArgumentParser
 from jacob.filesystem import fix_path
 from atsc.common.structs import CommonCommandLineArguments
-from atsc.common.constants import (DEBUG_LEVELS,
-                                   DEFAULT_LEVELS,
-                                   DEFAULT_TICK_RATE,
-                                   DEFAULT_TICK_SCALE,
-                                   CONTROLLER_RPC_PORT)
+from atsc.common.constants import (
+    DEBUG_LEVELS,
+    DEFAULT_LEVELS,
+    DEFAULT_TICK_RATE,
+    DEFAULT_TICK_SCALE,
+    CONTROLLER_RPC_PORT
+)
 
 
 def arg_port_number_type(v: str) -> int:

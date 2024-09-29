@@ -3,6 +3,7 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 import "protobufs/field_output.proto";
+import "protobufs/signal.proto";
 import "protobufs/phase.proto";
 
 
@@ -59,9 +60,15 @@ message ControllerPhasesReply {
   repeated atsc.rpc.phase.Phase phases = 1;
 }
 
+message ControllerSignalsRequest {}
+message ControllerSignalsReply {
+  repeated atsc.rpc.signal.Signal signals = 1;
+}
+
 service Controller {
   rpc get_metadata(ControllerMetadataRequest) returns (ControllerMetadataReply) {}
   rpc get_runtime_info(ControllerRuntimeInfoRequest) returns (ControllerRuntimeInfoReply) {}
   rpc get_field_outputs(ControllerFieldOutputsRequest) returns (ControllerFieldOutputsReply) {}
+  rpc get_signals(ControllerSignalsRequest) returns (ControllerSignalsReply) {}
   rpc get_phases(ControllerPhasesRequest) returns (ControllerPhasesReply) {}
 }

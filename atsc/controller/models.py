@@ -16,24 +16,31 @@ from loguru import logger
 from typing import Set, Dict, List, Self, Optional
 from asyncio import Task, Event
 from itertools import chain
-from atsc.controller import utils
-from jacob.datetime.timing import millis
-from atsc.common.primitives import (Timer,
-                                    Context,
-                                    Flasher,
-                                    Tickable,
-                                    Identifiable,
-                                    MonitoredBit)
-from atsc.controller.structs import IntervalConfig, IntervalTiming
-from atsc.controller.constants import (CallSource,
-                                       FieldOutputState,
-                                       InputAction,
-                                       SignalState,
-                                       InputActivation,
-                                       PhaseCyclerMode, RecallMode, RecallState, SignalType)
-from jacob.datetime.formatting import format_ms
-from atsc.rpc.field_output import FieldOutput as rpc_FieldOutput
+
 from atsc.rpc.phase import Phase as rpc_Phase
+from atsc.controller import utils
+from atsc.rpc.signal import Signal as rpc_Signal
+from atsc.rpc.field_output import FieldOutput as rpc_FieldOutput
+from jacob.datetime.timing import millis
+from atsc.common.primitives import (
+    Timer,
+    Context,
+    Flasher,
+    Tickable,
+    Identifiable
+)
+from atsc.controller.structs import IntervalConfig, IntervalTiming
+from atsc.controller.constants import (
+    RecallMode,
+    SignalType,
+    InputAction,
+    RecallState,
+    SignalState,
+    InputActivation,
+    PhaseCyclerMode,
+    FieldOutputState
+)
+from jacob.datetime.formatting import format_ms
 
 
 class FieldOutput(Identifiable, Tickable):
@@ -74,7 +81,7 @@ class FieldOutput(Identifiable, Tickable):
             if self._flasher.poll(context, self.fpm):
                 self._bit = not self._bit
     
-    def rpc_model(self) -> rpc_FieldOutput:
+    def rpc_model(self):
         return rpc_FieldOutput(self.id,
                                state=self.state,
                                value=self._bit,
@@ -112,7 +119,7 @@ class Signal(Identifiable, Tickable):
     def demand(self, value):
         if value != self._demand:
             logger.verbose('{} demand = {}', self.get_tag(), value)
-            self._demand.bit = value
+            self._demand = bool(value)
     
     @property
     def latch(self):
@@ -122,7 +129,7 @@ class Signal(Identifiable, Tickable):
     def latch(self, value):
         if value != self._latch:
             logger.verbose('{} latch = {}', self.get_tag(), value)
-            self._latch.bit = value
+            self._latch = bool(value)
     
     @property
     def presence(self):
@@ -132,7 +139,7 @@ class Signal(Identifiable, Tickable):
     def presence(self, value):
         if value != self._presence:
             logger.verbose('{} presence = {}', self.get_tag(), value)
-            self._presence.bit = value
+            self._presence = bool(value)
     
     @property
     def rest(self):
@@ -142,7 +149,30 @@ class Signal(Identifiable, Tickable):
     def rest(self, value):
         if value != self._rest:
             logger.verbose('{} rest = {}', self.get_tag(), value)
-        self._rest.bit = value
+        self._rest = bool(value)
+    
+    @property
+    def conflicting_demand(self):
+        return self._conflicting_demand
+    
+    @conflicting_demand.setter
+    def conflicting_demand(self, value):
+        if value != self._conflicting_demand:
+            logger.verbose('{} conflicting_demand = {}', self.get_tag(), value)
+        self._conflicting_demand = bool(value)
+    
+    @property
+    def resting(self):
+        config = self._configs.get(self.state)
+        rest_allowed_for_interval = False if not config else config.rest
+        
+        match self.state:
+            case SignalState.STOP:
+                resting = rest_allowed_for_interval and not self.active
+            case _:
+                resting = rest_allowed_for_interval and self.rest and not self.conflicting_demand
+        
+        return resting
     
     @property
     def recall_mode(self):
@@ -154,7 +184,7 @@ class Signal(Identifiable, Tickable):
         if value != self._recall_mode:
             logger.verbose('{} recall_mode = {}', self.get_tag(), value.name)
         self._recall_mode = value
-        
+    
     @property
     def recall_state(self):
         return self._recall_state
@@ -167,8 +197,8 @@ class Signal(Identifiable, Tickable):
     def recycle(self, value):
         if value != self._recycle:
             logger.verbose('{} recycle = {}', self.get_tag(), value)
-        self._recycle.bit = value
-        
+        self._recycle = bool(value)
+    
     @property
     def service_maximum(self):
         go_timing = self._timings.get(SignalState.GO)
@@ -210,18 +240,16 @@ class Signal(Identifiable, Tickable):
         self._state = SignalState.STOP
         self._initial_state = initial_state
         
-        self._rest = MonitoredBit(rest)
+        self._lock = asyncio.Lock()
+        self._rest = rest
+        self._conflicting_demand = False
         self._recall_mode = recall
         self._recall_state = RecallState.NORMAL
-        self._recycle = MonitoredBit(recycle)
-        self._demand = MonitoredBit(demand)
-        self._latch = MonitoredBit(latch)
-        self._presence = MonitoredBit(False)
-        self.tickables.extend((self._rest,
-                               self._recycle,
-                               self._demand,
-                               self._latch,
-                               self._presence))
+        self._recycle = recycle
+        self._demand = demand
+        self._latch = latch
+        self._last_presence = False
+        self._presence = False
         
         self.service_timer = Timer()
         self.interval_timer = Timer()
@@ -247,7 +275,8 @@ class Signal(Identifiable, Tickable):
             case SignalState.EXTEND:
                 return SignalState.CAUTION
             case SignalState.GO:
-                if SignalState.EXTEND in self._timings:
+                if (SignalState.EXTEND in self._timings
+                    and self.recall_state != RecallMode.MAXIMUM):
                     return SignalState.EXTEND
                 else:
                     return SignalState.CAUTION
@@ -262,18 +291,17 @@ class Signal(Identifiable, Tickable):
                 self._recall_state = RecallState.NORMAL
             case RecallMode.MINIMUM:
                 self._recall_state = RecallState.MINIMUM
-                self.demand.bit = True
+                self.demand = True
                 logger.debug('{} minimum recall', self.get_tag())
             case RecallMode.MINIMUM:
                 self._recall_state = RecallState.MINIMUM
-                self.demand.bit = True
+                self.demand = True
                 logger.debug('{} maximum recall', self.get_tag())
             case _:
                 raise NotImplementedError()
     
     def tick(self, context: Context):
         timing = self._timings[self.state]
-        config = self._configs.get(self.state)
         
         if self.interval_timer.poll(context, timing.minimum):
             match self.state:
@@ -281,45 +309,46 @@ class Signal(Identifiable, Tickable):
                     if self.active:
                         self.inactive_event.set()
                         self.recall()
-                case SignalState.CAUTION | SignalState.GO | SignalState.EXTEND:
+                case SignalState.CAUTION | SignalState.EXTEND:
                     self.change()
+                case SignalState.GO:
+                    if self.recall_state != RecallState.MAXIMUM:
+                        self.change()
                 case _:
                     raise NotImplementedError()
         
         match self.state:
             case SignalState.STOP | SignalState.CAUTION:
-                if not self.latch and self.presence.falling:
-                    self.demand.bit = False
+                presence_falling = self._last_presence and not self.presence
+                if not self.latch and presence_falling:
+                    self.demand = False
                 else:
-                    self.demand.bit = self.demand or self.presence
+                    self.demand = self.demand or self.presence
             case SignalState.EXTEND:
-                self.demand.bit = False
+                self.demand = False
                 
-                if self.presence.bit:
+                if self.presence:
                     self.interval_timer.value = 0.0
             case SignalState.GO:
-                self.demand.bit = False
+                self.demand = False
             case _:
                 raise NotImplementedError()
         
-        resting = config.rest and self.rest if config else self.rest
-        if timing.maximum and not resting:
-            if self.interval_timer.value > timing.maximum:
+        if timing.maximum and not self.resting:
+            if self.interval_timer.value >= (timing.maximum - context.delay):
                 self.change()
         
         match self.state:
             case SignalState.GO | SignalState.EXTEND:
-                if self.service_maximum:
-                    if self.service_timer.poll(context, self.service_maximum):
+                if self.service_timer.poll(context, self.service_maximum):
+                    if not self.resting:
                         self.change(state=SignalState.CAUTION)
-            case _:
-                self.service_timer.value = 0.0
+        
+        self._last_presence = self.presence
         
         super().tick(context)
     
     def change(self, state: Optional[SignalState] = None):
-        self.interval_timer.value = 0.0
-        
         if state is not None:
             next_state = state
         else:
@@ -329,6 +358,9 @@ class Signal(Identifiable, Tickable):
         previous_field_output.set(FieldOutputState.OFF)
         
         self._state = next_state
+        
+        logger.debug('{} state = {}', self.get_tag(), next_state.name)
+        
         field_output = self._mapping[self._state]
         interval_config = self._configs.get(self._state)
         
@@ -337,20 +369,38 @@ class Signal(Identifiable, Tickable):
         else:
             field_output.set(FieldOutputState.ON)
         
-        if self._state != SignalState.STOP:
+        if self.state != SignalState.STOP:
             self.inactive_event.clear()
+        
+        if self.state in (SignalState.GO, SignalState.FYA):
+            self.service_timer.value = 0.0
+        
+        self.interval_timer.value = 0.0
     
     async def serve(self):
         if self.demand:
-            logger.debug('{} activated', self.get_tag())
             self.change()
             await self.inactive_event.wait()
-            logger.debug('{} deactivated', self.get_tag())
     
     def __repr__(self):
-        return (f'<Signal #{self.id} {self.state.name} {self.interval_timer.value:.1f} '
+        return (f'<Signal #{self.id} {self.state.name} '
+                f'interval_time={self.interval_timer.value:.1f} '
+                f'service_time={self.service_timer.value:.1f} '
                 f'demand={self.demand} presence={self.presence} rest={self.rest} '
-                f'recall={self.recall_mode.name} recycle={self.recycle}>')
+                f'resting={self.resting} recall={self.recall_mode.name} '
+                f'recycle={self.recycle}>')
+    
+    def rpc_model(self):
+        return rpc_Signal(self.id,
+                          presence=self.presence,
+                          demand=self.demand,
+                          rest=self.rest,
+                          resting=self.resting,
+                          type=self.type,
+                          field_output_ids=[fo.id for fo in self.field_outputs],
+                          interval_time=self.interval_timer.value,
+                          service_time=self.service_timer.value,
+                          state=self.state)
 
 
 class Phase(Identifiable, Tickable):
@@ -365,22 +415,39 @@ class Phase(Identifiable, Tickable):
         return [s for s in self.signals if s.active]
     
     @property
+    def state(self):
+        return SignalState(max([s.state for s in self.signals]))
+    
+    @property
     def demand(self):
         return any([s.demand for s in self.signals])
     
     @demand.setter
     def demand(self, value):
         for signal in self.signals:
-            signal.demand = value
+            signal.demand = bool(value)
     
     @property
     def rest(self):
-        return any([s.rest for s in self.signals])
+        return all([s.rest for s in self.signals])
     
     @rest.setter
     def rest(self, value):
         for signal in self.signals:
-            signal.rest = value
+            signal.rest = bool(value)
+    
+    @property
+    def conflicting_demand(self):
+        return any([s.conflicting_demand for s in self.signals])
+    
+    @conflicting_demand.setter
+    def conflicting_demand(self, value):
+        for signal in self.signals:
+            signal.conflicting_demand = value
+    
+    @property
+    def resting(self):
+        return all([s.resting for s in self.signals])
     
     @property
     def presence(self):
@@ -389,8 +456,8 @@ class Phase(Identifiable, Tickable):
     @presence.setter
     def presence(self, value):
         for signal in self.signals:
-            signal.presence.bit = value
-            
+            signal.presence = bool(value)
+    
     @property
     def interval_time(self):
         return max([s.interval_timer.value for s in self.signals])
@@ -436,7 +503,8 @@ class Phase(Identifiable, Tickable):
             while pending:
                 for i, task in enumerate(tasks):
                     signal = signals[i]
-                    if signal.rest and signal.recycle and not signal.active:
+                    if (signal.rest and signal.recycle and not signal.active and
+                        signal.service_timer.value > 0.0):
                         logger.debug('{} recycling', signal.get_tag())
                         tasks[i] = asyncio.create_task(signal.serve())
                 
@@ -448,15 +516,17 @@ class Phase(Identifiable, Tickable):
     def __repr__(self):
         return f'<Phase #{self.id} active={len(self.active_signals)} demand={self.demand} rest={self.rest}>'
     
-    def rpc_model(self) -> rpc_Phase:
-        field_outputs = [fo.rpc_model() for fo in self.field_outputs]
+    def rpc_model(self):
         return rpc_Phase(self.id,
                          presence=self.presence,
                          demand=self.demand,
                          rest=self.rest,
-                         field_outputs=field_outputs,
+                         resting=self.resting,
+                         field_output_ids=[fo.id for fo in self.field_outputs],
+                         signal_ids=[s.id for s in self.signals],
                          interval_time=self.interval_time,
-                         service_time=self.service_time)
+                         service_time=self.service_time,
+                         state=self.state)
 
 
 class Ring(Identifiable):
@@ -555,7 +625,7 @@ class PhaseCycler(Tickable):
         return list(chain(*[r.phases for r in self.rings]))
     
     @property
-    def active_phases(self):
+    def active_phases(self) -> List[Phase]:
         return [p for p in self.phases if p.active_signals]
     
     @property
@@ -618,9 +688,22 @@ class PhaseCycler(Tickable):
         self.tickables.extend(self.phases)
         self.set_mode(mode)
     
+    def get_ring_by_phase(self, phase: Phase) -> Optional[Ring]:
+        for ring in self.rings:
+            if phase in ring.phases:
+                return ring
+        return None
+    
     def tick(self, context: Context):
         for phase in self.active_phases:
-            phase.rest = not self.waiting_phases
+            for other_phase in self.waiting_phases:
+                if other_phase not in self.active_barrier.phases:
+                    phase.conflicting_demand = True
+                    break
+                ring = self.get_ring_by_phase(phase)
+                if ring and other_phase in ring.phases:
+                    phase.conflicting_demand = True
+                    break
         
         super().tick(context)
     
@@ -750,51 +833,6 @@ class PhaseCycler(Tickable):
             
             if self._cycle_count:
                 self.set_mode(PhaseCyclerMode.CONCURRENT)
-
-
-class Call(Identifiable):
-    
-    @property
-    def target(self) -> Phase:
-        return self._target
-    
-    @property
-    def source(self):
-        return self._source
-    
-    @property
-    def age(self) -> float:
-        return self._age
-    
-    def __init__(self,
-                 id_: int,
-                 controller,
-                 target: Phase,
-                 source: CallSource):
-        super().__init__(id_)
-        self._controller = controller
-        self._target = target
-        self._source = source
-        self._age: float = 0.0
-        self._served = asyncio.Condition()
-    
-    def tick(self):
-        self._age += self._controller.time_increment
-    
-    async def run(self):
-        async with self._served:
-            await self._served.wait_for(lambda _: self.target.active_signals)
-            self._controller.removeCall(self)
-    
-    def __lt__(self, other):
-        if isinstance(other, Call):
-            if abs(self._age - other.age) < self._controller.time_increment:
-                return self.id < other.id
-            return self._age < other.age
-        return False
-    
-    def __repr__(self):
-        return f'<Call #{self._id:02d} {self._target.get_tag()} A{self._age:0>5.2f}>'
 
 
 class Input(Identifiable):
