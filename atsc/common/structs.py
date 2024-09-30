@@ -29,6 +29,7 @@ class Context:
 @dataclass(slots=True, frozen=True)
 class CommonCommandLineArguments:
     log_levels_notation: str
+    rpc_address: str
     rpc_port: int
     log_path: Optional[Path] = None
     pid_path: Optional[Path] = None

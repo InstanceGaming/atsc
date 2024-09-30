@@ -12,23 +12,32 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import loguru
-import asyncio
+from pathlib import Path
 from atsc.common import cli
 from atsc.tui.core import TUI
-from grpclib.client import Channel
-from atsc.common.utils import setup_logger
-from atsc.common.structs import Context
-from atsc.rpc.controller import ControllerStub
+from atsc.common.utils import setup_logger, get_program_dir
+from atsc.tui.constants import DEFAULT_APP_STYLESHEET_PATH
 from atsc.common.constants import ExitCode
 
 
 logger = loguru.logger
 
 
-def run():
-    cla, root_ap = cli.parse_common_cla('ATSC TUI.',
+def create_app():
+    cla, root_ap = cli.parse_common_cla('ATSC text-based UI.',
                                         True,
                                         partial=True)
+    
+    program_dir = get_program_dir()
+    default_stylesheet_path = program_dir.joinpath(DEFAULT_APP_STYLESHEET_PATH)
+    
+    root_ap.add_argument('-s', '--stylesheet',
+                         type=Path,
+                         default=default_stylesheet_path,
+                         dest='stylesheet_path')
+    
+    extra_cla = vars(root_ap.parse_args())
+    stylesheet_path = extra_cla['stylesheet_path']
     
     setup_logger_result = setup_logger(cla.log_levels_notation,
                                        log_file=cla.log_path)
@@ -36,22 +45,14 @@ def run():
     if setup_logger_result != ExitCode.OK:
         return setup_logger_result
     
-    context = Context(cla.tick_rate, cla.tick_scale)
-    
-    channel = Channel(host='127.0.0.1', port=cla.rpc_port)
-    controller = ControllerStub(channel)
-    tui = TUI(context, controller, pid_file=cla.pid_path)
-    
-    try:
-        asyncio.get_event_loop().run_until_complete(tui.run())
-    except Exception as e:
-        logger.exception(e)
-    
-    channel.close()
+    return TUI(rpc_address=cla.rpc_address,
+              rpc_port=cla.rpc_port,
+              stylesheet_path=stylesheet_path,
+              dev_mode=__debug__)
+
+
+app = create_app()
 
 
 if __name__ == '__main__':
-    exit(run())
-else:
-    print('This file must be ran directly.')
-    exit(1)
+    exit(app.run())

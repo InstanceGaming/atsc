@@ -37,7 +37,7 @@ async def run():
     controller = Controller(context, pid_file=cla.pid_path)
     
     server = Server([controller])
-    await server.start(host='127.0.0.1', port=cla.rpc_port)
+    await server.start(host=cla.rpc_address, port=cla.rpc_port)
     
     try:
         return await controller.run()

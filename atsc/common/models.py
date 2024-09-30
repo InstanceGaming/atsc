@@ -14,6 +14,8 @@
 import os
 import signal
 from abc import ABC
+from datetime import datetime
+
 from loguru import logger
 from typing import List, TextIO, Optional, Coroutine
 from asyncio import (
@@ -25,8 +27,8 @@ from asyncio import (
     create_task,
     get_event_loop
 )
+import time
 from pathlib import Path
-from datetime import datetime
 from atsc.common.structs import Context
 from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT, ExitCode
 from jacob.datetime.timing import seconds
@@ -50,7 +52,7 @@ class AsyncDaemon(Tickable, ABC):
         self.pid_file = pid_file
         self.shutdown_timeout = shutdown_timeout
         self.context = context
-        self.started_at: Optional[datetime] = None
+        self.started_at_epoch: Optional[int] = None
         self.started_at_monotonic: Optional[int] = None
         
         self.routines: List[Coroutine] = []
@@ -110,7 +112,7 @@ class AsyncDaemon(Tickable, ABC):
         return ExitCode.OK
     
     async def before_run(self):
-        self.started_at = datetime.now()
+        self.started_at_epoch = round(time.time())
         self.started_at_monotonic = seconds()
         self.running.set()
         
@@ -149,7 +151,8 @@ class AsyncDaemon(Tickable, ABC):
         
         monotonic_delta = seconds() - self.started_at_monotonic
         ed, eh, em, es = format_dhms(monotonic_delta)
-        formatted_timestamp = compact_datetime(self.started_at)
+        started_at_dt = datetime.fromtimestamp(self.started_at_epoch)
+        formatted_timestamp = compact_datetime(started_at_dt)
         logger.info('runtime of {} days, {} hours, {} minutes and {} seconds '
                     '(since {})',
                     ed, eh, em, es, formatted_timestamp)

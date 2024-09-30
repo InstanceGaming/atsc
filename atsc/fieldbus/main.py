@@ -43,10 +43,10 @@ def run():
                          default=SERIAL_BUS_BAUD_RATE,
                          dest='baud_rate')
     root_ap.add_argument(type=str, dest='serial_port')
-    fieldbus_cla = vars(root_ap.parse_args())
+    extra_cla = vars(root_ap.parse_args())
     
-    serial_port = fieldbus_cla['serial_port']
-    baud_rate = fieldbus_cla['baud_rate']
+    serial_port = extra_cla['serial_port']
+    baud_rate = extra_cla['baud_rate']
     
     setup_logger_result = setup_logger(cla.log_levels_notation,
                                        log_file=cla.log_path)
@@ -56,7 +56,7 @@ def run():
     
     context = Context(cla.tick_rate, cla.tick_scale)
     
-    channel = Channel(host='127.0.0.1', port=cla.rpc_port)
+    channel = Channel(host=cla.rpc_address, port=cla.rpc_port)
     controller = ControllerStub(channel)
     field_bus = FieldBus(context, controller, serial_port, baud_rate, pid_file=cla.pid_path)
     asyncio.get_event_loop().run_until_complete(field_bus.run())

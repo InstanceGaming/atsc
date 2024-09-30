@@ -1,13 +1,16 @@
 syntax = "proto3";
 
 
-import "google/protobuf/timestamp.proto";
 import "protobufs/field_output.proto";
 import "protobufs/signal.proto";
 import "protobufs/phase.proto";
 
 
 package atsc.rpc.controller;
+
+
+message ControllerTestConnectionRequest {}
+message ControllerTestConnectionReply {}
 
 
 message ControllerMetadataRequest {}
@@ -31,7 +34,7 @@ message ControllerMetadataReply {
 
 message ControllerRuntimeInfoRequest {}
 message ControllerRuntimeInfoReply {
-  google.protobuf.Timestamp started_at = 1;
+  uint64 started_at_epoch = 1;
   uint64 run_seconds = 2;
   uint64 control_seconds = 3;
 
@@ -66,6 +69,7 @@ message ControllerSignalsReply {
 }
 
 service Controller {
+  rpc test_connection(ControllerTestConnectionRequest) returns (ControllerTestConnectionReply) {}
   rpc get_metadata(ControllerMetadataRequest) returns (ControllerMetadataReply) {}
   rpc get_runtime_info(ControllerRuntimeInfoRequest) returns (ControllerRuntimeInfoReply) {}
   rpc get_field_outputs(ControllerFieldOutputsRequest) returns (ControllerFieldOutputsReply) {}

@@ -4,24 +4,30 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="logic and timing adjustments">
-      <change afterPath="$PROJECT_DIR$/protobufs/signal.proto" afterDir="false" />
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="extension signal state, rpc signal endpoint">
+      <change afterPath="$PROJECT_DIR$/atsc/tui/components.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/atsc/tui/constants.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/atsc/tui/css/app.tcss" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/atsc/tui/messages.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/atsc/tui/panels.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/atsc/tui/widgets.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tui.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/constants.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/primitives.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/structs.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/structs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/tui/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/protobufs/controller.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/controller.proto" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/protobufs/phase.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/phase.proto" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -76,20 +82,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
-    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc/protobufs&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.externalTools&quot;,
-    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
+    "Python.Controller.executor": "Debug",
+    "Python.Field Bus.executor": "Debug",
+    "Python.TUI.executor": "Debug",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "F:/Projects/Code/Python/atsc/protobufs",
+    "settings.editor.selected.configurable": "terminal",
+    "settings.editor.splitter.proportion": "0.25"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\protobufs" />
@@ -384,7 +390,15 @@
       <option name="project" value="LOCAL" />
       <updated>1727545629382</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="extension signal state, rpc signal endpoint">
+      <option name="closed" value="true" />
+      <created>1727639390742</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1727639390742</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -431,7 +445,8 @@
     <MESSAGE value="refactoring" />
     <MESSAGE value="grpc, refactoring, scripts, simulation, signal logic" />
     <MESSAGE value="logic and timing adjustments" />
-    <option name="LAST_COMMIT_MESSAGE" value="logic and timing adjustments" />
+    <MESSAGE value="extension signal state, rpc signal endpoint" />
+    <option name="LAST_COMMIT_MESSAGE" value="extension signal state, rpc signal endpoint" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -439,7 +454,7 @@
         <line-breakpoint suspend="THREAD" type="python-line">
           <condition expression="not self.demand and self.presence and self.service_timer.value &gt; 9.0" language="Python" />
           <url>file://$PROJECT_DIR$/atsc/controller/models.py</url>
-          <line>348</line>
+          <line>349</line>
           <option name="timeStamp" value="6" />
         </line-breakpoint>
       </breakpoints>

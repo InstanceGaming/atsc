@@ -15,6 +15,7 @@ from atsc import __version__ as atsc_version
 from typing import Optional
 from asyncio import AbstractEventLoop, get_event_loop
 from atsc.rpc import controller
+from atsc.rpc import controller as rpc_controller
 from atsc.common.models import AsyncDaemon
 from atsc.common.structs import Context
 from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT
@@ -36,7 +37,6 @@ from atsc.controller.constants import (
     PhaseCyclerMode
 )
 from atsc.controller.simulation import IntersectionSimulator
-from atsc.rpc import controller as rpc_controller
 
 
 def vehicle_signal_field_mapping(stop_field_id: int):
@@ -231,13 +231,19 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         await self.get_field_outputs(rpc_controller.ControllerFieldOutputsRequest())
         await self.get_signals(rpc_controller.ControllerSignalsRequest())
         await self.get_phases(rpc_controller.ControllerPhasesRequest())
-    
+        
     def tick(self, context: Context):
         super().tick(context)
         self.simulator.tick(context)
     
     def shutdown(self):
         super().shutdown()
+    
+    async def test_connection(
+        self,
+        controller_test_connection_request: controller.ControllerTestConnectionRequest
+    ):
+        return controller.ControllerTestConnectionReply()
     
     async def get_metadata(
         self,
@@ -262,8 +268,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self,
         controller_runtime_info_request: controller.ControllerRuntimeInfoRequest
     ):
-        return controller.ControllerRuntimeInfoReply(
-            started_at=self.started_at,
+        rv = controller.ControllerRuntimeInfoReply(
+            started_at_epoch=self.started_at_epoch,
             run_seconds=self.started_at_monotonic_delta,
             control_seconds=self.started_at_monotonic_delta,
             freeze_time=False,
@@ -278,6 +284,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             enabled_barriers=len(self.barriers),
             enabled_inputs=0
         )
+        return rv
     
     async def get_field_outputs(
         self,

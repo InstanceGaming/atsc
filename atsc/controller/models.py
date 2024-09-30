@@ -17,6 +17,7 @@ from typing import Set, Dict, List, Self, Optional
 from asyncio import Task, Event
 from itertools import chain
 
+from atsc.common.constants import RPC_FLOAT_PRECISION_TIME
 from atsc.rpc.phase import Phase as rpc_Phase
 from atsc.controller import utils
 from atsc.rpc.signal import Signal as rpc_Signal
@@ -398,8 +399,8 @@ class Signal(Identifiable, Tickable):
                           resting=self.resting,
                           type=self.type,
                           field_output_ids=[fo.id for fo in self.field_outputs],
-                          interval_time=self.interval_timer.value,
-                          service_time=self.service_timer.value,
+                          interval_time=round(self.interval_timer.value, RPC_FLOAT_PRECISION_TIME),
+                          service_time=round(self.service_timer.value, RPC_FLOAT_PRECISION_TIME),
                           state=self.state)
 
 
@@ -524,8 +525,8 @@ class Phase(Identifiable, Tickable):
                          resting=self.resting,
                          field_output_ids=[fo.id for fo in self.field_outputs],
                          signal_ids=[s.id for s in self.signals],
-                         interval_time=self.interval_time,
-                         service_time=self.service_time,
+                         interval_time=round(self.interval_time, RPC_FLOAT_PRECISION_TIME),
+                         service_time=round(self.service_time, RPC_FLOAT_PRECISION_TIME),
                          state=self.state)
 
 

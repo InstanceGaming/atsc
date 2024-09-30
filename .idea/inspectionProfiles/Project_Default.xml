@@ -303,6 +303,7 @@
       <option name="ignoredNames">
         <list>
           <option value="type" />
+          <option value="id" />
         </list>
       </option>
     </inspection_tool>

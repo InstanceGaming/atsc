@@ -63,7 +63,7 @@ class FieldBus(AsyncDaemon):
             self._serial = AioSerial(port=self._port,
                                      baudrate=self._baud,
                                      loop=self.loop)
-            logger.bus('serial bus connected ({})', self._format_param_text())
+            logger.bus('serial bus rpc_connected ({})', self._format_param_text())
         except ValueError as e:
             raise FieldBusError('invalid settings configured for serial bus '
                                 f'({self._format_param_text()}): {str(e)}')

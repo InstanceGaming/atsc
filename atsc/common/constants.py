@@ -15,7 +15,9 @@ from enum import IntEnum
 from jacob.logging import CustomLevel
 
 
-CONTROLLER_RPC_PORT = 7833
+RPC_ADDRESS = 'localhost'
+RPC_PORT = 7833
+RPC_FLOAT_PRECISION_TIME = 1
 DEFAULT_TICK_RATE = 10.0
 DEFAULT_TICK_SCALE = 1.0
 DAEMON_SHUTDOWN_TIMEOUT = 5.0

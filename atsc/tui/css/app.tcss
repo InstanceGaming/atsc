@@ -1,0 +1,40 @@
+.banner {
+    &.info {
+        background: blue;
+        .title {
+            text-style: underline;
+        }
+    }
+    &.advisory {
+        background: orange;
+        .title {
+            text-style: underline;
+        }
+    }
+    &.failure {
+        background: red;
+        .title {
+            text-style: underline;
+        }
+    }
+}
+ControllerPanel {
+    layout: vertical;
+    height: auto;
+}
+ControllerRuntime {
+    margin: 0 1;
+    width: 32;
+    height: 1;
+}
+#signal-grid {
+    layout: grid;
+    grid-size: 12;
+}
+Signal {
+    padding: 0;
+    margin: 0;
+    height: auto;
+    width: 10;
+    border: solid black;
+}

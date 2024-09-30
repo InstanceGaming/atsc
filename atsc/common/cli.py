@@ -3,11 +3,12 @@ from argparse import ArgumentParser
 from jacob.filesystem import fix_path
 from atsc.common.structs import CommonCommandLineArguments
 from atsc.common.constants import (
+    RPC_PORT,
+    RPC_ADDRESS,
     DEBUG_LEVELS,
     DEFAULT_LEVELS,
     DEFAULT_TICK_RATE,
-    DEFAULT_TICK_SCALE,
-    CONTROLLER_RPC_PORT
+    DEFAULT_TICK_SCALE
 )
 
 
@@ -50,22 +51,28 @@ def parse_common_cla(description: str,
                           type=Path,
                           dest='pid_path',
                           help=f'Use PID file at this path.')
-        root.add_argument('-r', '--tick-rate',
+        root.add_argument('--tick-rate',
                           type=arg_context_value_type,
                           dest='tick_rate',
                           default=DEFAULT_TICK_RATE,
                           help=f'Tick rate. Default is {DEFAULT_TICK_RATE}.')
-        root.add_argument('-s', '--tick-scale',
+        root.add_argument('--tick-scale',
                           type=arg_context_value_type,
                           dest='tick_scale',
                           default=DEFAULT_TICK_SCALE,
                           help=f'Tick scale. Default is {DEFAULT_TICK_SCALE}.')
+    root.add_argument('-a', '--rpc-address',
+                      type=str,
+                      default=RPC_ADDRESS,
+                      dest='rpc_address',
+                      help='Address for RPC server to bind or listen on. '
+                           f'Default is {RPC_ADDRESS}.')
     root.add_argument('-p', '--rpc-port',
                       type=arg_port_number_type,
-                      default=CONTROLLER_RPC_PORT,
+                      default=RPC_PORT,
                       dest='rpc_port',
                       help='TCP port number for RPC server to bind to. '
-                           f'Default is port {CONTROLLER_RPC_PORT}.')
+                           f'Default is port {RPC_PORT}.')
     
     if partial:
         known_args = root.parse_known_args()[0]
@@ -75,6 +82,7 @@ def parse_common_cla(description: str,
     
     return CommonCommandLineArguments(
         log_levels_notation=cla['log_levels'],
+        rpc_address=cla['rpc_address'],
         rpc_port=cla['rpc_port'],
         log_path=fix_path(cla.get('log_path')),
         pid_path=fix_path(cla.get('pid_path')),
