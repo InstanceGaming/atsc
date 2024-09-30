@@ -70,11 +70,18 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                              pid_file=pid_file,
                              loop=loop)
         
-        self.interval_timing_vehicle = {
+        self.interval_timing_vehicle1 = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(3.0),
+            SignalState.GO      : IntervalTiming(10.0, 55.0)
+        }
+        self.interval_timing_vehicle2 = {
+            SignalState.LS_FLASH: IntervalTiming(16.0),
+            SignalState.STOP    : IntervalTiming(1.0),
+            SignalState.CAUTION : IntervalTiming(4.0),
+            SignalState.EXTEND  : IntervalTiming(2.5),
             SignalState.GO      : IntervalTiming(5.0, 30.0)
         }
         self.interval_timing_vehicle_turn = {
@@ -82,12 +89,17 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
-            SignalState.GO      : IntervalTiming(3.0, 15.0),
+            SignalState.GO      : IntervalTiming(5.0, 20.0),
             SignalState.FYA     : IntervalTiming(4.0)
         }
-        self.interval_timing_ped = {
+        self.interval_timing_ped1 = {
             SignalState.STOP   : IntervalTiming(1.0),
-            SignalState.CAUTION: IntervalTiming(5.0, 5.0),
+            SignalState.CAUTION: IntervalTiming(14.0),
+            SignalState.GO     : IntervalTiming(5.0, 5.0)
+        }
+        self.interval_timing_ped2 = {
+            SignalState.STOP   : IntervalTiming(1.0),
+            SignalState.CAUTION: IntervalTiming(10.0),
             SignalState.GO     : IntervalTiming(5.0, 5.0)
         }
         self.interval_config_vehicle = {
@@ -112,7 +124,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 502,
-                self.interval_timing_vehicle,
+                self.interval_timing_vehicle1,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(104),
                 recall=RecallMode.MINIMUM,
@@ -127,7 +139,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 504,
-                self.interval_timing_vehicle,
+                self.interval_timing_vehicle2,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(110),
                 type=SignalType.VEHICLE
@@ -141,7 +153,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 506,
-                self.interval_timing_vehicle,
+                self.interval_timing_vehicle1,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(116),
                 recall=RecallMode.MINIMUM,
@@ -156,14 +168,14 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 508,
-                self.interval_timing_vehicle,
+                self.interval_timing_vehicle2,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(122),
                 type=SignalType.VEHICLE
             ),
             Signal(
                 509,
-                self.interval_timing_ped,
+                self.interval_timing_ped1,
                 self.interval_config_ped,
                 ped_signal_field_mapping(125),
                 recycle=True,
@@ -172,7 +184,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 510,
-                self.interval_timing_ped,
+                self.interval_timing_ped2,
                 self.interval_config_ped,
                 ped_signal_field_mapping(128),
                 latch=True,
@@ -180,7 +192,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 511,
-                self.interval_timing_ped,
+                self.interval_timing_ped1,
                 self.interval_config_ped,
                 ped_signal_field_mapping(131),
                 recycle=True,
@@ -189,7 +201,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 512,
-                self.interval_timing_ped,
+                self.interval_timing_ped2,
                 self.interval_config_ped,
                 ped_signal_field_mapping(134),
                 latch=True,

@@ -310,10 +310,15 @@ class Signal(Identifiable, Tickable):
                     if self.active:
                         self.inactive_event.set()
                         self.recall()
-                case SignalState.CAUTION | SignalState.EXTEND:
+                case SignalState.CAUTION:
                     self.change()
+                case SignalState.EXTEND:
+                    if self.conflicting_demand:
+                        self.change()
+                    else:
+                        self.change(state=SignalState.GO)
                 case SignalState.GO:
-                    if self.recall_state != RecallState.MAXIMUM:
+                    if self.conflicting_demand and self.recall_state != RecallState.MAXIMUM:
                         self.change()
                 case _:
                     raise NotImplementedError()
@@ -335,14 +340,14 @@ class Signal(Identifiable, Tickable):
             case _:
                 raise NotImplementedError()
         
-        if timing.maximum and not self.resting:
+        if timing.maximum and self.conflicting_demand:
             if self.interval_timer.value >= (timing.maximum - context.delay):
                 self.change()
         
         match self.state:
             case SignalState.GO | SignalState.EXTEND:
                 if self.service_timer.poll(context, self.service_maximum):
-                    if not self.resting:
+                    if self.conflicting_demand:
                         self.change(state=SignalState.CAUTION)
         
         self._last_presence = self.presence

@@ -71,12 +71,19 @@ class ApproachSimulator(Identifiable):
         return random_range_biased(start, end, bias, rng=self.rng)
     
     def get_idle_time(self, first: bool = False):
+        arterial_street = self.signal.id in (501, 502, 505, 506)
+        turn_lane = self.signal.id % 2
         min_idle = 0 if first else 1
         match self.signal.type:
             case SignalType.VEHICLE:
-                return self.rng.randrange(min_idle, 60)
+                if arterial_street:
+                    bias = 0.9 if turn_lane else 0.4
+                    return self.random_range_biased(min_idle, 60, bias)
+                else:
+                    return self.random_range_biased(min_idle, 300, 0.5)
             case SignalType.PEDESTRIAN:
-                return self.random_range_biased(min_idle, 900, 0.75)
+                bias = 0.6 if arterial_street else 0.9
+                return self.random_range_biased(min_idle, 3600, bias)
             case _:
                 raise NotImplementedError()
     
@@ -84,9 +91,9 @@ class ApproachSimulator(Identifiable):
         match self.signal.type:
             case SignalType.VEHICLE:
                 if after_idle:
-                    return self.random_range_biased(2, 10, 0.3)
+                    return self.random_range_biased(2, 15, 0.1)
                 else:
-                    return self.random_range_biased(1, 6, 0.25)
+                    return self.random_range_biased(1, 6, 0.1)
             case SignalType.PEDESTRIAN:
                 return self.random_range_biased(1, 5, 0.1)
             case _:
@@ -108,7 +115,7 @@ class ApproachSimulator(Identifiable):
                     case _:
                         raise NotImplementedError()
             case ApproachState.GAP:
-                self.trigger /= 2
+                self.trigger /= 1 + self.rng.random()
                 
                 if self.trigger > (context.delay * 2):
                     self.turn_on_red = round(self.rng.random()) ^ self.permissive
@@ -121,7 +128,7 @@ class ApproachSimulator(Identifiable):
     def tick(self, context: Context):
         if not self.signal.active and self.state == ApproachState.PRESENCE:
             if self.turn_on_red:
-                if self.timer.poll(context, self.random_range_biased(4, 12, 0.5)):
+                if self.timer.poll(context, self.random_range_biased(4, 15, 0.6)):
                     self.change(context)
             else:
                 self.timer.value = 0.0
