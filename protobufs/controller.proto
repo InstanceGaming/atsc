@@ -9,6 +9,13 @@ import "protobufs/phase.proto";
 package atsc.rpc.controller;
 
 
+enum CycleMode {
+  PAUSE = 0;
+  SEQUENTIAL = 1;
+  CONCURRENT = 2;
+}
+
+
 message ControllerTestConnectionRequest {}
 message ControllerTestConnectionReply {}
 
@@ -23,13 +30,13 @@ message ControllerMetadataReply {
   bool supports_scheduling = 33;
   bool supports_dimming = 34;
 
-  uint32 supported_field_outputs = 50;
-  uint32 supported_signals = 51;
-  uint32 supported_phases = 52;
-  uint32 supported_rings = 53;
-  uint32 supported_barriers = 54;
+  repeated uint32 field_output_ids = 50;
+  repeated uint32 signal_ids = 51;
+  repeated uint32 phase_ids = 52;
+  repeated uint32 ring_ids = 53;
+  repeated uint32 barrier_ids = 54;
 
-  uint32 supported_inputs = 60;
+  repeated uint32 input_ids = 60;
 }
 
 message ControllerRuntimeInfoRequest {}
@@ -38,19 +45,36 @@ message ControllerRuntimeInfoReply {
   uint64 run_seconds = 2;
   uint64 control_seconds = 3;
 
-  bool freeze_time = 30;
+  bool time_freeze = 30;
   float time_scale = 31;
   bool coordinating = 32;
   bool on_schedule = 33;
   bool dimming = 34;
 
-  uint32 enabled_field_outputs = 50;
-  uint32 enabled_signals = 51;
-  uint32 enabled_phases = 52;
-  uint32 enabled_rings = 53;
-  uint32 enabled_barriers = 54;
+  repeated uint32 active_phases = 40;
+  repeated uint32 waiting_phases = 41;
+  CycleMode cycle_mode = 42;
+}
 
-  uint32 enabled_inputs = 60;
+message ControllerIdentifiableObjectRequest {
+  uint32 id = 1;
+}
+
+message ControllerChangeVariableResult {
+  bool success = 1;
+  bool changed = 2;
+}
+
+message ControllerTimeFreezeRequest {
+  bool time_freeze = 1;
+}
+
+message ControllerCycleModeRequest {
+  CycleMode cycle_mode = 1;
+}
+
+message ControllerFieldOutputReply {
+  atsc.rpc.field_output.FieldOutput field_output = 1;
 }
 
 message ControllerFieldOutputsRequest {}
@@ -58,9 +82,8 @@ message ControllerFieldOutputsReply {
   repeated atsc.rpc.field_output.FieldOutput field_outputs = 1;
 }
 
-message ControllerPhasesRequest {}
-message ControllerPhasesReply {
-  repeated atsc.rpc.phase.Phase phases = 1;
+message ControllerSignalReply {
+  atsc.rpc.signal.Signal signal = 1;
 }
 
 message ControllerSignalsRequest {}
@@ -68,11 +91,41 @@ message ControllerSignalsReply {
   repeated atsc.rpc.signal.Signal signals = 1;
 }
 
+message ControllerSignalDemandRequest {
+  uint32 id = 1;
+  bool demand = 2;
+}
+
+message ControllerPhaseReply {
+  atsc.rpc.phase.Phase phase = 1;
+}
+
+message ControllerPhasesRequest {}
+message ControllerPhasesReply {
+  repeated atsc.rpc.phase.Phase phases = 1;
+}
+
+message ControllerPhaseDemandRequest {
+  uint32 id = 1;
+  bool demand = 2;
+}
+
 service Controller {
   rpc test_connection(ControllerTestConnectionRequest) returns (ControllerTestConnectionReply) {}
   rpc get_metadata(ControllerMetadataRequest) returns (ControllerMetadataReply) {}
   rpc get_runtime_info(ControllerRuntimeInfoRequest) returns (ControllerRuntimeInfoReply) {}
+
+  rpc set_time_freeze(ControllerTimeFreezeRequest) returns (ControllerChangeVariableResult) {}
+  rpc set_cycle_mode(ControllerCycleModeRequest) returns (ControllerChangeVariableResult) {}
+
+  rpc get_field_output(ControllerIdentifiableObjectRequest) returns (ControllerFieldOutputReply) {}
   rpc get_field_outputs(ControllerFieldOutputsRequest) returns (ControllerFieldOutputsReply) {}
+
+  rpc get_signal(ControllerIdentifiableObjectRequest) returns (ControllerSignalReply) {}
   rpc get_signals(ControllerSignalsRequest) returns (ControllerSignalsReply) {}
+  rpc set_signal_demand(ControllerSignalDemandRequest) returns (ControllerChangeVariableResult) {}
+
+  rpc get_phase(ControllerIdentifiableObjectRequest) returns (ControllerPhaseReply) {}
   rpc get_phases(ControllerPhasesRequest) returns (ControllerPhasesReply) {}
+  rpc set_phase_demand(ControllerPhaseDemandRequest) returns (ControllerChangeVariableResult) {}
 }

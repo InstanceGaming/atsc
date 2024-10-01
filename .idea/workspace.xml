@@ -4,11 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="textual tui setup">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="signal conflicting demand logic, timings">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/css/app.tcss" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/css/app.tcss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/panels.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/panels.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/widgets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/protobufs/controller.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/controller.proto" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -63,20 +68,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
-    "Python.Controller.executor": "Debug",
-    "Python.Field Bus.executor": "Debug",
-    "Python.TUI.executor": "Debug",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "F:/Projects/Code/Python/atsc/protobufs",
-    "settings.editor.selected.configurable": "terminal",
-    "settings.editor.splitter.proportion": "0.25"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
+    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc/protobufs&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;,
+    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\protobufs" />
@@ -387,7 +392,15 @@
       <option name="project" value="LOCAL" />
       <updated>1727682854850</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="signal conflicting demand logic, timings">
+      <option name="closed" value="true" />
+      <created>1727687649540</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1727687649540</updated>
+    </task>
+    <option name="localTasksCounter" value="24" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -436,18 +449,7 @@
     <MESSAGE value="logic and timing adjustments" />
     <MESSAGE value="extension signal state, rpc signal endpoint" />
     <MESSAGE value="textual tui setup" />
-    <option name="LAST_COMMIT_MESSAGE" value="textual tui setup" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint suspend="THREAD" type="python-line">
-          <condition expression="not self.demand and self.presence and self.service_timer.value &gt; 9.0" language="Python" />
-          <url>file://$PROJECT_DIR$/atsc/controller/models.py</url>
-          <line>354</line>
-          <option name="timeStamp" value="6" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <MESSAGE value="signal conflicting demand logic, timings" />
+    <option name="LAST_COMMIT_MESSAGE" value="signal conflicting demand logic, timings" />
   </component>
 </project>

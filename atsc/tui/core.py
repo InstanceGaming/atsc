@@ -6,6 +6,7 @@ from pathlib import Path
 from grpclib.exceptions import StreamTerminatedError
 from textual.app import App, ComposeResult
 from grpclib.client import Channel
+from textual.widget import MountError
 from textual.worker import Worker
 from textual.widgets import Footer, Header
 from grpclib.metadata import Deadline
@@ -54,7 +55,8 @@ class TUI(App[int]):
                  rpc_port: int,
                  stylesheet_path: Path,
                  dev_mode: bool = False):
-        super().__init__(css_path=stylesheet_path, watch_css=dev_mode)
+        super().__init__(css_path=stylesheet_path,
+                         watch_css=dev_mode)
         # noinspection PyTypeChecker
         self.title = 'Actuated Traffic Signal Controller'
         self.rpc_address = rpc_address
@@ -76,7 +78,10 @@ class TUI(App[int]):
                         description=message.description,
                         classes=message.classes,
                         timeout=message.timeout or 5.0)
-        await self.mount(banner, after=0)
+        try:
+            await self.mount(banner, after=0)
+        except MountError:
+            pass
     
     async def rpc_connect(self):
         try:
@@ -149,8 +154,7 @@ class TUI(App[int]):
                 break
                 
     async def on_rpc_controller_poll(self, message: RpcControllerPoll):
-        for runtime in self.query(ControllerRuntime).results():
-            runtime.run_seconds = message.runtime_info.run_seconds
+        self.query(ControllerRuntime).only_one().run_seconds = message.runtime_info.run_seconds
         
         signal: Signal
         signal_data: rpc_Signal
@@ -168,9 +172,9 @@ class TUI(App[int]):
         await self.switcher.remove_children('#controller-panel')
         controller_panel = ControllerPanel(
             'controller-panel',
-            field_output_count=message.metadata.supported_field_outputs,
-            signal_count=message.metadata.supported_signals,
-            phase_count=message.metadata.supported_phases
+            field_output_ids=message.metadata.field_output_ids,
+            signal_ids=message.metadata.signal_ids,
+            phase_ids=message.metadata.phase_ids
         )
         await self.switcher.add_content(controller_panel, set_current=True)
         

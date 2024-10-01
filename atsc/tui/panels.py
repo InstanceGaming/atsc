@@ -1,3 +1,5 @@
+from typing import List
+
 from textual.app import ComposeResult
 from textual.containers import Grid
 from textual.widgets import Label, Static, LoadingIndicator
@@ -18,19 +20,32 @@ class ConnectingPanel(Static):
 
 class ControllerPanel(Static):
     
+    @property
+    def field_output_count(self):
+        return len(self.field_output_ids)
+    
+    @property
+    def signal_count(self):
+        return len(self.signal_ids)
+    
+    @property
+    def phase_count(self):
+        return len(self.phase_ids)
+    
     def __init__(self,
                  id: str,
-                 field_output_count: int,
-                 phase_count: int,
-                 signal_count: int):
+                 field_output_ids: List[int],
+                 signal_ids: List[int],
+                 phase_ids: List[int]):
         super().__init__(id=id, expand=True)
-        self.field_output_count = field_output_count
-        self.phase_count = phase_count
-        self.signal_count = signal_count
+        self.field_output_ids = field_output_ids
+        self.signal_ids = signal_ids
+        self.phase_ids = phase_ids
+        
         self.signals = []
         
-        for i in range(1, self.signal_count + 1):
-            self.signals.append(Signal(i))
+        for id in self.signal_ids:
+            self.signals.append(Signal(id))
     
     def compose(self) -> ComposeResult:
         yield ControllerRuntime()

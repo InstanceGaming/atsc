@@ -54,6 +54,7 @@ class AsyncDaemon(Tickable, ABC):
         self.context = context
         self.started_at_epoch: Optional[int] = None
         self.started_at_monotonic: Optional[int] = None
+        self.ticking = True
         
         self.routines: List[Coroutine] = []
         self.tasks: List[Task] = []
@@ -131,7 +132,8 @@ class AsyncDaemon(Tickable, ABC):
                 if self.request_shutdown.is_set():
                     break
                 
-                self.tick(self.context)
+                if self.ticking:
+                    self.tick(self.context)
                 await sleep(self.context.delay)
             await self.after_run()
         finally:

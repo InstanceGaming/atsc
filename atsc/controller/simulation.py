@@ -51,17 +51,23 @@ class ApproachSimulator(Identifiable):
     def elapsed(self):
         return self.timer.value
     
+    @property
+    def is_left_turn(self):
+        return self.signal.id % 2
+    
+    @property
+    def is_arterial(self):
+        return self.signal.id in (501, 502, 505, 506, 509, 511)
+    
     def __init__(self,
                  id_: int,
                  rng: random.Random,
                  signal: Signal,
-                 enabled: bool = True,
-                 permissive: bool = False):
+                 enabled: bool = True):
         super().__init__(id_)
         self.rng = rng
         self.signal = signal
         self.enabled = enabled
-        self.permissive = permissive
         self.turn_on_red = False
         self.state = ApproachState.IDLE
         self.trigger = self.get_idle_time(first=True)
@@ -71,19 +77,17 @@ class ApproachSimulator(Identifiable):
         return random_range_biased(start, end, bias, rng=self.rng)
     
     def get_idle_time(self, first: bool = False):
-        arterial_street = self.signal.id in (501, 502, 505, 506)
-        turn_lane = self.signal.id % 2
         min_idle = 0 if first else 1
         match self.signal.type:
             case SignalType.VEHICLE:
-                if arterial_street:
-                    bias = 0.9 if turn_lane else 0.4
+                if self.is_arterial:
+                    bias = 0.9 if self.is_left_turn else 0.4
                     return self.random_range_biased(min_idle, 60, bias)
                 else:
                     return self.random_range_biased(min_idle, 300, 0.5)
             case SignalType.PEDESTRIAN:
-                bias = 0.6 if arterial_street else 0.9
-                return self.random_range_biased(min_idle, 3600, bias)
+                bias = 0.6 if self.is_arterial else 0.9
+                return self.random_range_biased(min_idle, 1500, bias)
             case _:
                 raise NotImplementedError()
     
@@ -93,16 +97,16 @@ class ApproachSimulator(Identifiable):
                 if after_idle:
                     return self.random_range_biased(2, 15, 0.1)
                 else:
-                    return self.random_range_biased(1, 6, 0.1)
+                    return self.random_range_biased(1, 5, 0.1)
             case SignalType.PEDESTRIAN:
-                return self.random_range_biased(1, 5, 0.1)
+                return 0.2
             case _:
                 raise NotImplementedError()
     
     def change(self, context: Context):
         match self.state:
             case ApproachState.IDLE:
-                self.turn_on_red = round(self.rng.random()) ^ self.permissive
+                self.turn_on_red = round(self.rng.random()) if not self.is_left_turn else False
                 self.state = ApproachState.PRESENCE
                 self.trigger = self.get_presence_time(after_idle=True)
             case ApproachState.PRESENCE:
@@ -115,10 +119,7 @@ class ApproachSimulator(Identifiable):
                     case _:
                         raise NotImplementedError()
             case ApproachState.GAP:
-                self.trigger /= 1 + self.rng.random()
-                
-                if self.trigger > (context.delay * 2):
-                    self.turn_on_red = round(self.rng.random()) ^ self.permissive
+                if self.trigger > context.delay:
                     self.state = ApproachState.PRESENCE
                     self.trigger = self.get_presence_time()
                 else:
@@ -128,8 +129,7 @@ class ApproachSimulator(Identifiable):
     def tick(self, context: Context):
         if not self.signal.active and self.state == ApproachState.PRESENCE:
             if self.turn_on_red:
-                if self.timer.poll(context, self.random_range_biased(4, 15, 0.6)):
-                    self.change(context)
+                self.trigger = self.random_range_biased(4, 15, 0.6)
             else:
                 self.timer.value = 0.0
         
@@ -156,11 +156,9 @@ class IntersectionSimulator:
         
         for i in range(len(signals)):
             signal = signals[i]
-            permissive = signal.id % 2 == 0
             self.approaches.append(ApproachSimulator(i + 7001,
                                                      self.rng,
                                                      signal,
-                                                     permissive=permissive,
                                                      enabled=enabled))
     
     def tick(self, context: Context):

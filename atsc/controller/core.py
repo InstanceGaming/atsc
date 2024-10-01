@@ -11,6 +11,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from loguru import logger
+
 from atsc import __version__ as atsc_version
 from typing import Optional
 from asyncio import AbstractEventLoop, get_event_loop
@@ -58,6 +60,10 @@ def ped_signal_field_mapping(dont_walk_field_id: int):
 
 
 class Controller(AsyncDaemon, controller.ControllerBase):
+    
+    @property
+    def time_freeze(self):
+        return not self.ticking
     
     def __init__(self,
                  context: Context,
@@ -253,54 +259,79 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     
     async def test_connection(
         self,
-        controller_test_connection_request: controller.ControllerTestConnectionRequest
+        request: controller.ControllerTestConnectionRequest
     ):
         return controller.ControllerTestConnectionReply()
     
     async def get_metadata(
         self,
-        controller_metadata_request: controller.ControllerMetadataRequest
+        request: controller.ControllerMetadataRequest
     ):
         return controller.ControllerMetadataReply(
             version=atsc_version,
-            supports_time_freeze=False,
+            supports_time_freeze=True,
             supports_time_scaling=True,
             supports_coordination=False,
             supports_scheduling=False,
             supports_dimming=False,
-            supported_field_outputs=len(self.field_outputs),
-            supported_signals=len(self.signals),
-            supported_phases=len(self.phases),
-            supported_rings=len(self.rings),
-            supported_barriers=len(self.barriers),
-            supported_inputs=0
+            field_output_ids=[f.id for f in self.field_outputs],
+            signal_ids=[s.id for s in self.signals],
+            phase_ids=[p.id for p in self.phases],
+            ring_ids=[r.id for r in self.rings],
+            barrier_ids=[b.id for b in self.barriers],
+            input_ids=[]
         )
     
     async def get_runtime_info(
         self,
-        controller_runtime_info_request: controller.ControllerRuntimeInfoRequest
+        request: controller.ControllerRuntimeInfoRequest
     ):
         rv = controller.ControllerRuntimeInfoReply(
             started_at_epoch=self.started_at_epoch,
             run_seconds=self.started_at_monotonic_delta,
             control_seconds=self.started_at_monotonic_delta,
-            freeze_time=False,
+            time_freeze=self.time_freeze,
             time_scale=self.context.scale,
             coordinating=False,
             on_schedule=False,
             dimming=False,
-            enabled_field_outputs=len(self.field_outputs),
-            enabled_signals=len(self.signals),
-            enabled_phases=len(self.phases),
-            enabled_rings=len(self.rings),
-            enabled_barriers=len(self.barriers),
-            enabled_inputs=0
+            active_phases=[p.id for p in self.cycler.active_phases],
+            waiting_phases=[p.id for p in self.cycler.waiting_phases],
+            cycle_mode=self.cycler.mode
         )
         return rv
     
+    async def set_time_freeze(self, request: controller.ControllerTimeFreezeRequest):
+        before = self.time_freeze
+        self.ticking = not request.time_freeze
+        changed = self.time_freeze != before
+        return controller.ControllerChangeVariableResult(True, changed)
+    
+    async def set_cycle_mode(self, request: controller.ControllerCycleModeRequest):
+        changed = False
+        try:
+            before = self.cycler.mode
+            self.cycler.set_mode(request.cycle_mode)
+            success = True
+            changed = self.cycler.mode != before
+        except Exception as e:
+            logger.exception('[RPC] set_cycle_mode() raised exception', e)
+            success = False
+        return controller.ControllerChangeVariableResult(success, changed)
+    
+    async def get_field_output(
+        self,
+        request: controller.ControllerIdentifiableObjectRequest
+    ):
+        result = None
+        for field_output in self.field_outputs:
+            if field_output.id == request.id:
+                result = field_output.rpc_model()
+        return controller.ControllerFieldOutputReply(result)
+    
     async def get_field_outputs(
         self,
-        controller_field_outputs_request: controller.ControllerFieldOutputsRequest
+        request: controller.ControllerFieldOutputsRequest
     ):
         rpc_field_outputs = []
         
@@ -309,9 +340,19 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         
         return controller.ControllerFieldOutputsReply(rpc_field_outputs)
     
+    async def get_signal(
+        self,
+        request: controller.ControllerIdentifiableObjectRequest
+    ):
+        result = None
+        for signal in self.signals:
+            if signal.id == request.id:
+                result = signal.rpc_model()
+        return controller.ControllerSignalsReply(result)
+    
     async def get_signals(
         self,
-        controller_signals_request: controller.ControllerSignalsRequest
+        request: controller.ControllerSignalsRequest
     ):
         rpc_signals = []
         
@@ -320,9 +361,34 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             
         return controller.ControllerSignalsReply(rpc_signals)
     
+    async def set_signal_demand(
+        self,
+        request: controller.ControllerSignalDemandRequest
+    ):
+        success = False
+        changed = False
+        for signal in self.signals:
+            if signal.id == request.id:
+                before = signal.demand
+                signal.demand = request.demand
+                changed = signal.demand != before
+                success = True
+                break
+        return controller.ControllerChangeVariableResult(success, changed)
+    
+    async def get_phase(
+        self,
+        request: controller.ControllerIdentifiableObjectRequest
+    ):
+        result = None
+        for phase in self.phases:
+            if phase.id == request.id:
+                result = phase.rpc_model()
+        return controller.ControllerPhaseReply(result)
+    
     async def get_phases(
         self,
-        controller_phases_request: controller.ControllerPhasesRequest
+        request: controller.ControllerPhasesRequest
     ):
         rpc_phases = []
         
@@ -330,3 +396,18 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             rpc_phases.append(phase.rpc_model())
         
         return controller.ControllerPhasesReply(rpc_phases)
+
+    async def set_phase_demand(
+        self,
+        request: controller.ControllerPhaseDemandRequest
+    ):
+        success = False
+        changed = False
+        for phase in self.phases:
+            if phase.id == request.id:
+                before = phase.demand
+                phase.demand = request.demand
+                changed = phase.demand != before
+                success = True
+                break
+        return controller.ControllerChangeVariableResult(success, changed)
