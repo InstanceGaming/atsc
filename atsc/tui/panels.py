@@ -3,7 +3,7 @@ from typing import List
 from textual.app import ComposeResult
 from textual.containers import Grid
 from textual.widgets import Label, Static, LoadingIndicator
-from atsc.tui.widgets import ControllerRuntime, Signal
+from atsc.tui.widgets import ControllerRuntime, Signal, ControllerTimeFreeze
 
 
 class HomePanel(Static):
@@ -16,6 +16,13 @@ class ConnectingPanel(Static):
     
     def compose(self) -> ComposeResult:
         yield LoadingIndicator()
+
+
+class ControllerTopbar(Static):
+    
+    def compose(self) -> ComposeResult:
+        yield ControllerRuntime()
+        yield ControllerTimeFreeze()
 
 
 class ControllerPanel(Static):
@@ -48,5 +55,5 @@ class ControllerPanel(Static):
             self.signals.append(Signal(id))
     
     def compose(self) -> ComposeResult:
-        yield ControllerRuntime()
+        yield ControllerTopbar()
         yield Grid(*self.signals, id='signal-grid')

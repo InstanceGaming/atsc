@@ -1,5 +1,3 @@
-from typing import List
-
 from jacob.datetime.formatting import format_dhms
 from rich.text import Text
 from textual.app import RenderResult
@@ -71,7 +69,7 @@ class Signal(Widget):
         text.stylize(f'bold {color}')
         return text
     
-    def render(self):
+    def render(self) -> RenderResult:
         signal_id = format(self.signal_id, '03d')
         return combine_texts_new_line(
             boolean_text(self.resting, signal_id, 'bright_red', signal_id, 'bright_green'),
@@ -89,7 +87,58 @@ class ControllerRuntime(Widget):
     
     def render(self) -> RenderResult:
         days, hours, minutes, seconds = format_dhms(self.run_seconds)
-        text = Text(f'{days:04d}d{hours:02d}h{minutes:02d}m{seconds:02d}s',
-                    no_wrap=True,
-                    overflow='ellipsis')
+        
+        text = Text()
+        
+        if days:
+            text.append(format(days, '04d'), 'white')
+            text.append('d', 'bright_black')
+        
+        if hours:
+            text.append(format(hours, '02d'), 'white')
+            text.append('h', 'bright_black')
+        
+        if minutes:
+            text.append(format(minutes, '02d'), 'white')
+            text.append('m', 'bright_black')
+        
+        color = 'white'
+        
+        if self.run_seconds < 1:
+            color = 'bright_yellow'
+        
+        text.append(format(seconds, '02d'), color)
+        text.append('s', 'bright_black')
+        
         return text
+
+
+class ControllerTimeFreeze(Widget):
+    
+    time_freeze = reactive(bool)
+    
+    def __init__(self):
+        super().__init__()
+        self._flasher = True
+        self._style = ''
+    
+    def render(self) -> RenderResult:
+        if self.time_freeze:
+            return Text('TIME_FREEZE', style=self._style)
+        else:
+            return Text('TIMING', style='bright_green')
+
+    def toggle_color(self):
+        if self._flasher:
+            self._style = 'bold bright_red'
+        else:
+            self._style = 'bold bright_yellow'
+        self._flasher = not self._flasher
+        self.refresh()
+        
+        if self.time_freeze:
+            self.set_interval(0.5, self.toggle_color)
+    
+    def watch_time_freeze(self):
+        if self.time_freeze:
+            self.set_interval(0.5, self.toggle_color)

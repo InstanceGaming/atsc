@@ -32,20 +32,26 @@ ControllerPanel {
     height: auto;
 }
 ControllerRuntime {
-    width: 32;
+    width: auto;
     height: 1;
+}
+ControllerTimeFreeze {
+    width: auto;
+    height: 1;
+}
+ControllerTopbar {
+    layout: horizontal;
+    width: 100%;
+    height: 1;
+}
+ControllerTopbar Widget {
+    margin-right: 1;
 }
 #signal-grid {
     layout: grid;
     grid-size: 12;
 }
-Signal,
-SignalIdentifier,
-SignalState,
-SignalTime,
-SignalResting,
-SignalDemand,
-SignalPresence {
+Signal Widget {
     padding: 0;
     margin: 0;
     height: auto;

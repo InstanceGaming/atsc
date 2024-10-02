@@ -501,8 +501,8 @@ class Phase(Identifiable, Tickable):
             while pending:
                 for i, task in enumerate(tasks):
                     signal = signals[i]
-                    if (signal.rest and signal.recycle and not signal.active and
-                        signal.service_timer.value > 0.0):
+                    if (signal.rest and signal.recycle and
+                        not signal.active and signal.service_timer.value > 0.0):
                         logger.debug('{} recycling', signal.get_tag())
                         tasks[i] = asyncio.create_task(signal.serve())
                 
@@ -809,18 +809,16 @@ class PhaseCycler(Tickable):
                         selected_phases = self.select_phases()
                         if selected_phases:
                             phase_tasks = [self.serve_phase(p) for p in selected_phases]
-                            done, pending = await asyncio.wait(phase_tasks, return_when=asyncio.FIRST_COMPLETED)
                             
-                            if len(done) != len(phase_tasks):
-                                while pending:
-                                    selected_phases = self.select_phases()
-                                    if selected_phases:
-                                        phase_tasks.extend([self.serve_phase(p) for p in selected_phases])
-                                    else:
-                                        await asyncio.sleep(0.0)
-                                    
-                                    done, pending = await asyncio.wait(phase_tasks,
-                                                                       return_when=asyncio.FIRST_COMPLETED)
+                            done, pending = await asyncio.wait(phase_tasks, return_when=asyncio.FIRST_COMPLETED)
+                            while pending:
+                                selected_phases = self.select_phases()
+                                
+                                if selected_phases:
+                                    phase_tasks.extend([self.serve_phase(p) for p in selected_phases])
+                                
+                                done, pending = await asyncio.wait(phase_tasks,
+                                                                   return_when=asyncio.FIRST_COMPLETED)
                         else:
                             if self.try_change_barrier(next(self._barrier_sequence)):
                                 break
