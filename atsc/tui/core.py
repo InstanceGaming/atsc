@@ -2,17 +2,22 @@ import asyncio
 from grpc import RpcError
 from typing import Optional
 from pathlib import Path
-
-from grpclib.exceptions import StreamTerminatedError
+from datetime import datetime
 from textual.app import App, ComposeResult
 from grpclib.client import Channel
 from textual.widget import MountError
 from textual.worker import Worker
+from atsc.rpc.signal import Signal as rpc_Signal
+from atsc.tui.panels import ControllerPanel
 from textual.widgets import Footer, Header
+from atsc.tui.widgets import (
+    Signal,
+    ControllerCycleMode,
+    ControllerTimeFreeze,
+    ControllerDurationReadout, ControllerCycleCount
+)
 from grpclib.metadata import Deadline
 from textual.reactive import reactive
-
-from atsc.tui.components import MainContentSwitcher, Banner
 from atsc.tui.messages import (
     ShowBanner,
     RpcConnectionLost,
@@ -24,20 +29,22 @@ from atsc.tui.messages import (
     RpcConnectionSuccess
 )
 from atsc.tui.constants import (
+    RPC_CALL_TIMEOUT,
     CONTROLLER_POLL_RATE,
-    RPC_CALL_DEADLINE_TIMEOUT,
-    RPC_CALL_DEADLINE_TIMEOUT_POLL
+    RPC_CALL_DEADLINE_POLL,
+    RPC_CALL_DEADLINE_INITIAL
 )
+from grpclib.exceptions import StreamTerminatedError
 from atsc.rpc.controller import (
     ControllerStub,
+    ControllerSignalsRequest,
     ControllerMetadataRequest,
     ControllerRuntimeInfoRequest,
-    ControllerFieldOutputsRequest, ControllerSignalsRequest
+    ControllerFieldOutputsRequest
 )
-from atsc.rpc.signal import Signal as rpc_Signal
+from atsc.tui.components import Banner
+from atsc.tui.containers import MainContentSwitcher
 from atsc.common.constants import ExitCode
-from atsc.tui.panels import ControllerPanel
-from atsc.tui.widgets import ControllerRuntime, Signal
 
 
 class TUI(App[int]):
@@ -89,7 +96,8 @@ class TUI(App[int]):
         try:
             metadata = await self.controller.get_metadata(
                 ControllerMetadataRequest(),
-                deadline=Deadline.from_timeout(RPC_CALL_DEADLINE_TIMEOUT)
+                timeout=RPC_CALL_TIMEOUT,
+                deadline=Deadline.from_timeout(RPC_CALL_DEADLINE_INITIAL)
             )
             self.post_message(RpcConnectionSuccess(metadata))
         except (TimeoutError, RpcError, ConnectionError) as e:
@@ -140,11 +148,13 @@ class TUI(App[int]):
             try:
                 runtime_info = await self.controller.get_runtime_info(
                     ControllerRuntimeInfoRequest(),
-                    deadline=Deadline.from_timeout(RPC_CALL_DEADLINE_TIMEOUT_POLL)
+                    timeout=RPC_CALL_TIMEOUT,
+                    deadline=Deadline.from_timeout(RPC_CALL_DEADLINE_POLL)
                 )
                 field_outputs_reply = await self.controller.get_field_outputs(
                     ControllerFieldOutputsRequest(),
-                    deadline=Deadline.from_timeout(RPC_CALL_DEADLINE_TIMEOUT_POLL)
+                    timeout=RPC_CALL_TIMEOUT,
+                    deadline=Deadline.from_timeout(RPC_CALL_DEADLINE_POLL)
                 )
                 signal_reply = await self.controller.get_signals(ControllerSignalsRequest())
                 self.post_message(RpcControllerPoll(runtime_info,
@@ -156,7 +166,10 @@ class TUI(App[int]):
                 break
                 
     async def on_rpc_controller_poll(self, message: RpcControllerPoll):
-        self.query(ControllerRuntime).only_one().run_seconds = message.runtime_info.run_seconds
+        self.query(ControllerCycleCount).only_one().cycle_count = message.runtime_info.cycle_count
+        self.query(ControllerDurationReadout).only_one().seconds = message.runtime_info.run_seconds
+        self.query(ControllerTimeFreeze).only_one().time_freeze = message.runtime_info.time_freeze
+        self.query(ControllerCycleMode).only_one().mode = message.runtime_info.cycle_mode
         
         signal: Signal
         signal_data: rpc_Signal
@@ -171,9 +184,12 @@ class TUI(App[int]):
     async def on_rpc_connection_success(self, message: RpcConnectionSuccess):
         self.rpc_connected = True
         
+        started_at = datetime.fromtimestamp(message.metadata.started_at_epoch)
+        
         await self.switcher.remove_children('#controller-panel')
         controller_panel = ControllerPanel(
             'controller-panel',
+            started_at=started_at,
             field_output_ids=message.metadata.field_output_ids,
             signal_ids=message.metadata.signal_ids,
             phase_ids=message.metadata.phase_ids

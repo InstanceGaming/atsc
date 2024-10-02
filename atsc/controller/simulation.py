@@ -174,6 +174,9 @@ class IntersectionSimulator:
                                                      enabled=enabled))
     
     def tick(self, context: Context):
+        # ignore time freeze
+        context = Context(context.rate, context.scale, timing=True)
+        
         if self.enabled:
             for approach in self.approaches:
                 approach.tick(context)

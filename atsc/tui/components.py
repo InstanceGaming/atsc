@@ -1,8 +1,13 @@
 import asyncio
+from datetime import datetime
 from textual.app import ComposeResult
-from textual.widgets import Static, ContentSwitcher, Label
-
-from atsc.tui.panels import ConnectingPanel, HomePanel
+from textual.widgets import Label, Static
+from atsc.tui.widgets import (
+    ControllerCycleMode,
+    ControllerTimeFreeze,
+    ControllerDatetimeReadout,
+    ControllerDurationReadout, ControllerCycleCount
+)
 
 
 class Banner(Static):
@@ -30,11 +35,15 @@ class Banner(Static):
             yield Label(self.description)
 
 
-class MainContentSwitcher(ContentSwitcher):
+class ControllerTopbar(Static):
     
-    def __init__(self):
-        super().__init__(
-            HomePanel(id='home-panel', expand=True),
-            ConnectingPanel(id='connecting-panel', expand=True),
-            initial='home-panel'
-        )
+    def __init__(self, started_at: datetime):
+        super().__init__()
+        self.started_at = started_at
+    
+    def compose(self) -> ComposeResult:
+        yield ControllerCycleCount()
+        yield ControllerTimeFreeze()
+        yield ControllerCycleMode()
+        yield ControllerDatetimeReadout(self.started_at)
+        yield ControllerDurationReadout()

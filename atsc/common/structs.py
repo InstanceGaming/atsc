@@ -20,6 +20,7 @@ from dataclasses import dataclass
 class Context:
     rate: float
     scale: float
+    timing: bool = True
     
     @property
     def delay(self):

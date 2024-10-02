@@ -1,9 +1,10 @@
 from typing import List
-
+from datetime import datetime
 from textual.app import ComposeResult
-from textual.containers import Grid
 from textual.widgets import Label, Static, LoadingIndicator
-from atsc.tui.widgets import ControllerRuntime, Signal, ControllerTimeFreeze
+from atsc.tui.widgets import Signal
+from textual.containers import Grid
+from atsc.tui.components import ControllerTopbar
 
 
 class HomePanel(Static):
@@ -16,13 +17,6 @@ class ConnectingPanel(Static):
     
     def compose(self) -> ComposeResult:
         yield LoadingIndicator()
-
-
-class ControllerTopbar(Static):
-    
-    def compose(self) -> ComposeResult:
-        yield ControllerRuntime()
-        yield ControllerTimeFreeze()
 
 
 class ControllerPanel(Static):
@@ -41,10 +35,12 @@ class ControllerPanel(Static):
     
     def __init__(self,
                  id: str,
+                 started_at: datetime,
                  field_output_ids: List[int],
                  signal_ids: List[int],
                  phase_ids: List[int]):
-        super().__init__(id=id, expand=True)
+        super().__init__(id=id)
+        self.started_at = started_at
         self.field_output_ids = field_output_ids
         self.signal_ids = signal_ids
         self.phase_ids = phase_ids
@@ -55,5 +51,5 @@ class ControllerPanel(Static):
             self.signals.append(Signal(id))
     
     def compose(self) -> ComposeResult:
-        yield ControllerTopbar()
+        yield ControllerTopbar(self.started_at)
         yield Grid(*self.signals, id='signal-grid')

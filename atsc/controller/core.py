@@ -11,9 +11,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from loguru import logger
-
+import time
 from atsc import __version__ as atsc_version
+from loguru import logger
 from typing import Optional
 from asyncio import AbstractEventLoop, get_event_loop
 from atsc.rpc import controller
@@ -63,7 +63,13 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     
     @property
     def time_freeze(self):
-        return not self.ticking
+        return not self.context.timing
+    
+    @time_freeze.setter
+    def time_freeze(self, value):
+        if value == self.context.timing:
+            logger.info('time freeze = {}', not value)
+            self.context.timing = not value
     
     def __init__(self,
                  context: Context,
@@ -269,6 +275,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     ):
         return controller.ControllerMetadataReply(
             version=atsc_version,
+            started_at_epoch=self.started_at_epoch,
             supports_time_freeze=True,
             supports_time_scaling=True,
             supports_coordination=False,
@@ -287,7 +294,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         request: controller.ControllerRuntimeInfoRequest
     ):
         rv = controller.ControllerRuntimeInfoReply(
-            started_at_epoch=self.started_at_epoch,
             run_seconds=self.started_at_monotonic_delta,
             control_seconds=self.started_at_monotonic_delta,
             time_freeze=self.time_freeze,
@@ -297,13 +303,14 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             dimming=False,
             active_phases=[p.id for p in self.cycler.active_phases],
             waiting_phases=[p.id for p in self.cycler.waiting_phases],
-            cycle_mode=self.cycler.mode
+            cycle_mode=self.cycler.mode,
+            cycle_count=self.cycler.cycle_count
         )
         return rv
     
     async def set_time_freeze(self, request: controller.ControllerTimeFreezeRequest):
         before = self.time_freeze
-        self.ticking = not request.time_freeze
+        self.time_freeze = request.time_freeze
         changed = self.time_freeze != before
         return controller.ControllerChangeVariableResult(True, changed)
     
@@ -311,8 +318,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         changed = False
         try:
             before = self.cycler.mode
-            self.cycler.set_mode(request.cycle_mode)
-            success = True
+            success = self.cycler.set_mode(request.cycle_mode)
             changed = self.cycler.mode != before
         except Exception as e:
             logger.exception('[RPC] set_cycle_mode() raised exception', e)

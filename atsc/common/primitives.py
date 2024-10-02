@@ -13,9 +13,8 @@
 #  limitations under the License.
 from typing import Dict, List, Self, Type, TypeVar, Optional
 from asyncio import Event
-
-from atsc.common.constants import FLOAT_PRECISION_TIME
 from atsc.common.structs import Context
+from atsc.common.constants import FLOAT_PRECISION_TIME
 from jacob.datetime.timing import millis
 
 
@@ -160,9 +159,10 @@ class Timer:
     
     def poll(self, context: Context, trigger: Optional[float] = None) -> bool:
         rv = False
-        if trigger:
-            rv = self._value > (trigger - context.delay)
-        self._value = round(self.value + context.delay, FLOAT_PRECISION_TIME)
+        if context.timing:
+            if trigger:
+                rv = self._value > (trigger - context.delay)
+            self._value = round(self.value + context.delay, FLOAT_PRECISION_TIME)
         return rv
     
     def __repr__(self):
@@ -175,9 +175,12 @@ class Flasher:
         self._timer = Timer()
     
     def poll(self, context: Context, fpm: float):
-        fps = 60.0 / fpm
-        delay = fps / 2
-        t = self._timer.poll(context, delay)
-        if t:
-            self._timer.value = 0.0
-        return t
+        rv = False
+        if context.timing:
+            fps = 60.0 / fpm
+            delay = fps / 2
+            t = self._timer.poll(context, delay)
+            if t:
+                self._timer.value = 0.0
+            rv = t
+        return rv

@@ -1,11 +1,6 @@
-$background: #000;
 $primary: #c41b16;
-$primary-background: #000;
-$secondary: #c95212;
-$secondary-background: #000;
 $surface: #000;
 $panel: 0%;
-$boost: #000;
 
 .banner {
     &.info {
@@ -29,23 +24,27 @@ $boost: #000;
 }
 ControllerPanel {
     layout: vertical;
-    height: auto;
 }
-ControllerRuntime {
-    width: auto;
-    height: 1;
+ControllerTopbar {
+    layout: grid;
+    grid-size: 5;
+    grid-rows: 1;
 }
 ControllerTimeFreeze {
     width: auto;
-    height: 1;
-}
-ControllerTopbar {
-    layout: horizontal;
-    width: 100%;
-    height: 1;
-}
-ControllerTopbar Widget {
     margin-right: 1;
+}
+ControllerCycleMode {
+    width: auto;
+}
+ControllerDatetimeReadout {
+    width: auto;
+    margin-right: 1;
+    text-align: right;
+}
+ControllerRuntime {
+    width: auto;
+    text-align: right;
 }
 #signal-grid {
     layout: grid;

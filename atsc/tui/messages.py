@@ -1,13 +1,13 @@
 from typing import List
-
+from atsc.rpc.signal import Signal
 from textual.message import Message
 from atsc.rpc.controller import (
+    ControllerSignalsReply,
     ControllerMetadataReply,
     ControllerRuntimeInfoReply,
-    ControllerFieldOutputsReply, ControllerSignalsReply
+    ControllerFieldOutputsReply
 )
 from atsc.rpc.field_output import FieldOutput
-from atsc.rpc.signal import Signal
 
 
 class ShowBanner(Message):

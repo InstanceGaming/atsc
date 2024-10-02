@@ -24,6 +24,8 @@ message ControllerMetadataRequest {}
 message ControllerMetadataReply {
   string version = 10;
 
+  uint64 started_at_epoch = 11;
+
   bool supports_time_freeze = 30;
   bool supports_time_scaling = 31;
   bool supports_coordination = 32;
@@ -41,7 +43,6 @@ message ControllerMetadataReply {
 
 message ControllerRuntimeInfoRequest {}
 message ControllerRuntimeInfoReply {
-  uint64 started_at_epoch = 1;
   uint64 run_seconds = 2;
   uint64 control_seconds = 3;
 
@@ -54,6 +55,7 @@ message ControllerRuntimeInfoReply {
   repeated uint32 active_phases = 40;
   repeated uint32 waiting_phases = 41;
   CycleMode cycle_mode = 42;
+  uint64 cycle_count = 43;
 }
 
 message ControllerIdentifiableObjectRequest {

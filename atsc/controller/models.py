@@ -16,11 +16,10 @@ from loguru import logger
 from typing import Set, Dict, List, Self, Optional
 from asyncio import Task, Event
 from itertools import chain
-
-from atsc.common.constants import FLOAT_PRECISION_TIME
 from atsc.rpc.phase import Phase as rpc_Phase
 from atsc.controller import utils
 from atsc.rpc.signal import Signal as rpc_Signal
+from atsc.common.constants import FLOAT_PRECISION_TIME
 from atsc.rpc.field_output import FieldOutput as rpc_FieldOutput
 from jacob.datetime.timing import millis
 from atsc.common.primitives import (
@@ -28,7 +27,8 @@ from atsc.common.primitives import (
     Context,
     Flasher,
     Tickable,
-    Identifiable, EdgeTrigger
+    EdgeTrigger,
+    Identifiable
 )
 from atsc.controller.structs import IntervalConfig, IntervalTiming
 from atsc.controller.constants import (
@@ -479,6 +479,7 @@ class Phase(Identifiable, Tickable):
         Tickable.__init__(self)
         self._active = False
         self.signals = signals
+        self.skip_once = False
         
         for signal in signals:
             for fo in signal.field_outputs:
@@ -489,6 +490,10 @@ class Phase(Identifiable, Tickable):
     async def serve(self):
         if self.active_signals:
             raise RuntimeError(f'phase {self.get_tag()} already active')
+        
+        if self.skip_once:
+            self.skip_once = False
+            return
         
         if self.demand:
             self._active = True
@@ -660,6 +665,10 @@ class PhaseCycler(Tickable):
     def mode(self):
         return self._mode
     
+    @property
+    def cycle_count(self):
+        return self._cycle_count
+    
     def __init__(self,
                  rings: List[Ring],
                  barriers: List[Barrier],
@@ -707,7 +716,7 @@ class PhaseCycler(Tickable):
     
     def set_mode(self, mode: PhaseCyclerMode):
         if mode == self.mode:
-            return
+            return False
         
         match self.mode:
             case PhaseCyclerMode.SEQUENTIAL:
@@ -727,6 +736,8 @@ class PhaseCycler(Tickable):
                 self._barrier_sequence = utils.cycle(self.barriers, initial=barrier_index)
         
         self._mode = mode
+        logger.info('cycle mode = {}', mode.name)
+        return True
     
     def serve_phase(self, phase: Phase) -> Task:
         self.cycle_phases.append(phase)
@@ -823,12 +834,9 @@ class PhaseCycler(Tickable):
                             if self.try_change_barrier(next(self._barrier_sequence)):
                                 break
             
-            self._cycle_count += 1
             self.cycle_phases.clear()
+            self._cycle_count += 1
             logger.debug('cycle #{}', self._cycle_count)
-            
-            if self._cycle_count:
-                self.set_mode(PhaseCyclerMode.CONCURRENT)
 
 
 class Input(Identifiable):

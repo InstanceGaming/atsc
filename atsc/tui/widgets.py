@@ -1,45 +1,16 @@
-from jacob.datetime.formatting import format_dhms
+from datetime import datetime
 from rich.text import Text
 from textual.app import RenderResult
-from textual.reactive import reactive
+from atsc.tui.utils import (
+    boolean_text,
+    text_or_dash,
+    get_time_text,
+    combine_texts_new_line
+)
 from textual.widget import Widget
-
-from atsc.common.constants import FLOAT_PRECISION_TIME
-
-
-def boolean_text(condition: bool,
-                 txt1: str,
-                 txt1_style: str,
-                 txt2: str,
-                 txt2_style: str):
-    if condition:
-        return Text(txt1, style=txt1_style)
-    else:
-        return Text(txt2, style=txt2_style)
-
-
-def text_or_dash(condition: bool, txt: str, txt_style: str):
-    return boolean_text(condition, txt, txt_style, '-', 'bright_black')
-
-
-def get_time_text(v: float, force_style=None):
-    rounded = round(v, FLOAT_PRECISION_TIME)
-    text = Text(format(rounded, '.1f'))
-    if v < 0.0:
-        color = 'red'
-    else:
-        color = 'white'
-    text.stylize(force_style or color)
-    return text
-
-
-def combine_texts_new_line(*texts) -> Text:
-    text = texts[0]
-    for i in range(1, len(texts)):
-        text = text.append('\n')
-        if i < len(texts):
-            text = text.append_text(texts[i])
-    return text
+from textual.reactive import reactive
+from atsc.rpc.controller import CycleMode
+from jacob.datetime.formatting import format_dhms
 
 
 class Signal(Widget):
@@ -72,7 +43,7 @@ class Signal(Widget):
     def render(self) -> RenderResult:
         signal_id = format(self.signal_id, '03d')
         return combine_texts_new_line(
-            boolean_text(self.resting, signal_id, 'bright_red', signal_id, 'bright_green'),
+            boolean_text(self.resting, signal_id, 'bright_green', signal_id, 'bright_red'),
             self.get_state_text(),
             get_time_text(self.interval_time),
             get_time_text(self.service_time, force_style='bright_black' if self.resting else None),
@@ -81,41 +52,52 @@ class Signal(Widget):
         )
 
 
-class ControllerRuntime(Widget):
+class ControllerDurationReadout(Widget):
     
-    run_seconds = reactive(0)
+    seconds = reactive(0, layout=True)
     
     def render(self) -> RenderResult:
-        days, hours, minutes, seconds = format_dhms(self.run_seconds)
+        days, hours, minutes, seconds = format_dhms(self.seconds)
         
-        text = Text()
+        text = Text('+', style='white')
         
         if days:
             text.append(format(days, '04d'), 'white')
-            text.append('d', 'bright_black')
+            text.append('d', 'yellow')
         
         if hours:
             text.append(format(hours, '02d'), 'white')
-            text.append('h', 'bright_black')
+            text.append('h', 'yellow')
         
         if minutes:
             text.append(format(minutes, '02d'), 'white')
-            text.append('m', 'bright_black')
+            text.append('m', 'yellow')
         
         color = 'white'
         
-        if self.run_seconds < 1:
+        if self.seconds < 1:
             color = 'bright_yellow'
         
         text.append(format(seconds, '02d'), color)
-        text.append('s', 'bright_black')
+        text.append('s', 'yellow')
         
         return text
 
 
+class ControllerDatetimeReadout(Widget):
+    
+    def __init__(self, dt: datetime):
+        super().__init__()
+        self.datetime = dt
+    
+    def render(self) -> RenderResult:
+        formatted = self.datetime.strftime('%a, %b %m %Y %I:%M:%S %p')
+        return Text(formatted, style='bright_white')
+
+
 class ControllerTimeFreeze(Widget):
     
-    time_freeze = reactive(bool)
+    time_freeze = reactive(bool, layout=True)
     
     def __init__(self):
         super().__init__()
@@ -132,13 +114,54 @@ class ControllerTimeFreeze(Widget):
         if self._flasher:
             self._style = 'bold bright_red'
         else:
-            self._style = 'bold bright_yellow'
+            self._style = 'bold bright_white'
         self._flasher = not self._flasher
         self.refresh()
-        
-        if self.time_freeze:
-            self.set_interval(0.5, self.toggle_color)
     
     def watch_time_freeze(self):
         if self.time_freeze:
-            self.set_interval(0.5, self.toggle_color)
+            self.set_interval(0.2, self.toggle_color)
+
+
+class ControllerCycleMode(Widget):
+    
+    mode = reactive(CycleMode.PAUSE, layout=True)
+    
+    def __init__(self):
+        super().__init__()
+        self._flasher = True
+        self._style = ''
+    
+    def render(self) -> RenderResult:
+        match self.mode:
+            case CycleMode.PAUSE:
+                style = self._style
+            case CycleMode.SEQUENTIAL:
+                style = 'bright_blue'
+            case CycleMode.CONCURRENT:
+                style = 'bright_green'
+            case _:
+                style = 'bright_red'
+        
+        return Text(self.mode.name, style=style)
+    
+    def toggle_color(self):
+        if self._flasher:
+            self._style = 'bold bright_yellow'
+        else:
+            self._style = 'bold bright_white'
+        self._flasher = not self._flasher
+        self.refresh()
+    
+    def watch_mode(self):
+        if self.mode == CycleMode.PAUSE:
+            self.set_interval(0.2, self.toggle_color)
+
+
+class ControllerCycleCount(Widget):
+    
+    cycle_count = reactive(int)
+    
+    def render(self) -> RenderResult:
+        return Text.assemble(('CYCLE #', 'yellow'),
+                             (format(self.cycle_count, '04d'), 'bright_white'))

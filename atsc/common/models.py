@@ -12,10 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import os
+import time
 import signal
 from abc import ABC
-from datetime import datetime
-
 from loguru import logger
 from typing import List, TextIO, Optional, Coroutine
 from asyncio import (
@@ -27,8 +26,8 @@ from asyncio import (
     create_task,
     get_event_loop
 )
-import time
 from pathlib import Path
+from datetime import datetime
 from atsc.common.structs import Context
 from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT, ExitCode
 from jacob.datetime.timing import seconds
