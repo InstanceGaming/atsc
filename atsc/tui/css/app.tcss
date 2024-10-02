@@ -27,7 +27,7 @@ ControllerPanel {
 }
 ControllerTopbar {
     layout: grid;
-    grid-size: 5;
+    grid-size: 6;
     grid-rows: 1;
 }
 ControllerTimeFreeze {
@@ -38,9 +38,11 @@ ControllerCycleMode {
     width: auto;
 }
 ControllerDatetimeReadout {
+    min-width: 28;
     width: auto;
     margin-right: 1;
     text-align: right;
+    column-span: 2;
 }
 ControllerRuntime {
     width: auto;
