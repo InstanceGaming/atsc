@@ -1,3 +1,12 @@
+$background: #000;
+$primary: #c41b16;
+$primary-background: #000;
+$secondary: #c95212;
+$secondary-background: #000;
+$surface: #000;
+$panel: 0%;
+$boost: #000;
+
 .banner {
     &.info {
         background: blue;

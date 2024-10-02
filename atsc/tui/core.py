@@ -59,6 +59,8 @@ class TUI(App[int]):
                          watch_css=dev_mode)
         # noinspection PyTypeChecker
         self.title = 'Actuated Traffic Signal Controller'
+        self.dark = False
+        
         self.rpc_address = rpc_address
         self.rpc_port = rpc_port
         

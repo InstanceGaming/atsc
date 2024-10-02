@@ -6,7 +6,7 @@ from textual.app import RenderResult
 from textual.reactive import reactive
 from textual.widget import Widget
 
-from atsc.common.constants import RPC_FLOAT_PRECISION_TIME
+from atsc.common.constants import FLOAT_PRECISION_TIME
 
 
 def boolean_text(condition: bool,
@@ -25,7 +25,7 @@ def text_or_dash(condition: bool, txt: str, txt_style: str):
 
 
 def get_time_text(v: float, force_style=None):
-    rounded = round(v, RPC_FLOAT_PRECISION_TIME)
+    rounded = round(v, FLOAT_PRECISION_TIME)
     text = Text(format(rounded, '.1f'))
     if v < 0.0:
         color = 'red'
@@ -57,9 +57,6 @@ class Signal(Widget):
         super().__init__()
         self.signal_id = signal_id
     
-    def get_id_text(self):
-        return Text.assemble(('#', 'bright_black'), (format(self.signal_id, '03d'), 'bold white'))
-    
     def get_state_text(self):
         text = Text(self.state)
         match self.state:
@@ -67,9 +64,7 @@ class Signal(Widget):
                 color = 'bright_red'
             case 'CAUTION' | 'FYA':
                 color = 'bright_yellow'
-            case 'EXTEND':
-                color = 'bright_cyan'
-            case 'GO':
+            case 'GO' | 'EXTEND':
                 color = 'bright_green'
             case _:
                 color = 'white'
@@ -77,13 +72,13 @@ class Signal(Widget):
         return text
     
     def render(self):
+        signal_id = format(self.signal_id, '03d')
         return combine_texts_new_line(
-            self.get_id_text(),
+            boolean_text(self.resting, signal_id, 'bright_red', signal_id, 'bright_green'),
             self.get_state_text(),
             get_time_text(self.interval_time),
             get_time_text(self.service_time, force_style='bright_black' if self.resting else None),
-            boolean_text(self.resting, 'RESTING', 'bright_black', 'TIMING', 'bright_magenta'),
-            text_or_dash(self.demand, 'DEMAND', 'bright_blue'),
+            text_or_dash(self.demand, 'DEMAND', 'bright_cyan'),
             text_or_dash(self.presence, 'PRESENCE', 'white')
         )
 

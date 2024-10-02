@@ -17,7 +17,7 @@ from typing import Set, Dict, List, Self, Optional
 from asyncio import Task, Event
 from itertools import chain
 
-from atsc.common.constants import RPC_FLOAT_PRECISION_TIME
+from atsc.common.constants import FLOAT_PRECISION_TIME
 from atsc.rpc.phase import Phase as rpc_Phase
 from atsc.controller import utils
 from atsc.rpc.signal import Signal as rpc_Signal
@@ -28,7 +28,7 @@ from atsc.common.primitives import (
     Context,
     Flasher,
     Tickable,
-    Identifiable
+    Identifiable, EdgeTrigger
 )
 from atsc.controller.structs import IntervalConfig, IntervalTiming
 from atsc.controller.constants import (
@@ -249,8 +249,8 @@ class Signal(Identifiable, Tickable):
         self._recycle = recycle
         self._demand = demand
         self._latch = latch
-        self._last_presence = False
         self._presence = False
+        self._presence_falling = EdgeTrigger(False)
         
         self.service_timer = Timer()
         self.interval_timer = Timer()
@@ -325,32 +325,24 @@ class Signal(Identifiable, Tickable):
         
         match self.state:
             case SignalState.STOP | SignalState.CAUTION:
-                presence_falling = self._last_presence and not self.presence
-                if not self.latch and presence_falling:
+                if not self.latch and self._presence_falling.poll(self.presence):
                     self.demand = False
                 else:
                     self.demand = self.demand or self.presence
-            case SignalState.EXTEND:
-                self.demand = False
-                
-                if self.presence:
-                    self.interval_timer.value = 0.0
-            case SignalState.GO:
-                self.demand = False
-            case _:
-                raise NotImplementedError()
-        
-        if timing.maximum and self.conflicting_demand:
-            if self.interval_timer.value >= (timing.maximum - context.delay):
-                self.change()
-        
-        match self.state:
             case SignalState.GO | SignalState.EXTEND:
+                if self.recall_state == RecallState.NORMAL:
+                    self.demand = False
+                
+                if self.state == SignalState.EXTEND and self.presence:
+                    self.interval_timer.value = 0.0
+                
                 if self.service_timer.poll(context, self.service_maximum):
                     if self.conflicting_demand:
                         self.change(state=SignalState.CAUTION)
         
-        self._last_presence = self.presence
+        if timing.maximum and self.conflicting_demand:
+            if self.interval_timer.value > (timing.maximum - context.delay):
+                self.change()
         
         super().tick(context)
     
@@ -404,8 +396,8 @@ class Signal(Identifiable, Tickable):
                           resting=self.resting,
                           type=self.type,
                           field_output_ids=[fo.id for fo in self.field_outputs],
-                          interval_time=round(self.interval_timer.value, RPC_FLOAT_PRECISION_TIME),
-                          service_time=round(self.service_timer.value, RPC_FLOAT_PRECISION_TIME),
+                          interval_time=round(self.interval_timer.value, FLOAT_PRECISION_TIME),
+                          service_time=round(self.service_timer.value, FLOAT_PRECISION_TIME),
                           state=self.state)
 
 
@@ -530,8 +522,8 @@ class Phase(Identifiable, Tickable):
                          resting=self.resting,
                          field_output_ids=[fo.id for fo in self.field_outputs],
                          signal_ids=[s.id for s in self.signals],
-                         interval_time=round(self.interval_time, RPC_FLOAT_PRECISION_TIME),
-                         service_time=round(self.service_time, RPC_FLOAT_PRECISION_TIME),
+                         interval_time=round(self.interval_time, FLOAT_PRECISION_TIME),
+                         service_time=round(self.service_time, FLOAT_PRECISION_TIME),
                          state=self.state)
 
 

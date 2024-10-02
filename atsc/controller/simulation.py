@@ -86,8 +86,8 @@ class ApproachSimulator(Identifiable):
                 else:
                     return self.random_range_biased(min_idle, 300, 0.5)
             case SignalType.PEDESTRIAN:
-                bias = 0.6 if self.is_arterial else 0.9
-                return self.random_range_biased(min_idle, 1500, bias)
+                bias = 0.25 if self.is_arterial else 0.5
+                return self.random_range_biased(min_idle, 30, bias)
             case _:
                 raise NotImplementedError()
     
@@ -104,9 +104,16 @@ class ApproachSimulator(Identifiable):
                 raise NotImplementedError()
     
     def change(self, context: Context):
+        self.timer.value = 0.0
+        
         match self.state:
             case ApproachState.IDLE:
-                self.turn_on_red = round(self.rng.random()) if not self.is_left_turn else False
+                match self.signal.type:
+                    case SignalType.VEHICLE:
+                        self.turn_on_red = round(self.rng.random()) if not self.is_left_turn else False
+                    case _:
+                        self.turn_on_red = False
+                
                 self.state = ApproachState.PRESENCE
                 self.trigger = self.get_presence_time(after_idle=True)
             case ApproachState.PRESENCE:
@@ -116,6 +123,7 @@ class ApproachSimulator(Identifiable):
                         self.trigger = self.random_range_biased(1, 5, 0.3)
                     case SignalType.PEDESTRIAN:
                         self.state = ApproachState.IDLE
+                        self.trigger = self.get_idle_time()
                     case _:
                         raise NotImplementedError()
             case ApproachState.GAP:
@@ -127,14 +135,18 @@ class ApproachSimulator(Identifiable):
                     self.trigger = self.get_idle_time()
     
     def tick(self, context: Context):
-        if not self.signal.active and self.state == ApproachState.PRESENCE:
-            if self.turn_on_red:
-                self.trigger = self.random_range_biased(4, 15, 0.6)
-            else:
-                self.timer.value = 0.0
+        match self.signal.type:
+            case SignalType.VEHICLE:
+                if not self.signal.active and self.state == ApproachState.PRESENCE:
+                    if self.turn_on_red:
+                        self.trigger = self.random_range_biased(4, 15, 0.6)
+                    else:
+                        self.timer.value = 0.0
+            case SignalType.PEDESTRIAN:
+                if self.signal.active and self.state == ApproachState.IDLE:
+                    self.timer.value = 0.0
         
         if self.timer.poll(context, self.trigger):
-            self.timer.value = 0.0
             self.change(context)
         
         self.signal.presence = self.state == ApproachState.PRESENCE

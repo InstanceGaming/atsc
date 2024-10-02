@@ -13,6 +13,8 @@
 #  limitations under the License.
 from typing import Dict, List, Self, Type, TypeVar, Optional
 from asyncio import Event
+
+from atsc.common.constants import FLOAT_PRECISION_TIME
 from atsc.common.structs import Context
 from jacob.datetime.timing import millis
 
@@ -159,8 +161,8 @@ class Timer:
     def poll(self, context: Context, trigger: Optional[float] = None) -> bool:
         rv = False
         if trigger:
-            rv = self._value >= (trigger - context.delay)
-        self._value += context.delay
+            rv = self._value > (trigger - context.delay)
+        self._value = round(self.value + context.delay, FLOAT_PRECISION_TIME)
         return rv
     
     def __repr__(self):
