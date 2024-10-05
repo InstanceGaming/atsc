@@ -11,7 +11,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import time
 from atsc import __version__ as atsc_version
 from loguru import logger
 from typing import Optional
@@ -36,7 +35,7 @@ from atsc.controller.constants import (
     RecallMode,
     SignalType,
     SignalState,
-    PhaseCyclerMode
+    PhaseCyclerMode, ServiceConditions, ServiceModifiers
 )
 from atsc.controller.simulation import IntersectionSimulator
 
@@ -86,7 +85,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
-            SignalState.EXTEND  : IntervalTiming(3.0),
+            SignalState.EXTEND  : IntervalTiming(5.0),
             SignalState.GO      : IntervalTiming(10.0, 55.0)
         }
         self.interval_timing_vehicle2 = {
@@ -94,14 +93,14 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
-            SignalState.GO      : IntervalTiming(5.0, 30.0)
+            SignalState.GO      : IntervalTiming(5.0, 20.0)
         }
         self.interval_timing_vehicle_turn = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
-            SignalState.GO      : IntervalTiming(5.0, 20.0),
+            SignalState.GO      : IntervalTiming(5.0, 15.0),
             SignalState.FYA     : IntervalTiming(4.0)
         }
         self.interval_timing_ped1 = {
@@ -140,7 +139,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(104),
                 recall=RecallMode.MINIMUM,
-                type=SignalType.VEHICLE
+                type=SignalType.VEHICLE,
+                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
             ),
             Signal(
                 503,
@@ -154,7 +154,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_timing_vehicle2,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(110),
-                type=SignalType.VEHICLE
+                type=SignalType.VEHICLE,
+                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
             ),
             Signal(
                 505,
@@ -169,7 +170,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(116),
                 recall=RecallMode.MINIMUM,
-                type=SignalType.VEHICLE
+                type=SignalType.VEHICLE,
+                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
             ),
             Signal(
                 507,
@@ -183,7 +185,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_timing_vehicle2,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(122),
-                type=SignalType.VEHICLE
+                type=SignalType.VEHICLE,
+                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
             ),
             Signal(
                 509,
@@ -192,7 +195,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 ped_signal_field_mapping(125),
                 recycle=True,
                 latch=True,
-                type=SignalType.PEDESTRIAN
+                type=SignalType.PEDESTRIAN,
+                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_VEHICLE,
+                service_modifiers=ServiceModifiers.BEFORE_VEHICLE
             ),
             Signal(
                 510,
@@ -200,7 +205,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_ped,
                 ped_signal_field_mapping(128),
                 latch=True,
-                type=SignalType.PEDESTRIAN
+                type=SignalType.PEDESTRIAN,
+                service_modifiers=ServiceModifiers.BEFORE_VEHICLE
             ),
             Signal(
                 511,
@@ -209,7 +215,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 ped_signal_field_mapping(131),
                 recycle=True,
                 latch=True,
-                type=SignalType.PEDESTRIAN
+                type=SignalType.PEDESTRIAN,
+                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_VEHICLE,
+                service_modifiers=ServiceModifiers.BEFORE_VEHICLE
             ),
             Signal(
                 512,
@@ -217,7 +225,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_ped,
                 ped_signal_field_mapping(134),
                 latch=True,
-                type=SignalType.PEDESTRIAN
+                type=SignalType.PEDESTRIAN,
+                service_modifiers=ServiceModifiers.BEFORE_VEHICLE
             )
         ]
         self.phases = [

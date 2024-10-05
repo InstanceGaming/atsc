@@ -12,6 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+from dataclasses import dataclass
+
 from loguru import logger
 from typing import Set, Dict, List, Self, Optional
 from asyncio import Task, Event
@@ -39,7 +41,7 @@ from atsc.controller.constants import (
     SignalState,
     InputActivation,
     PhaseCyclerMode,
-    FieldOutputState
+    FieldOutputState, ServiceConditions, ServiceModifiers
 )
 from jacob.datetime.formatting import format_ms
 
@@ -91,6 +93,12 @@ class FieldOutput(Identifiable, Tickable):
 
 class Signal(Identifiable, Tickable):
     global_field_output_mapping: Dict[FieldOutput, Self] = {}
+    
+    @dataclass(slots=True, frozen=True)
+    class ServiceStatus:
+        service: bool
+        condition: ServiceConditions
+        lagging_signal: Optional['Signal'] = None
     
     @classmethod
     def by_field_output(cls, fo: FieldOutput) -> Optional[Self]:
@@ -191,6 +199,28 @@ class Signal(Identifiable, Tickable):
         return self._recall_state
     
     @property
+    def service_conditions(self):
+        return self._service_conditions
+    
+    @service_conditions.setter
+    def service_conditions(self, value):
+        assert isinstance(value, ServiceConditions)
+        if value != self._service_conditions:
+            logger.verbose('{} service_conditions = {}', self.get_tag(), value.name)
+        self._service_conditions = value
+    
+    @property
+    def service_modifiers(self):
+        return self._service_modifiers
+    
+    @service_modifiers.setter
+    def service_modifiers(self, value):
+        assert isinstance(value, ServiceModifiers)
+        if value != self._service_modifiers:
+            logger.verbose('{} service_modifiers = {}', self.get_tag(), value.name)
+        self._service_modifiers = value
+    
+    @property
     def recycle(self):
         return self._recycle
     
@@ -199,6 +229,10 @@ class Signal(Identifiable, Tickable):
         if value != self._recycle:
             logger.verbose('{} recycle = {}', self.get_tag(), value)
         self._recycle = bool(value)
+    
+    @property
+    def ignoring(self):
+        return self._ignoring
     
     @property
     def service_maximum(self):
@@ -227,7 +261,9 @@ class Signal(Identifiable, Tickable):
                  demand: bool = False,
                  latch: bool = False,
                  type: SignalType = SignalType.GENERIC,
-                 initial_state: SignalState = SignalState.STOP):
+                 initial_state: SignalState = SignalState.STOP,
+                 service_conditions: ServiceConditions = ServiceConditions.WITH_DEMAND,
+                 service_modifiers: ServiceModifiers = ServiceModifiers.UNSET):
         Identifiable.__init__(self, id_)
         Tickable.__init__(self)
         self._timings = timings
@@ -251,6 +287,11 @@ class Signal(Identifiable, Tickable):
         self._latch = latch
         self._presence = False
         self._presence_falling = EdgeTrigger(False)
+        self._ignoring = False
+        self._service_conditions = service_conditions
+        self._service_modifiers = service_modifiers
+        
+        self.leading_signals: List['Signal'] = []
         
         self.service_timer = Timer()
         self.interval_timer = Timer()
@@ -276,8 +317,13 @@ class Signal(Identifiable, Tickable):
             case SignalState.EXTEND:
                 return SignalState.CAUTION
             case SignalState.GO:
+                service_max = self.service_timer.value > self.service_maximum if self.service_maximum else False
+                timing_max = self._timings[SignalState.GO].maximum
+                interval_max = self.interval_timer.value > timing_max if timing_max else False
                 if (SignalState.EXTEND in self._timings
-                    and self.recall_state != RecallMode.MAXIMUM):
+                    and self.recall_state != RecallMode.MAXIMUM
+                    and not service_max
+                    and not interval_max):
                     return SignalState.EXTEND
                 else:
                     return SignalState.CAUTION
@@ -303,6 +349,7 @@ class Signal(Identifiable, Tickable):
     
     def tick(self, context: Context):
         timing = self._timings[self.state]
+        minmax_inhibit = any([ls.active for ls in self.leading_signals])
         
         if self.interval_timer.poll(context, timing.minimum):
             match self.state:
@@ -310,16 +357,19 @@ class Signal(Identifiable, Tickable):
                     if self.active:
                         self.inactive_event.set()
                         self.recall()
+                        self.leading_signals.clear()
                 case SignalState.CAUTION:
                     self.change()
                 case SignalState.EXTEND:
-                    if self.conflicting_demand:
-                        self.change()
-                    else:
-                        self.change(state=SignalState.GO)
+                    if not minmax_inhibit:
+                        if self.conflicting_demand:
+                            self.change()
+                        else:
+                            self.change(state=SignalState.GO)
                 case SignalState.GO:
-                    if self.conflicting_demand and self.recall_state != RecallState.MAXIMUM:
-                        self.change()
+                    if not minmax_inhibit:
+                        if self.conflicting_demand and self.recall_state != RecallState.MAXIMUM:
+                            self.change()
                 case _:
                     raise NotImplementedError()
         
@@ -340,10 +390,10 @@ class Signal(Identifiable, Tickable):
                     context,
                     (self.service_maximum - context.delay)
                 ):
-                    if self.conflicting_demand:
+                    if not minmax_inhibit and self.conflicting_demand:
                         self.change(state=SignalState.CAUTION)
         
-        if timing.maximum and self.conflicting_demand:
+        if not minmax_inhibit and timing.maximum and self.conflicting_demand:
             if self.interval_timer.value > (timing.maximum - context.delay):
                 self.change()
         
@@ -378,10 +428,73 @@ class Signal(Identifiable, Tickable):
         
         self.interval_timer.value = 0.0
     
-    async def serve(self):
-        if self.demand:
-            self.change()
-            await self.inactive_event.wait()
+    def get_service_status(self,
+                           group: Optional[List['Signal']] = None) -> ServiceStatus:
+        ignoring = self.service_conditions.IGNORE_ONCE and self.ignoring
+        
+        if ignoring:
+            return self.ServiceStatus(False, ServiceConditions.IGNORE_ONCE)
+        
+        with_demand = self.service_conditions & ServiceConditions.WITH_DEMAND
+        service = not with_demand or self.demand
+        
+        if group:
+            with_pedestrian = self.service_conditions & ServiceConditions.WITH_PEDESTRIAN
+            with_vehicle = self.service_conditions & ServiceConditions.WITH_VEHICLE
+            with_any = self.service_conditions & ServiceConditions.WITH_ANY
+            
+            for signal in group:
+                if signal == self:
+                    continue
+                
+                check_signal = with_any
+                condition = ServiceConditions.WITH_ANY
+                
+                if with_pedestrian and signal.type == SignalType.PEDESTRIAN:
+                    condition = ServiceConditions.WITH_PEDESTRIAN
+                    check_signal = True
+                elif with_vehicle and signal.type == SignalType.VEHICLE:
+                    condition = ServiceConditions.WITH_VEHICLE
+                    check_signal = True
+                
+                if check_signal:
+                    signal_status = signal.get_service_status()
+                    if signal.active or signal_status.service:
+                        service = True
+                        return self.ServiceStatus(service,
+                                                  condition,
+                                                  lagging_signal=signal)
+        
+        return self.ServiceStatus(service, ServiceConditions.WITH_DEMAND)
+    
+    async def serve(self, group: Optional[List['Signal']] = None):
+        if self.service_conditions & ServiceConditions.IGNORE_ONCE:
+            self._ignoring = not self._ignoring
+            logger.verbose('{} ignoring = {}', self.get_tag(), self._ignoring)
+        else:
+            status = self.get_service_status(group)
+            if status.service:
+                if self.service_modifiers & ServiceModifiers.BEFORE_VEHICLE:
+                    if group:
+                        for signal in group:
+                            if signal.type == SignalType.VEHICLE:
+                                if not signal.active:
+                                    signal.recall()
+                                
+                                signal.leading_signals.append(self)
+                
+                if status.lagging_signal:
+                    signal_tag = status.lagging_signal.get_tag()
+                else:
+                    signal_tag = None
+                
+                logger.verbose('{} service_condition = {}, lagging_signal = {}',
+                               self.get_tag(),
+                               status.condition.name,
+                               signal_tag)
+                
+                self.change()
+                await self.inactive_event.wait()
     
     def __repr__(self):
         return (f'<Signal #{self.id} {self.state.name} '
@@ -502,17 +615,16 @@ class Phase(Identifiable, Tickable):
             self._active = True
             logger.debug('{} activated', self.get_tag())
             
-            signals = self.signals
-            tasks = [asyncio.create_task(s.serve()) for s in signals]
+            tasks = [asyncio.create_task(s.serve(group=self.signals)) for s in self.signals]
             
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             while pending:
-                for i, task in enumerate(tasks):
-                    signal = signals[i]
-                    if (signal.rest and signal.recycle and
-                        not signal.active and signal.service_timer.value > 0.0):
-                        logger.debug('{} recycling', signal.get_tag())
-                        tasks[i] = asyncio.create_task(signal.serve())
+                if all([s.resting and not s.conflicting_demand for s in self.signals]):
+                    for i, task in enumerate(tasks):
+                        signal = self.signals[i]
+                        if signal.recycle and not signal.active:
+                            logger.debug('{} recycling', signal.get_tag())
+                            tasks[i] = asyncio.create_task(signal.serve(group=self.signals))
                 
                 done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             
@@ -684,7 +796,6 @@ class PhaseCycler(Tickable):
         
         self._mode = PhaseCyclerMode.PAUSE
         self._cycle_count: int = 0
-        self._scalar_conditions = asyncio.Condition()
         
         # sequential mode only
         self._phase_sequence = utils.cycle(self.phases)

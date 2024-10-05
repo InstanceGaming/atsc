@@ -80,14 +80,16 @@ class ApproachSimulator(Identifiable):
         min_idle = 0 if first else 1
         match self.signal.type:
             case SignalType.VEHICLE:
-                if self.is_arterial:
-                    bias = 0.9 if self.is_left_turn else 0.4
-                    return self.random_range_biased(min_idle, 60, bias)
-                else:
-                    return self.random_range_biased(min_idle, 300, 0.5)
+                # if self.is_arterial:
+                #     bias = 0.9 if self.is_left_turn else 0.4
+                #     return self.random_range_biased(min_idle, 60, bias)
+                # else:
+                #     return self.random_range_biased(min_idle, 300, 0.5)
+                return self.rng.randrange(60, 900)
             case SignalType.PEDESTRIAN:
-                bias = 0.6 if self.is_arterial else 0.9
-                return self.random_range_biased(min_idle, 900, bias)
+                # bias = 0.5 if self.is_arterial else 0.9
+                # return self.random_range_biased(min_idle, 900, bias)
+                return self.rng.randrange(5, 20)
             case _:
                 raise NotImplementedError()
     

@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from enum import Enum, IntEnum, auto
+from enum import Enum, IntEnum, auto, IntFlag
 
 
 class FieldOutputState(IntEnum):
@@ -47,6 +47,20 @@ class RecallMode(IntEnum):
     OFF = 0
     MINIMUM = 1
     MAXIMUM = 2
+
+
+class ServiceConditions(IntFlag):
+    UNSET               = 0b00000000
+    IGNORE_ONCE         = 0b00000010
+    WITH_VEHICLE        = 0b00000100
+    WITH_PEDESTRIAN     = 0b00001000
+    WITH_ANY            = 0b00011100
+    WITH_DEMAND         = 0b00000001
+
+
+class ServiceModifiers(IntFlag):
+    UNSET               = 0b00000000
+    BEFORE_VEHICLE      = 0b00000001
 
 
 class PhaseCyclerMode(IntEnum):
