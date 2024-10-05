@@ -336,7 +336,10 @@ class Signal(Identifiable, Tickable):
                 if self.state == SignalState.EXTEND and self.presence:
                     self.interval_timer.value = 0.0
                 
-                if self.service_timer.poll(context, self.service_maximum):
+                if self.service_timer.poll(
+                    context,
+                    (self.service_maximum - context.delay)
+                ):
                     if self.conflicting_demand:
                         self.change(state=SignalState.CAUTION)
         

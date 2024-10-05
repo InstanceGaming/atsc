@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="rpc endpoints, bug fixes, refactoring, tui layout">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="tui styling">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/css/app.tcss" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/css/app.tcss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -61,20 +61,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
-    "Python.Controller.executor": "Debug",
-    "Python.Field Bus.executor": "Debug",
-    "Python.TUI.executor": "Debug",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "F:/Projects/Code/Python/atsc/scripts",
-    "settings.editor.selected.configurable": "terminal",
-    "settings.editor.splitter.proportion": "0.25"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
+    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc/scripts&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;,
+    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\scripts" />
@@ -427,7 +427,15 @@
       <option name="project" value="LOCAL" />
       <updated>1727858945388</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="tui styling">
+      <option name="closed" value="true" />
+      <created>1727859802030</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1727859802030</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -454,7 +462,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="update timing, cet delay calc, phase timing validation deductions" />
     <MESSAGE value="correct phase go time deduction" />
     <MESSAGE value="enforce sequential phase serve order" />
     <MESSAGE value="update Timer() elapsed always, input ped-service," />
@@ -479,6 +486,7 @@
     <MESSAGE value="signal timing logic, tui style" />
     <MESSAGE value="tui controller topbar and styling" />
     <MESSAGE value="rpc endpoints, bug fixes, refactoring, tui layout" />
-    <option name="LAST_COMMIT_MESSAGE" value="rpc endpoints, bug fixes, refactoring, tui layout" />
+    <MESSAGE value="tui styling" />
+    <option name="LAST_COMMIT_MESSAGE" value="tui styling" />
   </component>
 </project>
