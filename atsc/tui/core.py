@@ -149,7 +149,7 @@ class TUI(App[int]):
         except RpcError as e:
             self.post_message(RpcConnectionFailed(e))
     
-    async def on_rpc_connection_before(self, message: RpcConnectionBefore):
+    async def on_rpc_connection_before(self, _):
         self.switcher.current = 'connecting-panel'
     
     async def on_rpc_connection_failed(self, message: RpcConnectionFailed):

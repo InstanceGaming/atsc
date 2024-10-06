@@ -42,7 +42,7 @@ from atsc.controller.constants import (
     PhaseCyclerMode,
     FieldOutputState,
     ServiceModifiers,
-    ServiceConditions
+    ServiceConditions, TrafficMovement
 )
 from jacob.datetime.formatting import format_ms
 
@@ -108,6 +108,10 @@ class Signal(Identifiable, Tickable):
     @property
     def type(self):
         return self._type
+    
+    @property
+    def movement(self):
+        return self._movement
     
     @property
     def active(self):
@@ -255,6 +259,7 @@ class Signal(Identifiable, Tickable):
                  demand: bool = False,
                  latch: bool = False,
                  type: SignalType = SignalType.GENERIC,
+                 movement: TrafficMovement = TrafficMovement.THRU,
                  initial_state: SignalState = SignalState.STOP,
                  service_conditions: ServiceConditions = ServiceConditions.WITH_DEMAND,
                  service_modifiers: ServiceModifiers = ServiceModifiers.UNSET):
@@ -264,6 +269,7 @@ class Signal(Identifiable, Tickable):
         self._configs = configs
         self._mapping = mapping
         self._type = type
+        self._movement = movement
         
         for fo in mapping.values():
             self.global_field_output_mapping.update({fo: self})
@@ -469,7 +475,8 @@ class Signal(Identifiable, Tickable):
                 if self.service_modifiers & ServiceModifiers.BEFORE_VEHICLE:
                     if group:
                         for signal in group:
-                            if signal.type == SignalType.VEHICLE:
+                            if (signal.type & SignalType.VEHICLE and not
+                                signal.movement & TrafficMovement.PROTECTED_TURN):
                                 if not signal.active:
                                     signal.recall()
                                 
@@ -492,7 +499,7 @@ class Signal(Identifiable, Tickable):
         return (f'<Signal #{self.id} {self.state.name} '
                 f'interval_time={self.interval_timer.value:.1f} '
                 f'service_time={self.service_timer.value:.1f} '
-                f'demand={self.demand} presence={self.presence} rest={self.rest} '
+                f'demand={self.demand} presence={self.presence} '
                 f'resting={self.resting} recall={self.recall_mode.name} '
                 f'recycle={self.recycle}>')
     
@@ -613,13 +620,12 @@ class Phase(Identifiable, Tickable):
             logger.debug('{} deactivated', self.get_tag())
     
     def __repr__(self):
-        return f'<Phase #{self.id} active={len(self.active_signals)} demand={self.demand} rest={self.rest}>'
+        return f'<Phase #{self.id} active={len(self.active_signals)} demand={self.demand}>'
     
     def rpc_model(self):
         return rpc_Phase(self.id,
                          presence=self.presence,
                          demand=self.demand,
-                         rest=self.rest,
                          resting=self.resting,
                          field_output_ids=[fo.id for fo in self.field_outputs],
                          signal_ids=[s.id for s in self.signals],

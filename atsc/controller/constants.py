@@ -25,6 +25,12 @@ class SignalType(IntEnum):
     GENERIC         = 0
     VEHICLE         = 1
     PEDESTRIAN      = 2
+    
+    
+class TrafficMovement(IntEnum):
+    THRU            = 0
+    PROTECTED_TURN  = 1
+    PERMISSIVE_TURN = 2
 
 
 class SignalState(IntEnum):

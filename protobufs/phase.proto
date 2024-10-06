@@ -25,16 +25,15 @@ package atsc.rpc.phase;
 message Phase {
   uint32 id = 1;
 
-  bool presence = 2;
-  bool demand = 3;
-  bool rest = 4;
-  bool resting = 5;
+  bool presence = 10;
+  bool demand = 11;
+  bool resting = 12;
 
-  repeated uint32 field_output_ids = 10;
-  repeated uint32 signal_ids = 11;
+  repeated uint32 field_output_ids = 20;
+  repeated uint32 signal_ids = 21;
 
-  float interval_time = 20;
-  float service_time = 21;
+  float interval_time = 30;
+  float service_time = 31;
 
-  atsc.rpc.signal.SignalState state = 30;
+  atsc.rpc.signal.SignalState state = 40;
 }

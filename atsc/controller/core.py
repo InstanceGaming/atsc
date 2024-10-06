@@ -39,7 +39,7 @@ from atsc.controller.constants import (
     SignalState,
     PhaseCyclerMode,
     ServiceModifiers,
-    ServiceConditions
+    ServiceConditions, TrafficMovement
 )
 from atsc.controller.simulation import IntersectionSimulator
 
@@ -135,7 +135,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_timing_vehicle_turn,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(101),
-                type=SignalType.VEHICLE
+                type=SignalType.VEHICLE,
+                movement=TrafficMovement.PROTECTED_TURN
             ),
             Signal(
                 502,
@@ -144,6 +145,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(104),
                 recall=RecallMode.MINIMUM,
                 type=SignalType.VEHICLE,
+                movement=TrafficMovement.PERMISSIVE_TURN,
                 service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
             ),
             Signal(
@@ -151,7 +153,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_timing_vehicle_turn,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(107),
-                type=SignalType.VEHICLE
+                type=SignalType.VEHICLE,
+                movement=TrafficMovement.PROTECTED_TURN,
             ),
             Signal(
                 504,
@@ -159,6 +162,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(110),
                 type=SignalType.VEHICLE,
+                movement=TrafficMovement.PERMISSIVE_TURN,
                 service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
             ),
             Signal(
@@ -166,7 +170,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_timing_vehicle_turn,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(113),
-                type=SignalType.VEHICLE
+                type=SignalType.VEHICLE,
+                movement=TrafficMovement.PROTECTED_TURN
             ),
             Signal(
                 506,
@@ -175,6 +180,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(116),
                 recall=RecallMode.MINIMUM,
                 type=SignalType.VEHICLE,
+                movement=TrafficMovement.PERMISSIVE_TURN,
                 service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
             ),
             Signal(
@@ -182,7 +188,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_timing_vehicle_turn,
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(119),
-                type=SignalType.VEHICLE
+                type=SignalType.VEHICLE,
+                movement=TrafficMovement.PROTECTED_TURN
             ),
             Signal(
                 508,
@@ -190,6 +197,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(122),
                 type=SignalType.VEHICLE,
+                movement=TrafficMovement.PERMISSIVE_TURN,
                 service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
             ),
             Signal(
@@ -296,6 +304,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 id=signal.id,
                 field_output_ids=[fo.id for fo in signal.field_outputs],
                 type=signal.type,
+                movement=signal.movement,
                 initial_state=signal.initial_state
             ))
         

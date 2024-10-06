@@ -105,7 +105,7 @@ class ApproachSimulator(Identifiable):
             case _:
                 raise NotImplementedError()
     
-    def change(self, context: Context):
+    def change(self):
         self.timer.value = 0.0
         
         match self.state:
@@ -149,7 +149,7 @@ class ApproachSimulator(Identifiable):
                     self.timer.value = 0.0
         
         if self.timer.poll(context, self.trigger):
-            self.change(context)
+            self.change()
         
         self.signal.presence = self.state == ApproachState.PRESENCE
     

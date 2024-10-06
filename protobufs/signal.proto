@@ -20,26 +20,33 @@ package atsc.rpc.signal;
 
 
 enum SignalState {
-  DARK          = 0;
-  STOP          = 1;
-  CAUTION       = 2;
-  EXTEND        = 3;
-  GO            = 4;
-  FYA           = 5;
-  LS_FLASH      = 6;
+  DARK              = 0;
+  STOP              = 1;
+  CAUTION           = 2;
+  EXTEND            = 3;
+  GO                = 4;
+  FYA               = 5;
+  LS_FLASH          = 6;
 }
 
 enum SignalType {
-  GENERIC       = 0;
-  VEHICLE       = 1;
-  PEDESTRIAN    = 2;
+  GENERIC           = 0;
+  VEHICLE           = 1;
+  PEDESTRIAN        = 2;
+}
+
+enum TrafficMovement {
+  THRU              = 0;
+  PROTECTED_TURN    = 1;
+  PERMISSIVE_TURN   = 2;
 }
 
 message SignalMetadata {
   uint32 id = 1;
   repeated uint32 field_output_ids = 2;
   SignalType type = 3;
-  SignalState initial_state = 4;
+  TrafficMovement movement = 4;
+  SignalState initial_state = 5;
 }
 
 message Signal {

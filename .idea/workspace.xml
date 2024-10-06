@@ -4,25 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="service conditions, service modifiers">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="tui field outputs, rpc metadata, comments">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/components.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/components.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/constants.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/containers.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/containers.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/css/app.tcss" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/css/app.tcss" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/messages.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/messages.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/panels.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/panels.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/widgets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/protobufs/controller.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/controller.proto" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/protobufs/field_output.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/field_output.proto" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/protobufs/phase.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/phase.proto" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/protobufs/signal.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/signal.proto" afterDir="false" />
     </list>
@@ -79,20 +67,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
-    "Python.Controller.executor": "Debug",
-    "Python.Field Bus.executor": "Debug",
-    "Python.TUI.executor": "Debug",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "F:/Projects/Code/Python/atsc",
-    "settings.editor.selected.configurable": "terminal",
-    "settings.editor.splitter.proportion": "0.25"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
+    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;,
+    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\scripts" />
@@ -469,7 +457,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728166402039</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="tui field outputs, rpc metadata, comments">
+      <option name="closed" value="true" />
+      <created>1728193774367</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1728193774367</updated>
+    </task>
+    <option name="localTasksCounter" value="32" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -496,7 +492,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="update Timer() elapsed always, input ped-service," />
     <MESSAGE value="enforce phase order, timer elapse, fixed interval change" />
     <MESSAGE value="phase and call sorting" />
     <MESSAGE value="basic phase cycling working draft, refactoring" />
@@ -521,6 +516,7 @@
     <MESSAGE value="tui styling" />
     <MESSAGE value="service time maximum threshold fix" />
     <MESSAGE value="service conditions, service modifiers" />
-    <option name="LAST_COMMIT_MESSAGE" value="service conditions, service modifiers" />
+    <MESSAGE value="tui field outputs, rpc metadata, comments" />
+    <option name="LAST_COMMIT_MESSAGE" value="tui field outputs, rpc metadata, comments" />
   </component>
 </project>
