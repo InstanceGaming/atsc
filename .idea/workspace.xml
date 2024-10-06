@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="traffic movement enum">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="phase and signal serve logic">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -468,7 +468,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728199310028</updated>
     </task>
-    <option name="localTasksCounter" value="33" />
+    <task id="LOCAL-00033" summary="phase and signal serve logic">
+      <option name="closed" value="true" />
+      <created>1728241752507</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1728241752507</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -495,7 +503,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="phase and call sorting" />
     <MESSAGE value="basic phase cycling working draft, refactoring" />
     <MESSAGE value="ring conflicting demand logic, refactor" />
     <MESSAGE value="refactor, cycler modes" />
@@ -520,6 +527,7 @@
     <MESSAGE value="service conditions, service modifiers" />
     <MESSAGE value="tui field outputs, rpc metadata, comments" />
     <MESSAGE value="traffic movement enum" />
-    <option name="LAST_COMMIT_MESSAGE" value="traffic movement enum" />
+    <MESSAGE value="phase and signal serve logic" />
+    <option name="LAST_COMMIT_MESSAGE" value="phase and signal serve logic" />
   </component>
 </project>

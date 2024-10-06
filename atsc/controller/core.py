@@ -208,7 +208,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 recycle=True,
                 latch=True,
                 type=SignalType.PEDESTRIAN,
-                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_VEHICLE,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE
             ),
             Signal(
@@ -228,7 +227,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 recycle=True,
                 latch=True,
                 type=SignalType.PEDESTRIAN,
-                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_VEHICLE,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE
             ),
             Signal(

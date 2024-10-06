@@ -622,8 +622,10 @@ class Phase(Identifiable, Tickable):
                     for i, task in enumerate(tasks):
                         signal = self.signals[i]
                         if signal.recycle and not signal.active:
-                            logger.debug('{} recycling', signal.get_tag())
-                            tasks[i] = asyncio.create_task(signal.serve(group=self.signals))
+                            status = signal.get_service_status(self.signals)
+                            if status.service:
+                                logger.trace('{} recycling', signal.get_tag())
+                                tasks[i] = asyncio.create_task(signal.serve(group=self.signals))
                 
                 done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             
@@ -796,11 +798,12 @@ class PhaseCycler(Tickable):
         return None
     
     def tick(self, context: Context):
-        for phase in self.active_phases:
+        for phase in self.phases:
             for other_phase in self.waiting_phases:
-                if other_phase not in self.active_barrier.phases:
-                    phase.conflicting_demand = True
-                    break
+                if self.active_barrier:
+                    if other_phase not in self.active_barrier.phases:
+                        phase.conflicting_demand = True
+                        break
                 ring = self.get_ring_by_phase(phase)
                 if ring and other_phase in ring.phases:
                     phase.conflicting_demand = True
