@@ -1,3 +1,18 @@
+/*
+*  Copyright 2024 Jacob Jewett
+*
+*  Licensed under the Apache License, Version 2.0 (the "License");
+*  you may not use this file except in compliance with the License.
+*  You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+*  Unless required by applicable law or agreed to in writing, software
+*  distributed under the License is distributed on an "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*  See the License for the specific language governing permissions and
+*  limitations under the License.
+*/
 syntax = "proto3";
 
 
@@ -20,17 +35,20 @@ enum SignalType {
   PEDESTRIAN    = 2;
 }
 
+message SignalMetadata {
+  uint32 id = 1;
+  repeated uint32 field_output_ids = 2;
+  SignalType type = 3;
+  SignalState initial_state = 4;
+}
+
 message Signal {
   uint32 id = 1;
 
-  bool presence = 2;
-  bool demand = 3;
-  bool rest = 4;
-  bool resting = 5;
-
-  SignalType type = 9;
-
-  repeated uint32 field_output_ids = 10;
+  bool active = 10;
+  bool resting = 11;
+  bool presence = 12;
+  bool demand = 13;
 
   float interval_time = 20;
   float service_time = 21;

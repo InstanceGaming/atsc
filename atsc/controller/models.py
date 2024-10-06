@@ -12,12 +12,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-from dataclasses import dataclass
-
 from loguru import logger
 from typing import Set, Dict, List, Self, Optional
 from asyncio import Task, Event
 from itertools import chain
+from dataclasses import dataclass
 from atsc.rpc.phase import Phase as rpc_Phase
 from atsc.controller import utils
 from atsc.rpc.signal import Signal as rpc_Signal
@@ -41,7 +40,9 @@ from atsc.controller.constants import (
     SignalState,
     InputActivation,
     PhaseCyclerMode,
-    FieldOutputState, ServiceConditions, ServiceModifiers
+    FieldOutputState,
+    ServiceModifiers,
+    ServiceConditions
 )
 from jacob.datetime.formatting import format_ms
 
@@ -113,6 +114,10 @@ class Signal(Identifiable, Tickable):
         return not self.inactive_event.is_set()
     
     @property
+    def initial_state(self):
+        return self._initial_state
+    
+    @property
     def state(self):
         return self._state
     
@@ -151,16 +156,6 @@ class Signal(Identifiable, Tickable):
             self._presence = bool(value)
     
     @property
-    def rest(self):
-        return self._rest
-    
-    @rest.setter
-    def rest(self, value):
-        if value != self._rest:
-            logger.verbose('{} rest = {}', self.get_tag(), value)
-        self._rest = bool(value)
-    
-    @property
     def conflicting_demand(self):
         return self._conflicting_demand
     
@@ -179,7 +174,7 @@ class Signal(Identifiable, Tickable):
             case SignalState.STOP:
                 resting = rest_allowed_for_interval and not self.active
             case _:
-                resting = rest_allowed_for_interval and self.rest and not self.conflicting_demand
+                resting = rest_allowed_for_interval and not self.conflicting_demand
         
         return resting
     
@@ -257,7 +252,6 @@ class Signal(Identifiable, Tickable):
                  mapping: Dict[SignalState, FieldOutput],
                  recall: RecallMode = RecallMode.OFF,
                  recycle: bool = False,
-                 rest: bool = False,
                  demand: bool = False,
                  latch: bool = False,
                  type: SignalType = SignalType.GENERIC,
@@ -278,7 +272,6 @@ class Signal(Identifiable, Tickable):
         self._initial_state = initial_state
         
         self._lock = asyncio.Lock()
-        self._rest = rest
         self._conflicting_demand = False
         self._recall_mode = recall
         self._recall_state = RecallState.NORMAL
@@ -364,8 +357,6 @@ class Signal(Identifiable, Tickable):
                     if not minmax_inhibit:
                         if self.conflicting_demand:
                             self.change()
-                        else:
-                            self.change(state=SignalState.GO)
                 case SignalState.GO:
                     if not minmax_inhibit:
                         if self.conflicting_demand and self.recall_state != RecallState.MAXIMUM:
@@ -376,7 +367,8 @@ class Signal(Identifiable, Tickable):
         match self.state:
             case SignalState.STOP | SignalState.CAUTION:
                 if not self.latch and self._presence_falling.poll(self.presence):
-                    self.demand = False
+                    if self.recall_state == RecallState.NORMAL:
+                        self.demand = False
                 else:
                     self.demand = self.demand or self.presence
             case SignalState.GO | SignalState.EXTEND:
@@ -506,12 +498,10 @@ class Signal(Identifiable, Tickable):
     
     def rpc_model(self):
         return rpc_Signal(self.id,
+                          active=self.active,
+                          resting=self.resting,
                           presence=self.presence,
                           demand=self.demand,
-                          rest=self.rest,
-                          resting=self.resting,
-                          type=self.type,
-                          field_output_ids=[fo.id for fo in self.field_outputs],
                           interval_time=round(self.interval_timer.value, FLOAT_PRECISION_TIME),
                           service_time=round(self.service_timer.value, FLOAT_PRECISION_TIME),
                           state=self.state)
@@ -540,15 +530,6 @@ class Phase(Identifiable, Tickable):
     def demand(self, value):
         for signal in self.signals:
             signal.demand = bool(value)
-    
-    @property
-    def rest(self):
-        return all([s.rest for s in self.signals])
-    
-    @rest.setter
-    def rest(self, value):
-        for signal in self.signals:
-            signal.rest = bool(value)
     
     @property
     def conflicting_demand(self):
@@ -619,7 +600,7 @@ class Phase(Identifiable, Tickable):
             
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             while pending:
-                if all([s.resting and not s.conflicting_demand for s in self.signals]):
+                if all([s.resting for s in self.active_signals]):
                     for i, task in enumerate(tasks):
                         signal = self.signals[i]
                         if signal.recycle and not signal.active:
@@ -670,15 +651,6 @@ class Ring(Identifiable):
             phase.demand = value
     
     @property
-    def rest(self):
-        return any([p.rest for p in self.phases])
-    
-    @rest.setter
-    def rest(self, value):
-        for phase in self.phases:
-            phase.rest = value
-    
-    @property
     def field_outputs(self):
         rv = set()
         for phase in self.phases:
@@ -718,15 +690,6 @@ class Barrier(Identifiable):
     def demand(self, value):
         for phase in self.phases:
             phase.demand = value
-    
-    @property
-    def rest(self):
-        return any([p.rest for p in self.phases])
-    
-    @rest.setter
-    def rest(self, value):
-        for phase in self.phases:
-            phase.rest = value
     
     def __init__(self, id_: int, phases: List[Phase]):
         super().__init__(id_)

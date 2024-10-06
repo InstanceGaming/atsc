@@ -1,20 +1,34 @@
+#  Copyright 2024 Jacob Jewett
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 import asyncio
 from grpc import RpcError
-from typing import Optional
+from typing import Dict, Optional
 from pathlib import Path
 from datetime import datetime
 from textual.app import App, ComposeResult
 from grpclib.client import Channel
 from textual.widget import MountError
 from textual.worker import Worker
-from atsc.rpc.signal import Signal as rpc_Signal
 from atsc.tui.panels import ControllerPanel
 from textual.widgets import Footer, Header
 from atsc.tui.widgets import (
-    Signal,
+    SignalWidget,
+    FieldOutputWidget,
     ControllerCycleMode,
+    ControllerCycleCount,
     ControllerTimeFreeze,
-    ControllerDurationReadout, ControllerCycleCount
+    ControllerDurationReadout
 )
 from grpclib.metadata import Deadline
 from textual.reactive import reactive
@@ -29,8 +43,8 @@ from atsc.tui.messages import (
     RpcConnectionSuccess
 )
 from atsc.tui.constants import (
+    POLL_RATE,
     RPC_CALL_TIMEOUT,
-    CONTROLLER_POLL_RATE,
     RPC_CALL_DEADLINE_POLL,
     RPC_CALL_DEADLINE_INITIAL
 )
@@ -66,6 +80,7 @@ class TUI(App[int]):
                          watch_css=dev_mode)
         # noinspection PyTypeChecker
         self.title = 'Actuated Traffic Signal Controller'
+        # noinspection PyTypeChecker
         self.dark = False
         
         self.rpc_address = rpc_address
@@ -73,6 +88,9 @@ class TUI(App[int]):
         
         self.channel: Optional[Channel] = None
         self.controller: Optional[ControllerStub] = None
+        
+        self.field_outputs: Dict[int, FieldOutputWidget] = {}
+        self.signals: Dict[int, SignalWidget] = {}
         
         self.switcher = MainContentSwitcher()
         self.poll_worker: Worker | None = None
@@ -160,7 +178,7 @@ class TUI(App[int]):
                 self.post_message(RpcControllerPoll(runtime_info,
                                                     field_outputs_reply.field_outputs,
                                                     signal_reply.signals))
-                await asyncio.sleep(CONTROLLER_POLL_RATE)
+                await asyncio.sleep(POLL_RATE)
             except (RpcError, TimeoutError, StreamTerminatedError) as e:
                 self.post_message(RpcConnectionLost(e))
                 break
@@ -171,28 +189,51 @@ class TUI(App[int]):
         self.query(ControllerTimeFreeze).only_one().time_freeze = message.runtime_info.time_freeze
         self.query(ControllerCycleMode).only_one().mode = message.runtime_info.cycle_mode
         
-        signal: Signal
-        signal_data: rpc_Signal
-        for signal, signal_data in zip(self.query(Signal).results(), message.signals):
-            signal.state = signal_data.state.name
-            signal.interval_time = signal_data.interval_time
-            signal.service_time = signal_data.service_time
-            signal.resting = signal_data.resting
-            signal.demand = signal_data.demand
-            signal.presence = signal_data.presence
+        for data in message.field_outputs:
+            field_output = self.field_outputs[data.id]
+            field_output.value = data.value
+        
+        for data in message.signals:
+            signal = self.signals[data.id]
+            signal.title.active = data.active
+            signal.title.resting = data.resting
+            signal.state.state = data.state.name
+            signal.interval_time.elapsed = data.interval_time
+            signal.service_time.elapsed = data.service_time
+            signal.demand.demand = data.demand
+            signal.presence.presence = data.presence
     
     async def on_rpc_connection_success(self, message: RpcConnectionSuccess):
         self.rpc_connected = True
         
         started_at = datetime.fromtimestamp(message.metadata.started_at_epoch)
         
+        for field_output_metadata in message.metadata.field_outputs:
+            self.field_outputs.update({
+                field_output_metadata.id: FieldOutputWidget(
+                    f'field-output{field_output_metadata.id}',
+                    field_output_metadata.id
+                )
+            })
+        
+        for signal_metadata in message.metadata.signals:
+            field_outputs = [self.field_outputs[fo] for fo in signal_metadata.field_output_ids]
+            self.signals.update({
+                signal_metadata.id: SignalWidget(
+                    f'signal{signal_metadata.id}',
+                    signal_metadata.id,
+                    signal_metadata.type,
+                    field_outputs
+                )
+            })
+        
+        self.refresh(layout=True)
+        
         await self.switcher.remove_children('#controller-panel')
         controller_panel = ControllerPanel(
             'controller-panel',
-            started_at=started_at,
-            field_output_ids=message.metadata.field_output_ids,
-            signal_ids=message.metadata.signal_ids,
-            phase_ids=message.metadata.phase_ids
+            started_at,
+            self.signals.values()
         )
         await self.switcher.add_content(controller_panel, set_current=True)
         

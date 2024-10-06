@@ -17,9 +17,11 @@ from typing import Optional
 from asyncio import AbstractEventLoop, get_event_loop
 from atsc.rpc import controller
 from atsc.rpc import controller as rpc_controller
+from atsc.rpc.signal import SignalMetadata as rpc_SignalMetadata
 from atsc.common.models import AsyncDaemon
 from atsc.common.structs import Context
 from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT
+from atsc.rpc.field_output import FieldOutputMetadata as rpc_FieldOutputMetadata
 from atsc.common.primitives import ref, refs
 from atsc.controller.models import (
     Ring,
@@ -35,7 +37,9 @@ from atsc.controller.constants import (
     RecallMode,
     SignalType,
     SignalState,
-    PhaseCyclerMode, ServiceConditions, ServiceModifiers
+    PhaseCyclerMode,
+    ServiceModifiers,
+    ServiceConditions
 )
 from atsc.controller.simulation import IntersectionSimulator
 
@@ -282,6 +286,19 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self,
         request: controller.ControllerMetadataRequest
     ):
+        field_output_metadata = []
+        for field_output in self.field_outputs:
+            field_output_metadata.append(rpc_FieldOutputMetadata(field_output.id))
+
+        signal_metadata = []
+        for signal in self.signals:
+            signal_metadata.append(rpc_SignalMetadata(
+                id=signal.id,
+                field_output_ids=[fo.id for fo in signal.field_outputs],
+                type=signal.type,
+                initial_state=signal.initial_state
+            ))
+        
         return controller.ControllerMetadataReply(
             version=atsc_version,
             started_at_epoch=self.started_at_epoch,
@@ -290,12 +307,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             supports_coordination=False,
             supports_scheduling=False,
             supports_dimming=False,
-            field_output_ids=[f.id for f in self.field_outputs],
-            signal_ids=[s.id for s in self.signals],
-            phase_ids=[p.id for p in self.phases],
-            ring_ids=[r.id for r in self.rings],
-            barrier_ids=[b.id for b in self.barriers],
-            input_ids=[]
+            field_outputs=field_output_metadata,
+            signals=signal_metadata
         )
     
     async def get_runtime_info(

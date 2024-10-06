@@ -80,16 +80,16 @@ class ApproachSimulator(Identifiable):
         min_idle = 0 if first else 1
         match self.signal.type:
             case SignalType.VEHICLE:
-                # if self.is_arterial:
-                #     bias = 0.9 if self.is_left_turn else 0.4
-                #     return self.random_range_biased(min_idle, 60, bias)
-                # else:
-                #     return self.random_range_biased(min_idle, 300, 0.5)
-                return self.rng.randrange(60, 900)
+                if self.is_arterial:
+                    bias = 0.9 if self.is_left_turn else 0.4
+                    return self.random_range_biased(min_idle, 60, bias)
+                else:
+                    return self.random_range_biased(min_idle, 300, 0.5)
+                # return self.rng.randrange(60, 900)
             case SignalType.PEDESTRIAN:
-                # bias = 0.5 if self.is_arterial else 0.9
-                # return self.random_range_biased(min_idle, 900, bias)
-                return self.rng.randrange(5, 20)
+                bias = 0.7 if self.is_arterial else 0.9
+                return self.random_range_biased(min_idle, 900, bias)
+                # return self.rng.randrange(5, 20)
             case _:
                 raise NotImplementedError()
     
@@ -122,14 +122,14 @@ class ApproachSimulator(Identifiable):
                 match self.signal.type:
                     case SignalType.VEHICLE:
                         self.state = ApproachState.GAP
-                        self.trigger = self.random_range_biased(1, 5, 0.3)
+                        self.trigger = self.random_range_biased(1, 5, 0.5)
                     case SignalType.PEDESTRIAN:
                         self.state = ApproachState.IDLE
                         self.trigger = self.get_idle_time()
                     case _:
                         raise NotImplementedError()
             case ApproachState.GAP:
-                if self.trigger > context.delay:
+                if round(self.rng.random()):
                     self.state = ApproachState.PRESENCE
                     self.trigger = self.get_presence_time()
                 else:

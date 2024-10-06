@@ -1,16 +1,29 @@
+#  Copyright 2024 Jacob Jewett
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 from rich.text import Text
 from atsc.common.constants import FLOAT_PRECISION_TIME
 
 
 def boolean_text(condition: bool,
-                 txt1: str,
-                 txt1_style: str,
-                 txt2: str,
-                 txt2_style: str):
+                 value1,
+                 style1: str,
+                 value2,
+                 style2: str):
     if condition:
-        return Text(txt1, style=txt1_style)
+        return Text(str(value1), style=style1)
     else:
-        return Text(txt2, style=txt2_style)
+        return Text(str(value2), style=style2)
 
 
 def text_or_dash(condition: bool, txt: str, txt_style: str):

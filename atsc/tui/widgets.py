@@ -1,32 +1,85 @@
+#  Copyright 2024 Jacob Jewett
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+from typing import List
 from datetime import datetime
 from rich.text import Text
-from textual.app import RenderResult
-from atsc.tui.utils import (
-    boolean_text,
-    text_or_dash,
-    get_time_text,
-    combine_texts_new_line
-)
+from textual.app import RenderResult, ComposeResult
+from atsc.tui.utils import boolean_text, text_or_dash, get_time_text
 from textual.widget import Widget
+from atsc.rpc.signal import SignalType
 from textual.reactive import reactive
+from atsc.tui.constants import FieldOutputStyle
 from atsc.rpc.controller import CycleMode
 from jacob.datetime.formatting import format_dhms
 
 
-class Signal(Widget):
+class FieldOutputWidget(Widget):
     
-    state = reactive('?')
-    interval_time = reactive(0.0)
-    service_time = reactive(0.0)
+    value = reactive(False)
+    
+    def __init__(self,
+                 id,
+                 field_output_id: int,
+                 style: FieldOutputStyle = FieldOutputStyle.GENERIC):
+        super().__init__(id=id)
+        self.field_output_id = field_output_id
+        self.char_style = style
+        
+    def render(self) -> RenderResult:
+        if self.value:
+            match self.char_style:
+                case FieldOutputStyle.GENERIC:
+                    return Text('X', style='bright_white')
+                case FieldOutputStyle.STOP:
+                    return Text('R', style='bright_red')
+                case FieldOutputStyle.CAUTION:
+                    return Text('Y', style='bright_yellow')
+                case FieldOutputStyle.GO:
+                    return Text('G', style='bright_green')
+                case FieldOutputStyle.DONT_WALK:
+                    return Text('D', style='orange_red1')
+                case FieldOutputStyle.WALK:
+                    return Text('W', style='sky_blue1')
+        else:
+            return Text('-', style='bright_black')
+
+
+class SignalTitleWidget(Widget):
+    
+    active = reactive(False)
     resting = reactive(False)
-    demand = reactive(False)
-    presence = reactive(False)
     
     def __init__(self, signal_id: int):
         super().__init__()
         self.signal_id = signal_id
     
-    def get_state_text(self):
+    def render(self) -> RenderResult:
+        if self.active and self.resting:
+            return Text(str(self.signal_id), style='bright_white')
+        else:
+            return boolean_text(self.active,
+                                self.signal_id,
+                                'bright_green',
+                                self.signal_id,
+                                'bright_red')
+
+
+class SignalStateWidget(Widget):
+    
+    state = reactive('')
+    
+    def render(self) -> RenderResult:
         text = Text(self.state)
         match self.state:
             case 'STOP' | 'LS_FLASH':
@@ -39,17 +92,83 @@ class Signal(Widget):
                 color = 'white'
         text.stylize(f'bold {color}')
         return text
+
+
+class SignalTimeWidget(Widget):
+    
+    elapsed = reactive(0.0)
     
     def render(self) -> RenderResult:
-        signal_id = format(self.signal_id, '03d')
-        return combine_texts_new_line(
-            boolean_text(self.resting, signal_id, 'bright_green', signal_id, 'bright_red'),
-            self.get_state_text(),
-            get_time_text(self.interval_time),
-            get_time_text(self.service_time, force_style='bright_black' if self.resting else None),
-            text_or_dash(self.demand, 'DEMAND', 'bright_cyan'),
-            text_or_dash(self.presence, 'PRESENCE', 'white')
-        )
+        return get_time_text(self.elapsed)
+    
+    
+class SignalDemandWidget(Widget):
+    
+    demand = reactive(False)
+    
+    def render(self) -> RenderResult:
+        return text_or_dash(self.demand, 'DEMAND', 'bright_cyan')
+
+
+class SignalPresenceWidget(Widget):
+    
+    presence = reactive(False)
+    
+    def render(self) -> RenderResult:
+        return text_or_dash(self.presence, 'PRESENCE', 'bright_white')
+
+
+class SignalWidget(Widget):
+    
+    def __init__(self,
+                 id,
+                 signal_id: int,
+                 signal_type: SignalType,
+                 field_outputs: List[FieldOutputWidget]):
+        super().__init__(id=id)
+        self.signal_id = signal_id
+        self.field_outputs = field_outputs
+        
+        for i, field_output in enumerate(field_outputs):
+            style = FieldOutputStyle.GENERIC
+            
+            match signal_type:
+                case SignalType.VEHICLE:
+                    match i:
+                        case 0:
+                            style = FieldOutputStyle.STOP
+                        case 1:
+                            style = FieldOutputStyle.CAUTION
+                        case 2:
+                            style = FieldOutputStyle.GO
+                        case 3:
+                            style = FieldOutputStyle.CAUTION
+                case SignalType.PEDESTRIAN:
+                    match i:
+                        case 0:
+                            style = FieldOutputStyle.DONT_WALK
+                        case 1:
+                            style = FieldOutputStyle.WALK
+
+            field_output.char_style = style
+        
+        self.title = SignalTitleWidget(self.signal_id)
+        self.state = SignalStateWidget()
+        self.interval_time = SignalTimeWidget()
+        self.service_time = SignalTimeWidget()
+        self.demand = SignalDemandWidget()
+        self.presence = SignalPresenceWidget()
+    
+    def compose(self) -> ComposeResult:
+        yield self.title
+        yield self.state
+        yield self.interval_time
+        yield self.service_time
+        yield self.demand
+        yield self.presence
+        
+        for field_output in self.field_outputs:
+            yield field_output
 
 
 class ControllerDurationReadout(Widget):
@@ -120,7 +239,7 @@ class ControllerTimeFreeze(Widget):
     
     def watch_time_freeze(self):
         if self.time_freeze:
-            self.set_interval(0.2, self.toggle_color)
+            self.set_interval(0.5, self.toggle_color)
 
 
 class ControllerCycleMode(Widget):
@@ -155,7 +274,7 @@ class ControllerCycleMode(Widget):
     
     def watch_mode(self):
         if self.mode == CycleMode.PAUSE:
-            self.set_interval(0.2, self.toggle_color)
+            self.set_interval(0.5, self.toggle_color)
 
 
 class ControllerCycleCount(Widget):
