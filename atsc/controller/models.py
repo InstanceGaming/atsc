@@ -880,17 +880,20 @@ class PhaseCycler(Tickable):
         if self.active_barrier:
             if 0 < len(self.active_phases) < len(self.rings):
                 if set(self.active_phases + self.waiting_phases).issubset(self.active_barrier.phases):
+                    active_resting = any([p.resting for p in self.active_phases])
                     active_remaining = max([p.runtime_remaining for p in self.active_phases])
                     
                     for phase in self.waiting_phases:
                         if phase in self.cycle_phases:
-                            for signal in phase.signals:
-                                if signal.runtime_maximum <= active_remaining:
-                                    self.cycle_phases.remove(phase)
-                                    logger.debug('removed {} from cycled phases list ({}s <= {}s)',
-                                                 signal.get_tag(),
-                                                 signal.runtime_maximum,
-                                                 active_remaining)
+                            if active_resting:
+                                logger.debug('removed {} from cycled phases list',
+                                             phase.get_tag())
+                            if phase.runtime_maximum <= active_remaining:
+                                logger.debug('removed {} from cycled phases list ({}s <= {}s)',
+                                             phase.get_tag(),
+                                             phase.runtime_maximum,
+                                             active_remaining)
+                            self.cycle_phases.remove(phase)
         
         super().tick(context)
     
