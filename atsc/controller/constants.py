@@ -43,12 +43,6 @@ class SignalState(IntEnum):
     LS_FLASH        = 6
 
 
-class RecallState(IntEnum):
-    NORMAL = 0
-    MINIMUM = 1
-    MAXIMUM = 2
-
-
 class RecallMode(IntEnum):
     OFF = 0
     MINIMUM = 1

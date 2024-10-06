@@ -17,7 +17,7 @@ from typing import List
 from atsc.common.structs import Context
 from atsc.common.primitives import Timer, Identifiable
 from atsc.controller.models import Signal
-from atsc.controller.constants import SignalType
+from atsc.controller.constants import SignalType, SignalState
 
 
 def random_range_biased(start: int,
@@ -81,25 +81,26 @@ class ApproachSimulator(Identifiable):
         match self.signal.type:
             case SignalType.VEHICLE:
                 if self.is_arterial:
-                    bias = 0.9 if self.is_left_turn else 0.4
+                    bias = 0.9 if self.is_left_turn else 0.25
                     return self.random_range_biased(min_idle, 60, bias)
                 else:
-                    return self.random_range_biased(min_idle, 300, 0.5)
-                # return self.rng.randrange(60, 900)
+                    return self.random_range_biased(min_idle, 900, 0.25)
             case SignalType.PEDESTRIAN:
                 bias = 0.7 if self.is_arterial else 0.9
-                return self.random_range_biased(min_idle, 900, bias)
-                # return self.rng.randrange(5, 20)
+                return self.random_range_biased(min_idle, 1500, bias)
             case _:
                 raise NotImplementedError()
     
     def get_presence_time(self, after_idle: bool = False):
         match self.signal.type:
             case SignalType.VEHICLE:
-                if after_idle:
-                    return self.random_range_biased(2, 15, 0.1)
+                if self.signal.state in (SignalState.GO, SignalState.EXTEND):
+                    return self.rng.randrange(1, 3)
                 else:
-                    return self.random_range_biased(1, 5, 0.1)
+                    if after_idle:
+                        return self.random_range_biased(2, 15, 0.1)
+                    else:
+                        return self.random_range_biased(1, 5, 0.1)
             case SignalType.PEDESTRIAN:
                 return 0.2
             case _:

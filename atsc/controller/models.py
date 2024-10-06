@@ -36,7 +36,6 @@ from atsc.controller.constants import (
     RecallMode,
     SignalType,
     InputAction,
-    RecallState,
     SignalState,
     InputActivation,
     PhaseCyclerMode,
@@ -249,6 +248,37 @@ class Signal(Identifiable, Tickable):
             rv.add(field_output)
         return sorted(rv)
     
+    @property
+    def runtime_maximum(self):
+        duration = 0.0
+        
+        if self.service_maximum:
+            duration += self.service_maximum
+        else:
+            go_time = self._timings[SignalState.GO]
+            
+            if go_time:
+                if go_time.maximum:
+                    duration += go_time.maximum
+                else:
+                    if go_time.minimum:
+                        duration += go_time.minimum
+                    extend_time = self._timings[SignalState.EXTEND]
+                    if extend_time and extend_time.minimum:
+                        duration += extend_time.minimum
+        
+        caution_time = self._timings[SignalState.CAUTION]
+        
+        if caution_time and caution_time.minimum:
+            duration += caution_time.minimum
+        
+        stop_time = self._timings[SignalState.STOP]
+        
+        if stop_time and stop_time.minimum:
+            duration += stop_time.minimum
+        
+        return duration
+    
     def __init__(self,
                  id_: int,
                  timings: Dict[SignalState, IntervalTiming],
@@ -280,7 +310,7 @@ class Signal(Identifiable, Tickable):
         self._lock = asyncio.Lock()
         self._conflicting_demand = False
         self._recall_mode = recall
-        self._recall_state = RecallState.NORMAL
+        self._recall_state = RecallMode.OFF
         self._recycle = recycle
         self._demand = demand
         self._latch = latch
@@ -334,13 +364,13 @@ class Signal(Identifiable, Tickable):
     def recall(self):
         match self.recall_mode:
             case RecallMode.OFF:
-                self._recall_state = RecallState.NORMAL
+                self._recall_state = RecallMode.OFF
             case RecallMode.MINIMUM:
-                self._recall_state = RecallState.MINIMUM
+                self._recall_state = RecallMode.MINIMUM
                 self.demand = True
                 logger.debug('{} minimum recall', self.get_tag())
             case RecallMode.MINIMUM:
-                self._recall_state = RecallState.MINIMUM
+                self._recall_state = RecallMode.MINIMUM
                 self.demand = True
                 logger.debug('{} maximum recall', self.get_tag())
             case _:
@@ -365,7 +395,7 @@ class Signal(Identifiable, Tickable):
                             self.change()
                 case SignalState.GO:
                     if not minmax_inhibit:
-                        if self.conflicting_demand and self.recall_state != RecallState.MAXIMUM:
+                        if self.conflicting_demand and self.recall_state != RecallMode.MAXIMUM:
                             self.change()
                 case _:
                     raise NotImplementedError()
@@ -373,12 +403,12 @@ class Signal(Identifiable, Tickable):
         match self.state:
             case SignalState.STOP | SignalState.CAUTION:
                 if not self.latch and self._presence_falling.poll(self.presence):
-                    if self.recall_state == RecallState.NORMAL:
+                    if self.recall_state == RecallMode.OFF:
                         self.demand = False
                 else:
                     self.demand = self.demand or self.presence
             case SignalState.GO | SignalState.EXTEND:
-                if self.recall_state == RecallState.NORMAL:
+                if self.recall_state == RecallMode.OFF:
                     self.demand = False
                 
                 if self.state == SignalState.EXTEND and self.presence:
@@ -580,6 +610,10 @@ class Phase(Identifiable, Tickable):
         self._skip_once = bool(value)
     
     @property
+    def runtime_maximum(self):
+        return max([s.runtime_maximum for s in self.signals])
+    
+    @property
     def field_outputs(self):
         rv = set()
         for signal in self.signals:
@@ -631,6 +665,10 @@ class Phase(Identifiable, Tickable):
             
             self._active = False
             logger.debug('{} deactivated', self.get_tag())
+    
+    def recall(self):
+        for signal in self.signals:
+            signal.recall()
     
     def __repr__(self):
         return f'<Phase #{self.id} active={len(self.active_signals)} demand={self.demand}>'
@@ -729,7 +767,7 @@ class PhaseCycler(Tickable):
         return [p for p in self.phases if p.active_signals]
     
     @property
-    def waiting_phases(self):
+    def waiting_phases(self) -> List[Phase]:
         return [p for p in self.phases if p.demand and not p.active_signals]
     
     @property
@@ -810,6 +848,16 @@ class PhaseCycler(Tickable):
                     break
             else:
                 phase.conflicting_demand = False
+        
+        if 0 < len(self.active_phases) < len(self.rings):
+            active_max = max([p.runtime_maximum for p in self.active_phases])
+            for phase in self.waiting_phases:
+                if phase in self.cycle_phases:
+                    if phase.runtime_maximum <= active_max:
+                        self.cycle_phases.remove(phase)
+                        logger.debug('removing {} from cycled phases list',
+                                     phase.get_tag())
+                        break
         
         super().tick(context)
     

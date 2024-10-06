@@ -267,6 +267,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             self.cycler.run()
         ))
         self.simulator = IntersectionSimulator(self.signals)
+        
+        for phase in self.phases:
+            phase.demand = True
     
     async def test_rpc_calls(self):
         await self.get_metadata(rpc_controller.ControllerMetadataRequest())
