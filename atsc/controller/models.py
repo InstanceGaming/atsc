@@ -279,6 +279,30 @@ class Signal(Identifiable, Tickable):
         
         return duration
     
+    @property
+    def runtime_remaining(self):
+        remaining = 0.0
+        
+        for state in reversed(SignalState):
+            interval_timing = self._timings.get(state)
+            interval_time = 0.0
+            
+            if interval_timing:
+                minimum_time = interval_timing.minimum or 0.0
+                maximum_time = interval_timing.maximum or 0.0
+                
+                if state != SignalState.GO:
+                    interval_time = max(minimum_time, maximum_time)
+                else:
+                    interval_time = minimum_time
+            
+            remaining += interval_time
+            
+            if state == self.state:
+                remaining -= self.interval_timer.value
+        
+        return remaining
+    
     def __init__(self,
                  id_: int,
                  timings: Dict[SignalState, IntervalTiming],
@@ -507,7 +531,7 @@ class Signal(Identifiable, Tickable):
                     if group:
                         for signal in group:
                             if (signal.type & SignalType.VEHICLE and not
-                                signal.movement & TrafficMovement.PROTECTED_TURN):
+                            signal.movement & TrafficMovement.PROTECTED_TURN):
                                 if not signal.active:
                                     signal.recall()
                                 
@@ -518,10 +542,10 @@ class Signal(Identifiable, Tickable):
                 else:
                     signal_tag = None
                 
-                logger.verbose('{} service_condition = {}, lagging_signal = {}',
-                               self.get_tag(),
-                               status.condition.name,
-                               signal_tag)
+                logger.debug('{} service_condition = {}, lagging_signal = {}',
+                             self.get_tag(),
+                             status.condition.name,
+                             signal_tag)
                 
                 self.change()
                 await self.inactive_event.wait()
@@ -612,6 +636,10 @@ class Phase(Identifiable, Tickable):
     @property
     def runtime_maximum(self):
         return max([s.runtime_maximum for s in self.signals])
+    
+    @property
+    def runtime_remaining(self):
+        return max([s.runtime_remaining for s in self.signals])
     
     @property
     def field_outputs(self):
@@ -849,15 +877,20 @@ class PhaseCycler(Tickable):
             else:
                 phase.conflicting_demand = False
         
-        if 0 < len(self.active_phases) < len(self.rings):
-            active_max = max([p.runtime_maximum for p in self.active_phases])
-            for phase in self.waiting_phases:
-                if phase in self.cycle_phases:
-                    if phase.runtime_maximum <= active_max:
-                        self.cycle_phases.remove(phase)
-                        logger.debug('removing {} from cycled phases list',
-                                     phase.get_tag())
-                        break
+        if self.active_barrier:
+            if 0 < len(self.active_phases) < len(self.rings):
+                if set(self.active_phases + self.waiting_phases).issubset(self.active_barrier.phases):
+                    active_remaining = max([p.runtime_remaining for p in self.active_phases])
+                    
+                    for phase in self.waiting_phases:
+                        if phase in self.cycle_phases:
+                            for signal in phase.signals:
+                                if signal.runtime_maximum <= active_remaining:
+                                    self.cycle_phases.remove(phase)
+                                    logger.debug('removed {} from cycled phases list ({}s <= {}s)',
+                                                 signal.get_tag(),
+                                                 signal.runtime_maximum,
+                                                 active_remaining)
         
         super().tick(context)
     
@@ -898,7 +931,7 @@ class PhaseCycler(Tickable):
         for ring in self.rings:
             if ring.active_phase:
                 continue
-                
+            
             # todo: conditional service for phases that can be estimated to
             # take less time to complete than the existing active phases.
             

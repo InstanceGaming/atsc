@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="conflicting demand logic fix">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="sim logic, remove phase from cycled list">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -486,7 +483,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728251182864</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL-00035" summary="sim logic, remove phase from cycled list">
+      <option name="closed" value="true" />
+      <created>1728253995598</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1728253995598</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -513,7 +518,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="ring conflicting demand logic, refactor" />
     <MESSAGE value="refactor, cycler modes" />
     <MESSAGE value="rest, reduce in IntervalConfig" />
     <MESSAGE value="continuous cycling, console formatting" />
@@ -538,6 +542,7 @@
     <MESSAGE value="traffic movement enum" />
     <MESSAGE value="phase and signal serve logic" />
     <MESSAGE value="conflicting demand logic fix" />
-    <option name="LAST_COMMIT_MESSAGE" value="conflicting demand logic fix" />
+    <MESSAGE value="sim logic, remove phase from cycled list" />
+    <option name="LAST_COMMIT_MESSAGE" value="sim logic, remove phase from cycled list" />
   </component>
 </project>
