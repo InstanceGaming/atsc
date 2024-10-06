@@ -452,8 +452,9 @@ class Signal(Identifiable, Tickable):
                     condition = ServiceConditions.WITH_PEDESTRIAN
                     check_signal = True
                 elif with_vehicle and signal.type == SignalType.VEHICLE:
-                    condition = ServiceConditions.WITH_VEHICLE
-                    check_signal = True
+                    if signal.recycle == self.recycle or not signal.conflicting_demand:
+                        condition = ServiceConditions.WITH_VEHICLE
+                        check_signal = True
                 
                 if check_signal:
                     signal_status = signal.get_service_status()
@@ -569,6 +570,16 @@ class Phase(Identifiable, Tickable):
         return max([s.service_timer.value for s in self.signals])
     
     @property
+    def skip_once(self):
+        return self._skip_once
+    
+    @skip_once.setter
+    def skip_once(self, value):
+        if value != self._skip_once:
+            logger.verbose('{} skip_once = {}', self.get_tag(), value)
+        self._skip_once = bool(value)
+    
+    @property
     def field_outputs(self):
         rv = set()
         for signal in self.signals:
@@ -582,9 +593,9 @@ class Phase(Identifiable, Tickable):
         Identifiable.__init__(self, id_)
         Tickable.__init__(self)
         self._active = False
-        self.signals = signals
-        self.skip_once = False
+        self._skip_once = False
         
+        self.signals = signals
         for signal in signals:
             for fo in signal.field_outputs:
                 self.global_field_output_mapping.update({fo: self})
@@ -721,7 +732,7 @@ class PhaseCycler(Tickable):
     
     @property
     def last_phase(self):
-        if len(self.cycle_phases):
+        if self.cycle_phases:
             return self.cycle_phases[-1]
         else:
             return None
@@ -794,6 +805,8 @@ class PhaseCycler(Tickable):
                 if ring and other_phase in ring.phases:
                     phase.conflicting_demand = True
                     break
+            else:
+                phase.conflicting_demand = False
         
         super().tick(context)
     
@@ -834,6 +847,9 @@ class PhaseCycler(Tickable):
         for ring in self.rings:
             if ring.active_phase:
                 continue
+                
+            # todo: conditional service for phases that can be estimated to
+            # take less time to complete than the existing active phases.
             
             intersection_phases = sorted(ring.intersection(self.active_barrier))
             for phase in intersection_phases:

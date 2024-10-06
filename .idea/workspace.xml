@@ -4,15 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="tui field outputs, rpc metadata, comments">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="traffic movement enum">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/protobufs/phase.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/phase.proto" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/protobufs/signal.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/signal.proto" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -465,7 +460,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728193774367</updated>
     </task>
-    <option name="localTasksCounter" value="32" />
+    <task id="LOCAL-00032" summary="traffic movement enum">
+      <option name="closed" value="true" />
+      <created>1728199310028</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1728199310028</updated>
+    </task>
+    <option name="localTasksCounter" value="33" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -492,7 +495,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="enforce phase order, timer elapse, fixed interval change" />
     <MESSAGE value="phase and call sorting" />
     <MESSAGE value="basic phase cycling working draft, refactoring" />
     <MESSAGE value="ring conflicting demand logic, refactor" />
@@ -517,6 +519,7 @@
     <MESSAGE value="service time maximum threshold fix" />
     <MESSAGE value="service conditions, service modifiers" />
     <MESSAGE value="tui field outputs, rpc metadata, comments" />
-    <option name="LAST_COMMIT_MESSAGE" value="tui field outputs, rpc metadata, comments" />
+    <MESSAGE value="traffic movement enum" />
+    <option name="LAST_COMMIT_MESSAGE" value="traffic movement enum" />
   </component>
 </project>

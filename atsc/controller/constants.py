@@ -60,7 +60,7 @@ class ServiceConditions(IntFlag):
     IGNORE_ONCE         = 0b00000010
     WITH_VEHICLE        = 0b00000100
     WITH_PEDESTRIAN     = 0b00001000
-    WITH_ANY            = 0b00011100
+    WITH_ANY            = 0b00010000
     WITH_DEMAND         = 0b00000001
 
 
