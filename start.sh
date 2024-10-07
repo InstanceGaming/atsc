@@ -1,2 +1,2 @@
 #!/bin/sh
-screen -S atsc ./env/bin/python3 -OO -m atsc.controller.main
+screen -dmS atsc ./env/bin/python3 -OO -m atsc.controller.main

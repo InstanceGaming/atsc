@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="pin deps">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="graceful signal handler attach">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -523,7 +523,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728274194630</updated>
     </task>
-    <option name="localTasksCounter" value="40" />
+    <task id="LOCAL-00040" summary="graceful signal handler attach">
+      <option name="closed" value="true" />
+      <created>1728274629911</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1728274629911</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -550,7 +558,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="refactoring, license comments" />
     <MESSAGE value="busfuzz.py, field bus impl" />
     <MESSAGE value="simulator, presence, edge detection" />
     <MESSAGE value="refactoring" />
@@ -575,6 +582,7 @@
     <MESSAGE value="remove phase from cycled list fix" />
     <MESSAGE value="add rpc stubs" />
     <MESSAGE value="pin deps" />
-    <option name="LAST_COMMIT_MESSAGE" value="pin deps" />
+    <MESSAGE value="graceful signal handler attach" />
+    <option name="LAST_COMMIT_MESSAGE" value="graceful signal handler attach" />
   </component>
 </project>
