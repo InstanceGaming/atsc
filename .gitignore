@@ -1,4 +1,4 @@
 env/
 *.egg-info/
 **/__pycache__
-__init__.py
+/__init__.py

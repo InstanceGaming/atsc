@@ -4,19 +4,17 @@ Description=Actuated Traffic Signal Controller (ATSC)
 [Service]
 Type=forking
 
-WorkingDirectory=%h/atsc/
-ExecStart=/bin/sh %h/atsc/start.sh
-ExecStop=/bin/sh %h/atsc/stop.sh
+WorkingDirectory=%h/atsc-async/
+ExecStart=/bin/sh %h/atsc-async/start.sh
+ExecStop=/bin/sh %h/atsc-async/stop.sh
 
 Restart=always
 RestartSec=16
-TimeoutSec=5
+TimeoutSec=4
 SuccessExitStatus=0
 
 MemoryMax=64M
 CPUQuota=25%
-IOSchedulingClass=realtime
-Nice=-20
 
 [Install]
 WantedBy=default.target
