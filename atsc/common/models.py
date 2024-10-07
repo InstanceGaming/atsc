@@ -62,7 +62,11 @@ class AsyncDaemon(Tickable, ABC):
         self.shutdown_clean = Event()
         
         for sig in signal.valid_signals():
-            signal.signal(sig, lambda s, f: self.loop.create_task(self.signal_handler(s, f)))
+            try:
+                signal.signal(sig, lambda s, f: self.loop.create_task(self.signal_handler(s, f)))
+            except OSError as e:
+                # certain signals are still not valid depending on OS
+                logger.debug('failed to attach signal handler {}: {}', sig.name, str(e))
     
     async def signal_handler(self, sig, _):
         match sig:
