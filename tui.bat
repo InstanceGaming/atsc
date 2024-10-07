@@ -1,2 +1,2 @@
 @echo off
-.\env\win32\scripts\textual.exe run --dev atsc.tui.main
+.\env\win32\scripts\textual.exe run --dev atsc.tui.main %*

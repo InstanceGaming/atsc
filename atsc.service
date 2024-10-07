@@ -13,8 +13,8 @@ RestartSec=16
 TimeoutSec=4
 SuccessExitStatus=0
 
-MemoryMax=64M
-CPUQuota=25%
+MemoryMax=100M
+CPUQuota=80%
 
 [Install]
 WantedBy=default.target

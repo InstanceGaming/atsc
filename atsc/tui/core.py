@@ -113,9 +113,7 @@ class TUI(App[int]):
     async def rpc_connect(self):
         try:
             metadata = await self.controller.get_metadata(
-                ControllerMetadataRequest(),
-                timeout=RPC_CALL_TIMEOUT,
-                deadline=Deadline.from_timeout(RPC_CALL_DEADLINE_INITIAL)
+                ControllerMetadataRequest()
             )
             self.post_message(RpcConnectionSuccess(metadata))
         except (TimeoutError, RpcError, ConnectionError) as e:
