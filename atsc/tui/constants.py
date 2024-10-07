@@ -16,7 +16,7 @@ from enum import Enum, auto
 
 
 DEFAULT_APP_STYLESHEET_PATH = 'tui/css/app.tcss'
-POLL_RATE = 0.2
+POLL_RATE = 0.1
 
 
 if os.getenv('LOOSEN_RPC_WATCHDOG'):

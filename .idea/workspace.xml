@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="rpc address, tui timeout">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="rpc all interfaces binding">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/structs.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/structs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/constants.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -549,7 +547,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728275463760</updated>
     </task>
-    <option name="localTasksCounter" value="43" />
+    <task id="LOCAL-00043" summary="rpc all interfaces binding">
+      <option name="closed" value="true" />
+      <created>1728275842669</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1728275842669</updated>
+    </task>
+    <option name="localTasksCounter" value="44" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -576,7 +582,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="refactoring" />
     <MESSAGE value="grpc, refactoring, scripts, simulation, signal logic" />
     <MESSAGE value="logic and timing adjustments" />
     <MESSAGE value="extension signal state, rpc signal endpoint" />
@@ -601,6 +606,7 @@
     <MESSAGE value="graceful signal handler attach" />
     <MESSAGE value="start.sh fix" />
     <MESSAGE value="rpc address, tui timeout" />
-    <option name="LAST_COMMIT_MESSAGE" value="rpc address, tui timeout" />
+    <MESSAGE value="rpc all interfaces binding" />
+    <option name="LAST_COMMIT_MESSAGE" value="rpc all interfaces binding" />
   </component>
 </project>
