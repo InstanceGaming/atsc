@@ -93,9 +93,14 @@ def parse_common_cla(description: str,
     else:
         cla = vars(root.parse_args())
     
+    rpc_address = cla['rpc_address']
+    
+    if rpc_address == '0.0.0.0' or rpc_address == '::':
+        rpc_address = None
+    
     return CommonCommandLineArguments(
         log_levels_notation=cla['log_levels'],
-        rpc_address=cla['rpc_address'],
+        rpc_address=rpc_address,
         rpc_port=cla['rpc_port'],
         log_path=fix_path(cla.get('log_path')),
         pid_path=fix_path(cla.get('pid_path')),

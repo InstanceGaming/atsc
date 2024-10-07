@@ -4,13 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="start.sh fix">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="rpc address, tui timeout">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc.service" beforeDir="false" afterPath="$PROJECT_DIR$/atsc.service" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controller.bat" beforeDir="false" afterPath="$PROJECT_DIR$/controller.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tui.bat" beforeDir="false" afterPath="$PROJECT_DIR$/tui.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/structs.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/structs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -543,7 +541,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728275047866</updated>
     </task>
-    <option name="localTasksCounter" value="42" />
+    <task id="LOCAL-00042" summary="rpc address, tui timeout">
+      <option name="closed" value="true" />
+      <created>1728275463760</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1728275463760</updated>
+    </task>
+    <option name="localTasksCounter" value="43" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -570,7 +576,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="simulator, presence, edge detection" />
     <MESSAGE value="refactoring" />
     <MESSAGE value="grpc, refactoring, scripts, simulation, signal logic" />
     <MESSAGE value="logic and timing adjustments" />
@@ -595,6 +600,7 @@
     <MESSAGE value="pin deps" />
     <MESSAGE value="graceful signal handler attach" />
     <MESSAGE value="start.sh fix" />
-    <option name="LAST_COMMIT_MESSAGE" value="start.sh fix" />
+    <MESSAGE value="rpc address, tui timeout" />
+    <option name="LAST_COMMIT_MESSAGE" value="rpc address, tui timeout" />
   </component>
 </project>

@@ -39,6 +39,13 @@ async def run():
     server = Server([controller])
     await server.start(host=cla.rpc_address, port=cla.rpc_port)
     
+    if cla.rpc_address:
+        logger.info('RPC server listening on {} port {}',
+                    cla.rpc_address,
+                    cla.rpc_port)
+    else:
+        logger.info('RPC server listening on port {} (all interfaces)', cla.rpc_port)
+    
     try:
         return await controller.run()
     finally:
