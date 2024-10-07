@@ -87,8 +87,8 @@ class ApproachSimulator(Identifiable):
                     bias = 0.9 if self.is_left_turn else 0.5
                     return self.random_range_biased(min_idle, 300, bias)
             case SignalType.PEDESTRIAN:
-                bias = 0.7 if self.is_arterial else 0.9
-                return self.random_range_biased(min_idle, 1500, bias)
+                bias = 0.5 if self.is_arterial else 0.9
+                return self.random_range_biased(min_idle, 3600, bias)
             case _:
                 raise NotImplementedError()
     

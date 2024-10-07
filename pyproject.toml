@@ -7,37 +7,36 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "asyncio",
-    "blinker",
-    "grpclib",
-    "protobuf",
-    "betterproto",
-    "pydantic",
-    "loguru",
-    "jacob[loguru] @ git+https://github.com/InstanceGaming/jacob"
+    "asyncio==3.4.3",
+    "grpclib==0.4.7",
+    "protobuf==5.28.2",
+    "betterproto==2.0.0b7",
+    "pydantic==2.9.2",
+    "loguru==0.7.2",
+    "jacob[loguru] @ git+https://github.com/InstanceGaming/jacob@a13bd47013ee806dbd9b3cb7b328995568ef45b9"
 ]
 
 [project.optional-dependencies]
 fieldbus = [
-    "aioserial",
-    "crcmod",
-    "bitarray"
+    "aioserial==1.3.1",
+    "crcmod==1.7",
+    "bitarray==2.9.2"
 ]
 tui = [
-    "textual"
+    "textual==0.79.1"
 ]
 dev = [
-    "grpcio-tools",
-    "betterproto[compiler]",
-    "textual-dev"
+    "grpcio-tools==1.66.1",
+    "betterproto[compiler]==2.0.0b7",
+    "textual-dev==1.6.1"
 ]
 all = [
-    "aioserial",
-    "crcmod",
-    "bitarray",
-    "textual",
-    "grpcio-tools",
-    "betterproto[compiler]"
+    "aioserial==1.3.1",
+    "crcmod==1.7",
+    "bitarray==2.9.2",
+    "textual==1.6.1",
+    "grpcio-tools==1.66.1",
+    "betterproto[compiler]==2.0.0b7"
 ]
 
 [project.scripts]

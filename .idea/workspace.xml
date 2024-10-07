@@ -4,15 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="remove phase from cycled list fix">
-      <change afterPath="$PROJECT_DIR$/atsc/rpc/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/atsc/rpc/field_output/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/atsc/rpc/phase/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/atsc/rpc/signal/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="add rpc stubs">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc.service" beforeDir="false" afterPath="$PROJECT_DIR$/atsc.service" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -513,7 +509,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728258492681</updated>
     </task>
-    <option name="localTasksCounter" value="38" />
+    <task id="LOCAL-00038" summary="add rpc stubs">
+      <option name="closed" value="true" />
+      <created>1728273182447</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1728273182447</updated>
+    </task>
+    <option name="localTasksCounter" value="39" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -540,7 +544,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="continuous cycling, console formatting" />
     <MESSAGE value="serial bus working" />
     <MESSAGE value="refactoring, license comments" />
     <MESSAGE value="busfuzz.py, field bus impl" />
@@ -565,6 +568,7 @@
     <MESSAGE value="sim logic, remove phase from cycled list" />
     <MESSAGE value="remove phase from cycled list within barrier" />
     <MESSAGE value="remove phase from cycled list fix" />
-    <option name="LAST_COMMIT_MESSAGE" value="remove phase from cycled list fix" />
+    <MESSAGE value="add rpc stubs" />
+    <option name="LAST_COMMIT_MESSAGE" value="add rpc stubs" />
   </component>
 </project>
