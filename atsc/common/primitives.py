@@ -159,10 +159,12 @@ class Timer:
     
     def poll(self, context: Context, trigger: Optional[float] = None) -> bool:
         rv = False
+        
         if context.timing:
             if trigger:
                 rv = self._value > (trigger - context.delay)
-            self._value = round(self.value + context.delay, FLOAT_PRECISION_TIME)
+        
+        self._value = round(self.value + context.delay, FLOAT_PRECISION_TIME)
         return rv
     
     def __repr__(self):
@@ -171,16 +173,31 @@ class Timer:
 
 class Flasher:
     
-    def __init__(self):
-        self._timer = Timer()
+    @property
+    def fpm(self):
+        return self._fpm
     
-    def poll(self, context: Context, fpm: float):
+    @property
+    def fps(self):
+        return 60.0 / self._fpm
+    
+    @property
+    def delay(self):
+        return self.fps / 2
+    
+    def __init__(self, fpm: float, initial_state: bool = False):
+        self._fpm = fpm
+        self._timer = Timer()
+        self._flasher = initial_state
+    
+    def __bool__(self):
+        return self._flasher
+    
+    def poll(self, context: Context):
         rv = False
         if context.timing:
-            fps = 60.0 / fpm
-            delay = fps / 2
-            t = self._timer.poll(context, delay)
-            if t:
+            rv = self._timer.poll(context, self.delay)
+            if rv:
                 self._timer.value = 0.0
-            rv = t
+                self._flasher = not self._flasher
         return rv

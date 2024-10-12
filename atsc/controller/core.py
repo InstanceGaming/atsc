@@ -101,7 +101,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         }
         self.interval_timing_vehicle_turn = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
-            SignalState.STOP    : IntervalTiming(1.0),
+            SignalState.STOP    : IntervalTiming(1.0, revert=2.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
             SignalState.GO      : IntervalTiming(5.0, 15.0),
