@@ -14,6 +14,10 @@
 from enum import Enum, IntEnum, IntFlag, auto
 
 
+CYCLER_SERVICE_POLL_RATE = 0.1
+PHASE_SERVICE_POLL_RATE = 0.1
+
+
 class FieldOutputState(IntEnum):
     OFF = 0
     ON = 1

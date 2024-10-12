@@ -4,9 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="rpc all interfaces binding">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="restore tui poll rate">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/tui/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/hdlc.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/hdlc.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -555,7 +563,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728275842669</updated>
     </task>
-    <option name="localTasksCounter" value="44" />
+    <task id="LOCAL-00044" summary="restore tui poll rate">
+      <option name="closed" value="true" />
+      <created>1728276052026</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1728276052026</updated>
+    </task>
+    <option name="localTasksCounter" value="45" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -582,7 +598,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="grpc, refactoring, scripts, simulation, signal logic" />
     <MESSAGE value="logic and timing adjustments" />
     <MESSAGE value="extension signal state, rpc signal endpoint" />
     <MESSAGE value="textual tui setup" />
@@ -607,6 +622,7 @@
     <MESSAGE value="start.sh fix" />
     <MESSAGE value="rpc address, tui timeout" />
     <MESSAGE value="rpc all interfaces binding" />
-    <option name="LAST_COMMIT_MESSAGE" value="rpc all interfaces binding" />
+    <MESSAGE value="restore tui poll rate" />
+    <option name="LAST_COMMIT_MESSAGE" value="restore tui poll rate" />
   </component>
 </project>

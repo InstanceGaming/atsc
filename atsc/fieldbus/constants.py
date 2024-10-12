@@ -19,25 +19,27 @@ HDLC_ESCAPE = 0x7D
 HDLC_ESCAPE_MASK = 0x20
 HDLC_MAX_FRAME_LENGTH = 0x80
 
-SERIAL_BUS_CRC_POLY = 0x11021
-SERIAL_BUS_CRC_INIT = 0xFFFF
-SERIAL_BUS_CRC_REVERSE = True
-SERIAL_BUS_CRC_XOR_OUT = 0
-SERIAL_BUS_BYTE_ORDER = 'big'
+HDLC_CRC_POLY = 0x11021
+HDLC_CRC_INIT = 0xFFFF
+HDLC_CRC_REVERSE = True
+HDLC_CRC_XOR_OUT = 0
 
-SERIAL_BUS_BAUD_RATE = 115200
-SERIAL_BUS_BAUD_RATES = (9600,
-                         19200,
-                         38400,
-                         57600,
-                         115200,
-                         230400,
-                         460800,
-                         500000,
-                         576000,
-                         921600,
-                         1000000,
-                         1152000)
+BUS_TRANSMIT_POLL_RATE = 0.05
+BUS_RECEIVE_POLL_RATE = 0.05
+BUS_BYTE_ORDER = 'big'
+BUS_BAUD_RATE = 115200
+BUS_BAUD_RATES = (9600,
+                  19200,
+                  38400,
+                  57600,
+                  115200,
+                  230400,
+                  460800,
+                  500000,
+                  576000,
+                  921600,
+                  1000000,
+                  1152000)
 
 
 class DeviceAddress(IntEnum):

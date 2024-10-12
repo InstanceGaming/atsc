@@ -45,8 +45,7 @@ from atsc.tui.messages import (
 from atsc.tui.constants import (
     POLL_RATE,
     RPC_CALL_TIMEOUT,
-    RPC_CALL_DEADLINE_POLL,
-    RPC_CALL_DEADLINE_INITIAL
+    RPC_CALL_DEADLINE_POLL
 )
 from grpclib.exceptions import StreamTerminatedError
 from atsc.rpc.controller import (

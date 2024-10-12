@@ -17,10 +17,10 @@ from atsc.fieldbus.hdlc import HDLC_FLAG, HDLC_ESCAPE, HDLCError, HDLCContext
 
 
 def test_msg(text, expected_error=None):
-    hdlc = HDLCContext(SERIAL_BUS_CRC_POLY,
-                       SERIAL_BUS_CRC_INIT,
-                       SERIAL_BUS_CRC_REVERSE,
-                       SERIAL_BUS_CRC_XOR_OUT)
+    hdlc = HDLCContext(HDLC_CRC_POLY,
+                       HDLC_CRC_INIT,
+                       HDLC_CRC_REVERSE,
+                       HDLC_CRC_XOR_OUT)
     message = bytes(text, 'utf-8')
     
     encoded = hdlc.encode(message, frame=False)

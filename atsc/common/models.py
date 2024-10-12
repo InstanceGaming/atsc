@@ -137,6 +137,7 @@ class AsyncDaemon(Tickable, ABC):
                 
                 if self.ticking:
                     self.tick(self.context)
+                
                 await sleep(self.context.delay)
             await self.after_run()
         finally:

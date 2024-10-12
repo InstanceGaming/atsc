@@ -41,7 +41,7 @@ from atsc.controller.constants import (
     PhaseCyclerMode,
     FieldOutputState,
     ServiceModifiers,
-    ServiceConditions, TrafficMovement
+    ServiceConditions, TrafficMovement, PHASE_SERVICE_POLL_RATE, CYCLER_SERVICE_POLL_RATE
 )
 from jacob.datetime.formatting import format_ms
 
@@ -680,6 +680,8 @@ class Phase(Identifiable, Tickable):
             
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             while pending:
+                await asyncio.sleep(PHASE_SERVICE_POLL_RATE)
+                
                 if all([s.resting for s in self.active_signals]):
                     for i, task in enumerate(tasks):
                         signal = self.signals[i]
@@ -935,9 +937,6 @@ class PhaseCycler(Tickable):
             if ring.active_phase:
                 continue
             
-            # todo: conditional service for phases that can be estimated to
-            # take less time to complete than the existing active phases.
-            
             intersection_phases = sorted(ring.intersection(self.active_barrier))
             for phase in intersection_phases:
                 if phase not in self.cycle_phases and phase in self.waiting_phases:
@@ -969,7 +968,7 @@ class PhaseCycler(Tickable):
             logger.debug('idle')
             marker = millis()
             while not self.waiting_phases:
-                await asyncio.sleep(0.0)
+                await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
             delta = millis() - marker
             logger.debug('idled for {}', format_ms(delta))
             return True
@@ -981,7 +980,7 @@ class PhaseCycler(Tickable):
             logger.debug('paused')
             marker = millis()
             while self.mode == PhaseCyclerMode.PAUSE:
-                await asyncio.sleep(0.0)
+                await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
             delta = millis() - marker
             logger.debug('paused for {}', format_ms(delta))
             return True
@@ -1009,6 +1008,8 @@ class PhaseCycler(Tickable):
                             
                             done, pending = await asyncio.wait(phase_tasks, return_when=asyncio.FIRST_COMPLETED)
                             while pending:
+                                await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
+                                
                                 selected_phases = self.select_phases()
                                 
                                 if selected_phases:
@@ -1019,6 +1020,8 @@ class PhaseCycler(Tickable):
                         else:
                             if self.try_change_barrier(next(self._barrier_sequence)):
                                 break
+                            else:
+                                await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
             
             self.cycle_phases.clear()
             self._cycle_count += 1

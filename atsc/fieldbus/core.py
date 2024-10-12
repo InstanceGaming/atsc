@@ -70,11 +70,11 @@ class FieldBus(AsyncDaemon):
         except serial.SerialException as e:
             raise FieldBusError(f'serial bus error: {str(e)}')
         
-        self._hdlc = HDLCContext(SERIAL_BUS_CRC_POLY,
-                                 SERIAL_BUS_CRC_INIT,
-                                 SERIAL_BUS_CRC_REVERSE,
-                                 SERIAL_BUS_CRC_XOR_OUT,
-                                 byte_order=SERIAL_BUS_BYTE_ORDER)
+        self._hdlc = HDLCContext(HDLC_CRC_POLY,
+                                 HDLC_CRC_INIT,
+                                 HDLC_CRC_REVERSE,
+                                 HDLC_CRC_XOR_OUT,
+                                 byte_order=BUS_BYTE_ORDER)
         
         self.frames_unread = asyncio.Condition()
         
@@ -119,7 +119,7 @@ class FieldBus(AsyncDaemon):
     async def transmit(self):
         while True:
             if not self._serial.is_open or not self._transmit_queue:
-                await asyncio.sleep(self.context.delay)
+                await asyncio.sleep(BUS_TRANSMIT_POLL_RATE)
             
             for f in self._transmit_queue:
                 try:
@@ -139,6 +139,8 @@ class FieldBus(AsyncDaemon):
                 except serial.SerialException as e:
                     raise FieldBusError(f'serial bus error: {str(e)}')
             self._transmit_queue.clear()
+            
+            await asyncio.sleep(BUS_TRANSMIT_POLL_RATE)
     
     async def receive(self):
         inside_frame = False
@@ -146,7 +148,7 @@ class FieldBus(AsyncDaemon):
         adjacent_flags = 0
         while True:
             if not self._serial.is_open:
-                await asyncio.sleep(0.0)
+                await asyncio.sleep(BUS_RECEIVE_POLL_RATE)
             
             async with self.frames_unread:
                 try:
@@ -176,6 +178,8 @@ class FieldBus(AsyncDaemon):
                     pass
                 except serial.SerialException as e:
                     raise FieldBusError(f'serial bus error: {str(e)}')
+            
+            await asyncio.sleep(BUS_RECEIVE_POLL_RATE)
     
     def decode_frame(self, frame: Frame):
         length = len(frame.data)

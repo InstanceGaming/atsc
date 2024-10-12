@@ -20,7 +20,7 @@ from atsc.fieldbus.core import FieldBus
 from atsc.common.structs import Context
 from atsc.rpc.controller import ControllerStub
 from atsc.common.constants import ExitCode
-from atsc.fieldbus.constants import SERIAL_BUS_BAUD_RATE, SERIAL_BUS_BAUD_RATES
+from atsc.fieldbus.constants import BUS_BAUD_RATE, BUS_BAUD_RATES
 
 
 logger = loguru.logger
@@ -28,8 +28,8 @@ logger = loguru.logger
 
 def arg_baud_type(v: str) -> int:
     baud = int(v)
-    if baud not in SERIAL_BUS_BAUD_RATES:
-        raise ValueError(f'baud rate out of rage {SERIAL_BUS_BAUD_RATES}')
+    if baud not in BUS_BAUD_RATES:
+        raise ValueError(f'baud rate out of rage {BUS_BAUD_RATES}')
     return baud
 
 
@@ -40,7 +40,7 @@ def run():
     
     root_ap.add_argument('-b', '--baud',
                          type=arg_baud_type,
-                         default=SERIAL_BUS_BAUD_RATE,
+                         default=BUS_BAUD_RATE,
                          dest='baud_rate')
     root_ap.add_argument(type=str, dest='serial_port')
     extra_cla = vars(root_ap.parse_args())
