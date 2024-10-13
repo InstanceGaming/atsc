@@ -108,12 +108,12 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.FYA     : IntervalTiming(4.0)
         }
         self.interval_timing_ped1 = {
-            SignalState.STOP   : IntervalTiming(1.0),
+            SignalState.STOP   : IntervalTiming(0.0),
             SignalState.CAUTION: IntervalTiming(14.0),
             SignalState.GO     : IntervalTiming(5.0, 5.0)
         }
         self.interval_timing_ped2 = {
-            SignalState.STOP   : IntervalTiming(1.0),
+            SignalState.STOP   : IntervalTiming(0.0),
             SignalState.CAUTION: IntervalTiming(10.0),
             SignalState.GO     : IntervalTiming(5.0, 5.0)
         }
@@ -269,8 +269,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self.presence_simulation = False
         self.simulator = IntersectionSimulator(self.signals)
         
-        for phase in self.phases:
-            phase.demand = True
+        # for phase in self.phases:
+        #     phase.demand = True
     
     async def test_rpc_calls(self):
         await self.get_metadata(rpc_controller.ControllerMetadataRequest())
