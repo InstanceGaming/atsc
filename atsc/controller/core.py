@@ -126,7 +126,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self.interval_config_ped = {
             SignalState.STOP    : IntervalConfig(rest=True),
             SignalState.CAUTION : IntervalConfig(flashing=True),
-            SignalState.GO      : IntervalConfig(rest=True)
+            SignalState.GO      : IntervalConfig(rest=False)
         }
         self.field_outputs = [FieldOutput(100 + i) for i in range(1, 97)]
         self.signals = [
@@ -266,7 +266,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             self.test_rpc_calls(),
             self.cycler.run()
         ))
-        self.presence_simulation = True
+        self.presence_simulation = False
         self.simulator = IntersectionSimulator(self.signals)
         
         for phase in self.phases:

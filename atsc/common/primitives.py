@@ -185,13 +185,17 @@ class Flasher:
     def delay(self):
         return self.fps / 2
     
-    def __init__(self, fpm: float, initial_state: bool = False):
+    def __init__(self, fpm: float, initial: bool = True):
         self._fpm = fpm
         self._timer = Timer()
-        self._flasher = initial_state
+        self._initial = initial
+        self._flasher = initial
     
     def __bool__(self):
         return self._flasher
+    
+    def reset(self):
+        self._flasher = self._initial
     
     def poll(self, context: Context):
         rv = False

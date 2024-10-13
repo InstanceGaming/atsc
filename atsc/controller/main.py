@@ -37,7 +37,12 @@ async def run():
     controller = Controller(context, pid_file=cla.pid_path)
     
     server = Server([controller])
-    await server.start(host=cla.rpc_address, port=cla.rpc_port)
+    
+    try:
+        await server.start(host=cla.rpc_address, port=cla.rpc_port)
+    except (OSError, TimeoutError, ConnectionError) as e:
+        logger.error('RPC server failed to start: {}', str(e))
+        return ExitCode.RPC_BIND_FAILED
     
     if cla.rpc_address:
         logger.info('RPC server listening on {} port {}',
@@ -47,7 +52,8 @@ async def run():
         logger.info('RPC server listening on port {} (all interfaces)', cla.rpc_port)
     
     try:
-        return await controller.run()
+        result = await controller.run()
+        return result
     finally:
         server.close()
 

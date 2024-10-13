@@ -49,3 +49,4 @@ class ExitCode(IntEnum):
     PID_CREATE_FAIL = 5
     PID_EXISTS = 6
     PID_REMOVE_FAIL = 7
+    RPC_BIND_FAILED = 8
