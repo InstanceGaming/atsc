@@ -266,6 +266,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             self.test_rpc_calls(),
             self.cycler.run()
         ))
+        self.presence_simulation = True
         self.simulator = IntersectionSimulator(self.signals)
         
         for phase in self.phases:
@@ -280,7 +281,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         
     def tick(self, context: Context):
         super().tick(context)
-        self.simulator.tick(context)
+        
+        if self.presence_simulation:
+            self.simulator.tick(context)
     
     def shutdown(self):
         super().shutdown()
@@ -356,6 +359,15 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             logger.exception('[RPC] set_cycle_mode() raised exception', e)
             success = False
         return controller.ControllerChangeVariableResult(success, changed)
+    
+    async def set_presence_simulation(
+        self,
+        request: controller.ControllerPresenceSimulationRequest
+    ):
+        before = self.presence_simulation
+        self.presence_simulation = request.enabled
+        changed = self.presence_simulation != before
+        return controller.ControllerChangeVariableResult(True, changed)
     
     async def get_field_output(
         self,

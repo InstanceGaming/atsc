@@ -139,21 +139,22 @@ class ApproachSimulator(Identifiable):
                     self.trigger = self.get_idle_time()
     
     def tick(self, context: Context):
-        match self.signal.type:
-            case SignalType.VEHICLE:
-                if not self.signal.active and self.state == ApproachState.PRESENCE:
-                    if self.turn_on_red:
-                        self.trigger = self.random_range_biased(4, 15, 0.6)
-                    else:
+        if self.enabled:
+            match self.signal.type:
+                case SignalType.VEHICLE:
+                    if not self.signal.active and self.state == ApproachState.PRESENCE:
+                        if self.turn_on_red:
+                            self.trigger = self.random_range_biased(4, 15, 0.6)
+                        else:
+                            self.timer.value = 0.0
+                case SignalType.PEDESTRIAN:
+                    if self.signal.active and self.state == ApproachState.IDLE:
                         self.timer.value = 0.0
-            case SignalType.PEDESTRIAN:
-                if self.signal.active and self.state == ApproachState.IDLE:
-                    self.timer.value = 0.0
-        
-        if self.timer.poll(context, self.trigger):
-            self.change()
-        
-        self.signal.presence = self.state == ApproachState.PRESENCE
+            
+            if self.timer.poll(context, self.trigger):
+                self.change()
+            
+            self.signal.presence = self.state == ApproachState.PRESENCE
     
     def __repr__(self):
         return f'<ApproachSimulator {self.state.name} {self.elapsed:.1f} of {self.trigger:.1f}>'
@@ -163,24 +164,20 @@ class IntersectionSimulator:
     
     def __init__(self,
                  signals: List[Signal],
-                 seed=None,
-                 enabled=True):
+                 seed=None):
         self.rng = random.Random(seed)
         self.signals = signals
         self.approaches = []
-        self.enabled = enabled
         
         for i in range(len(signals)):
             signal = signals[i]
             self.approaches.append(ApproachSimulator(i + 7001,
                                                      self.rng,
-                                                     signal,
-                                                     enabled=enabled))
+                                                     signal))
     
     def tick(self, context: Context):
         # ignore time freeze
         context = Context(context.rate, context.scale, timing=True)
         
-        if self.enabled:
-            for approach in self.approaches:
-                approach.tick(context)
+        for approach in self.approaches:
+            approach.tick(context)
