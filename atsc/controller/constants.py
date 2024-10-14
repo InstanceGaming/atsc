@@ -47,6 +47,9 @@ class SignalState(IntEnum):
     LS_FLASH        = 6
 
 
+FYA_SIGNAL_STATES = (SignalState.GO, SignalState.EXTEND)
+
+
 class RecallMode(IntEnum):
     OFF = 0
     MINIMUM = 1

@@ -131,6 +131,10 @@ message ControllerPresenceSimulationRequest {
   bool enabled = 1;
 }
 
+message ControllerFYAEnabledRequest {
+  bool enabled = 1;
+}
+
 service Controller {
   rpc test_connection(ControllerTestConnectionRequest) returns (ControllerTestConnectionReply) {}
   rpc get_metadata(ControllerMetadataRequest) returns (ControllerMetadataReply) {}
@@ -140,6 +144,7 @@ service Controller {
   rpc set_cycle_mode(ControllerCycleModeRequest) returns (ControllerChangeVariableResult) {}
 
   rpc set_presence_simulation(ControllerPresenceSimulationRequest) returns (ControllerChangeVariableResult) {}
+  rpc set_fya_enabled(ControllerFYAEnabledRequest) returns (ControllerChangeVariableResult) {}
 
   rpc get_field_output(ControllerIdentifiableObjectRequest) returns (ControllerFieldOutputReply) {}
   rpc get_field_outputs(ControllerFieldOutputsRequest) returns (ControllerFieldOutputsReply) {}

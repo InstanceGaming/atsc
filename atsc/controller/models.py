@@ -43,7 +43,7 @@ from atsc.controller.constants import (
     PhaseCyclerMode,
     FieldOutputState,
     ServiceModifiers,
-    ServiceConditions, TrafficMovement, CYCLER_SERVICE_POLL_RATE
+    ServiceConditions, TrafficMovement, CYCLER_SERVICE_POLL_RATE, FYA_SIGNAL_STATES
 )
 from jacob.datetime.formatting import format_ms
 
@@ -122,6 +122,14 @@ class Signal(Identifiable, Tickable):
     @property
     def active(self):
         return not self.inactive_event.is_set()
+    
+    @property
+    def revert_clear(self):
+        if not self.active:
+            timing = self._timings[SignalState.STOP]
+            if timing.revert is not None:
+                return self.interval_timer.value > timing.revert
+        return True
     
     @property
     def initial_state(self):
@@ -226,6 +234,24 @@ class Signal(Identifiable, Tickable):
         self._service_modifiers = value
     
     @property
+    def fya_enabled(self):
+        return self._fya_enabled
+    
+    @fya_enabled.setter
+    def fya_enabled(self, value):
+        if value != self._fya_enabled:
+            logger.verbose('{} fya_enabled = {}', self.get_tag(), value)
+        self._fya_enabled = bool(value)
+    
+    @property
+    def fya_phase(self):
+        return self._fya_phase
+    
+    @fya_phase.setter
+    def fya_phase(self, value):
+        self._fya_phase = value
+    
+    @property
     def recycle(self):
         return self._recycle
     
@@ -319,7 +345,9 @@ class Signal(Identifiable, Tickable):
                  movement: TrafficMovement = TrafficMovement.THRU,
                  initial_state: SignalState = SignalState.STOP,
                  service_conditions: ServiceConditions = ServiceConditions.WITH_DEMAND,
-                 service_modifiers: ServiceModifiers = ServiceModifiers.UNSET):
+                 service_modifiers: ServiceModifiers = ServiceModifiers.UNSET,
+                 fya_phase: Optional['Phase'] = None,
+                 fya_enabled: bool = False):
         Identifiable.__init__(self, id_)
         Tickable.__init__(self)
         self._timings = timings
@@ -337,6 +365,10 @@ class Signal(Identifiable, Tickable):
         
         self._state = SignalState.STOP
         self._initial_state = initial_state
+        self._fya_enabled = fya_enabled
+        self._fya_phase = fya_phase
+        self._fya_terminating = False
+        self._fya_persist_demand = False
         
         self._conflicting_demand = False
         self._recall_mode = recall
@@ -361,18 +393,13 @@ class Signal(Identifiable, Tickable):
         
         self.tickables.extend(self.field_outputs)
         self.change(state=initial_state)
-        self.recall()
     
     def get_next_state(self) -> SignalState:
         match self.state:
             case SignalState.STOP:
-                # todo: go to FYA if conditions are met
                 return SignalState.GO
             case SignalState.CAUTION:
                 return SignalState.STOP
-            case SignalState.FYA:
-                # todo: go to green if next up
-                return SignalState.CAUTION
             case SignalState.EXTEND:
                 return SignalState.CAUTION
             case SignalState.GO:
@@ -389,6 +416,11 @@ class Signal(Identifiable, Tickable):
                                 return SignalState.EXTEND
                 
                 return SignalState.CAUTION
+            case SignalState.FYA:
+                if self.fya_phase.state not in FYA_SIGNAL_STATES:
+                    return SignalState.CAUTION
+                else:
+                    return SignalState.GO
             case SignalState.LS_FLASH:
                 return self._initial_state
             case _:
@@ -420,6 +452,10 @@ class Signal(Identifiable, Tickable):
         config = self._configs[self.state]
         minmax_inhibit = any([ls.active for ls in self.leading_signals])
         
+        if not timing.minimum and self.interval_timer.value < context.delay:
+            if self.state == SignalState.STOP:
+                self._terminate()
+        
         if self.interval_timer.poll(context, timing.minimum):
             match self.state:
                 case SignalState.STOP:
@@ -434,24 +470,32 @@ class Signal(Identifiable, Tickable):
                     if not minmax_inhibit and self.recall_state != RecallMode.MAXIMUM:
                         if self.conflicting_demand or not config.rest:
                             self.change()
+                case SignalState.FYA:
+                    if (not self.fya_enabled or
+                        self.fya_phase.state not in FYA_SIGNAL_STATES):
+                        self._fya_terminating = True
+                        self.change()
                 case _:
                     raise NotImplementedError()
-        
-        if not timing.minimum:
-            if self.state == SignalState.STOP:
-                self._terminate()
         
         presence_edge = self._presence_edge.poll(self.presence)
         
         match self.state:
             case SignalState.STOP | SignalState.CAUTION:
-                if not self.latch and presence_edge == EdgeType.FALLING:
-                    if self.recall_state == RecallMode.OFF:
-                        self.demand = False
+                if self.fya_enabled:
+                    if self.state == SignalState.STOP:
+                        if not self._fya_persist_demand:
+                            self.demand = False
+                    elif self.state == SignalState.CAUTION:
+                        self.demand = self.presence
                 else:
-                    self.demand = self.demand or self.presence
+                    if not self.latch and presence_edge == EdgeType.FALLING:
+                        if self.recall_state == RecallMode.OFF:
+                            self.demand = False
+                    else:
+                        self.demand = self.demand or self.presence
             case SignalState.GO | SignalState.EXTEND:
-                if self.recall_state == RecallMode.OFF:
+                if self.fya_enabled or self.recall_state == RecallMode.OFF:
                     self.demand = False
                 
                 if self.state == SignalState.EXTEND and self.presence:
@@ -461,6 +505,8 @@ class Signal(Identifiable, Tickable):
                     if not minmax_inhibit:
                         if self.conflicting_demand or not config.rest:
                             self.change(state=SignalState.CAUTION)
+            case SignalState.FYA:
+                self.demand = False
         
         if not minmax_inhibit and timing.maximum:
             if self.conflicting_demand or not config.rest:
@@ -482,6 +528,7 @@ class Signal(Identifiable, Tickable):
         
         previous_field_output = self._mapping[self._state]
         previous_field_output.set(FieldOutputState.OFF)
+        previous_state = self._state
         
         self._state = next_state
         
@@ -495,11 +542,18 @@ class Signal(Identifiable, Tickable):
         else:
             field_output.set(FieldOutputState.ON)
         
-        if self.state != SignalState.STOP:
-            self.inactive_event.clear()
+        if self._fya_terminating:
+            if previous_state == SignalState.CAUTION:
+                self._fya_persist_demand = self.presence
+                self._fya_terminating = False
+        else:
+            if self.state not in (SignalState.STOP, SignalState.FYA):
+                self.inactive_event.clear()
         
-        if self.state in (SignalState.GO, SignalState.FYA):
+        if self.state != SignalState.GO:
             self.service_timer.value = 0.0
+        else:
+            self._fya_persist_demand = False
         
         self.interval_timer.value = 0.0
     
@@ -531,13 +585,12 @@ class Signal(Identifiable, Tickable):
                         return self.ServiceStatus(service,
                                                   condition,
                                                   lagging_signal=signal)
-                    
+        
         if service:
-            stop_time = self._timings[SignalState.STOP]
-            if stop_time:
-                revert_time = stop_time.revert
-                if revert_time and self.interval_timer.value < revert_time:
-                    service = False
+            if not self._fya_persist_demand and self.fya_enabled:
+                service = False
+            if not self.revert_clear:
+                service = False
         
         return self.ServiceStatus(service, ServiceConditions.WITH_DEMAND)
     
@@ -550,9 +603,6 @@ class Signal(Identifiable, Tickable):
                 for signal in group:
                     if (signal.type & SignalType.VEHICLE and not
                     signal.movement & TrafficMovement.PROTECTED_TURN):
-                        # if not signal.active:
-                        #     signal.recall()
-                        
                         signal.leading_signals.append(self)
                         lagging_signals.append(signal)
         
@@ -712,8 +762,16 @@ class Ring(Identifiable):
         return None
     
     @property
+    def active_phases(self):
+        return [p for p in self.phases if p.active_signals]
+    
+    @property
     def waiting_phases(self):
         return [p for p in self.phases if p.demand and not p.active_signals]
+    
+    @property
+    def signals(self):
+        return list(chain(*[p.signals for p in self.phases]))
     
     @property
     def demand(self):
@@ -757,6 +815,10 @@ class Barrier(Identifiable):
         return [p for p in self.phases if p.demand and not p.active_signals]
     
     @property
+    def signals(self):
+        return list(chain(*[p.signals for p in self.phases]))
+    
+    @property
     def demand(self):
         return any([p.demand for p in self.phases])
     
@@ -788,6 +850,28 @@ class IntersectionService(Tickable):
         return [p for p in self.phases if p.demand and not p.active_signals]
     
     @property
+    def phases_serviced(self):
+        serviced = []
+        
+        for signal in self.signals_serviced:
+            phase = self.get_phase_by_signal(signal)
+            if phase not in serviced:
+                serviced.append(phase)
+        
+        return serviced
+    
+    @property
+    def phases_recycled(self):
+        recycled = []
+        
+        for signal in self.signals_recycled:
+            phase = self.get_phase_by_signal(signal)
+            if phase not in recycled:
+                recycled.append(phase)
+        
+        return recycled
+    
+    @property
     def active_barrier(self):
         if len(self.cycle_barriers):
             return self.cycle_barriers[-1]
@@ -795,7 +879,7 @@ class IntersectionService(Tickable):
             return None
     
     @property
-    def signals(self):
+    def signals(self) -> List[Signal]:
         return list(chain(*[p.signals for p in self.phases]))
     
     @property
@@ -814,20 +898,35 @@ class IntersectionService(Tickable):
     def cycle_count(self):
         return self._cycle_count
     
+    @property
+    def fya_enabled(self):
+        return self._fya_enabled
+    
+    @fya_enabled.setter
+    def fya_enabled(self, value):
+        if value != self._fya_enabled:
+            logger.verbose('fya_enabled = {}', value)
+            self._fya_enabled = value
+    
     def __init__(self,
                  rings: List[Ring],
                  barriers: List[Barrier],
-                 mode: PhaseCyclerMode):
+                 mode: PhaseCyclerMode,
+                 fya_enabled: bool = False):
         super().__init__()
         self.rings = rings
         self.barriers = barriers
+        
+        self.signals_serviced: List[Signal] = []
+        self.signals_recycled: List[Signal] = []
+        
         self.cycle_barriers: List[Barrier] = []
-        self.cycle_serviced: List[Phase] = []
-        self.cycle_recycled: List[Phase] = []
+        self.cycle_timer = Timer()
         
         self._mode = PhaseCyclerMode.PAUSE
         self._cycle_count: int = 0
         self._signal_tasks: List[asyncio.Task] = []
+        self._fya_enabled = fya_enabled
         
         # sequential mode only
         self._phase_sequence = utils.cycle(self.phases)
@@ -853,85 +952,11 @@ class IntersectionService(Tickable):
                 return barrier
         return None
     
-    def tick(self, context: Context):
+    def get_phase_by_signal(self, signal: Signal) -> Optional[Phase]:
         for phase in self.phases:
-            if phase.demand:
-                for signal in phase.default_signals:
-                    if not signal.demand and not signal.active:
-                        signal.demand = True
-                
-                barrier = self.get_barrier_by_phase(phase)
-                
-                if barrier:
-                    for barrier_phase in barrier.phases:
-                        if barrier_phase == phase:
-                            continue
-                        if barrier_phase.demand:
-                            break
-                    else:
-                        for other_phase in phase.default_phases:
-                            if (not other_phase.demand and
-                                not other_phase.active_signals and
-                                other_phase not in self.cycle_serviced):
-                                if other_phase.default_signals:
-                                    for default_signal in other_phase.default_signals:
-                                        default_signal.demand = True
-                                else:
-                                    other_phase.demand = True
-            
-            ring = self.get_ring_by_phase(phase)
-            
-            for waiting_phase in self.waiting_phases:
-                if self.active_barrier:
-                    if waiting_phase not in self.active_barrier.phases:
-                        phase.conflicting_demand = True
-                        break
-                if ring and waiting_phase in ring.phases:
-                    phase.conflicting_demand = True
-                    break
-            else:
-                phase.conflicting_demand = False
-                
-                if phase.inactive_signals and self.active_barrier:
-                    if all([s.resting and not s.leading_signals for s in phase.active_signals]):
-                        selected_phases = self.select_phases()
-                        if phase in selected_phases:
-                            for signal in phase.inactive_signals:
-                                status = signal.get_service_status(group=phase.active_signals)
-                                if status.service:
-                                    self._signal_tasks.append(asyncio.create_task(signal.serve(group=phase.active_signals)))
-        
-        if self.active_barrier and 0 < len(self.active_phases) < len(self.rings):
-            if set(self.active_phases + self.waiting_phases).issubset(self.active_barrier.phases):
-                active_resting = any([p.resting for p in self.active_phases])
-                active_remaining = max([p.runtime_remaining for p in self.active_phases])
-                
-                for phase in self.waiting_phases:
-                    if phase in self.cycle_serviced:
-                        if not phase.demand:
-                            continue
-                        
-                        if self.recycle_phase(phase):
-                            if active_resting:
-                                logger.debug('removed {} from cycled phases list',
-                                             phase.get_tag())
-                            if phase.runtime_maximum <= active_remaining:
-                                logger.debug('removed {} from cycled phases list ({}s <= {}s)',
-                                             phase.get_tag(),
-                                             phase.runtime_maximum,
-                                             active_remaining)
-            
-            selected_phases = self.select_phases()
-            if selected_phases:
-                signals = self.select_signals(*selected_phases)
-                
-                if signals:
-                    for signal in signals:
-                        self._signal_tasks.append(
-                            asyncio.create_task(signal.serve(group=signals))
-                        )
-        
-        super().tick(context)
+            if signal in phase.signals:
+                return phase
+        return None
     
     def set_mode(self, mode: PhaseCyclerMode):
         if mode == self.mode:
@@ -939,8 +964,8 @@ class IntersectionService(Tickable):
         
         match self.mode:
             case PhaseCyclerMode.SEQUENTIAL:
-                self.cycle_serviced.clear()
-                self.cycle_recycled.clear()
+                self.signals_serviced.clear()
+                self.signals_recycled.clear()
                 self.cycle_barriers.clear()
                 
                 if self.active_phases:
@@ -982,16 +1007,18 @@ class IntersectionService(Tickable):
         
         phases: List[Phase]
         for phase in phases:
-            self.cycle_serviced.append(phase)
             signals = phase.get_serviceable_signals()
+            self.signals_serviced.extend(signals)
             signal_group.extend(signals)
         
         return signal_group
     
     def recycle_phase(self, phase: Phase) -> bool:
-        if phase in self.cycle_serviced and phase not in self.cycle_recycled:
-            self.cycle_recycled.append(phase)
-            self.cycle_serviced.remove(phase)
+        if phase in self.phases_serviced and phase not in self.phases_recycled:
+            for signal in phase.signals:
+                self.signals_serviced.remove(signal)
+                if signal in self.signals_recycled:
+                    self.signals_recycled.remove(signal)
             return True
         else:
             return False
@@ -1006,7 +1033,7 @@ class IntersectionService(Tickable):
                 continue
             
             common_phases = ring.intersection(self.active_barrier)
-            new_phases = sorted(common_phases - set(self.cycle_serviced))
+            new_phases = sorted(common_phases - set(self.phases_serviced))
             
             for phase in new_phases:
                 if phase.demand:
@@ -1057,18 +1084,139 @@ class IntersectionService(Tickable):
         else:
             return False
     
+    async def _wait_for_signals(self):
+        done, pending = await asyncio.wait(self._signal_tasks,
+                                           return_when=asyncio.FIRST_COMPLETED)
+        while pending:
+            await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
+            done, pending = await asyncio.wait(self._signal_tasks,
+                                               return_when=asyncio.FIRST_COMPLETED)
+        
+        self._signal_tasks.clear()
+        assert not self.active_phases
+    
+    def tick(self, context: Context):
+        for phase in self.phases:
+            if phase.demand:
+                for signal in phase.default_signals:
+                    if not signal.demand and not signal.active:
+                        signal.demand = True
+                
+                barrier = self.get_barrier_by_phase(phase)
+                
+                if barrier:
+                    for barrier_phase in barrier.phases:
+                        if barrier_phase == phase:
+                            continue
+                        if barrier_phase.demand:
+                            break
+                    else:
+                        for other_phase in phase.default_phases:
+                            if (not other_phase.demand and
+                                not other_phase.active_signals and
+                                other_phase not in self.phases_serviced):
+                                if other_phase.default_signals:
+                                    for default_signal in other_phase.default_signals:
+                                        default_signal.demand = True
+                                else:
+                                    other_phase.demand = True
+            
+            ring = self.get_ring_by_phase(phase)
+            
+            for waiting_phase in self.waiting_phases:
+                if self.active_barrier:
+                    if waiting_phase not in self.active_barrier.phases:
+                        phase.conflicting_demand = True
+                        break
+                if ring and waiting_phase in ring.phases:
+                    phase.conflicting_demand = True
+                    break
+            else:
+                phase.conflicting_demand = False
+                
+                if phase.inactive_signals and self.active_barrier:
+                    if all([s.resting and not s.leading_signals for s in phase.active_signals]):
+                        selected_phases = self.select_phases()
+                        if phase in selected_phases:
+                            for signal in phase.inactive_signals:
+                                status = signal.get_service_status(group=phase.active_signals)
+                                if status.service:
+                                    self._signal_tasks.append(asyncio.create_task(signal.serve(group=phase.active_signals)))
+        
+        if self.active_barrier and 0 < len(self.active_phases) < len(self.rings):
+            if set(self.active_phases + self.waiting_phases).issubset(self.active_barrier.phases):
+                active_resting = any([p.resting for p in self.active_phases])
+                active_remaining = max([p.runtime_remaining for p in self.active_phases])
+                
+                for phase in self.waiting_phases:
+                    if phase in self.phases_serviced:
+                        if not phase.demand:
+                            continue
+                        
+                        if self.recycle_phase(phase):
+                            if active_resting:
+                                logger.debug('removed {} from cycled phases list',
+                                             phase.get_tag())
+                            if phase.runtime_maximum <= active_remaining:
+                                logger.debug('removed {} from cycled phases list ({}s <= {}s)',
+                                             phase.get_tag(),
+                                             phase.runtime_maximum,
+                                             active_remaining)
+            
+            selected_phases = self.select_phases()
+            if selected_phases:
+                signals = self.select_signals(*selected_phases)
+                
+                if signals:
+                    for signal in signals:
+                        self._signal_tasks.append(
+                            asyncio.create_task(signal.serve(group=signals))
+                        )
+        
+        for ring in self.rings:
+            if len(ring.active_phases) > 1:
+                raise Conflict('{} has multiple phases active', ring.get_tag())
+        
+        for signal in self.signals:
+            if signal.active:
+                if self.active_barrier:
+                    if signal not in self.active_barrier.signals:
+                        raise Conflict('{} not in {}',
+                                       signal.get_tag(),
+                                       self.active_barrier.get_tag())
+            
+            if signal.fya_phase is not None:
+                signal.fya_enabled = self.fya_enabled
+                if not signal.active and signal.fya_enabled and signal.fya_phase:
+                    if signal.state != SignalState.FYA:
+                        if signal.revert_clear and signal.fya_phase.state in FYA_SIGNAL_STATES:
+                            for phase_signal in signal.fya_phase.signals:
+                                if phase_signal.type == SignalType.PEDESTRIAN:
+                                    if phase_signal.active or phase_signal in self.signals_serviced:
+                                        signal.demand = signal.presence
+                                        break
+                            else:
+                                signal.change(state=SignalState.FYA)
+        
+        self.cycle_timer.poll(context)
+        super().tick(context)
+    
     async def run(self):
         self.try_change_barrier(next(self._barrier_sequence))
         
         while True:
             await self.try_pause()
+            
+            for phase in self.phases:
+                phase.recall()
+            
             await self.try_idle()
             
             match self.mode:
                 case PhaseCyclerMode.SEQUENTIAL:
                     for _ in range(len(self.phases)):
                         phase = next(self._phase_sequence)
-                        if phase not in self.cycle_serviced and phase in self.waiting_phases:
+                        if phase not in self.phases_serviced and phase in self.waiting_phases:
                             signals = self.select_signals(phase)
                             
                             while not signals:
@@ -1078,7 +1226,7 @@ class IntersectionService(Tickable):
                             for signal in signals:
                                 self._signal_tasks.append(asyncio.create_task(signal.serve(group=signals)))
                             
-                            await asyncio.wait(self._signal_tasks)
+                            await self._wait_for_signals()
                     self._signal_tasks.clear()
                 case PhaseCyclerMode.CONCURRENT:
                     while True:
@@ -1096,25 +1244,22 @@ class IntersectionService(Tickable):
                                     asyncio.create_task(signal.serve(group=signals))
                                 )
                             
-                            done, pending = await asyncio.wait(self._signal_tasks,
-                                                               return_when=asyncio.FIRST_COMPLETED)
-                            while pending:
-                                await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
-                                done, pending = await asyncio.wait(self._signal_tasks,
-                                                                   return_when=asyncio.FIRST_COMPLETED)
+                            await self._wait_for_signals()
                         else:
                             if self.try_change_barrier(next(self._barrier_sequence)):
                                 break
                         
-                        self._signal_tasks.clear()
-                        
                         if self.active_barrier is None:
                             break
             
-            self.cycle_serviced.clear()
-            self.cycle_recycled.clear()
-            self._cycle_count += 1
-            logger.debug('cycle #{}', self._cycle_count)
+            if self.cycle_timer.value < 1.0:
+                raise RuntimeError('cycle completed too quickly')
+            else:
+                self.cycle_timer.value = 0.0
+                self.signals_serviced.clear()
+                self.signals_recycled.clear()
+                self._cycle_count += 1
+                logger.debug('cycle #{}', self._cycle_count)
 
 
 class Input(Identifiable):
@@ -1166,3 +1311,7 @@ class Input(Identifiable):
         return f'<Input {self.activation.name} {self.action.name} ' \
                f'{"ACTIVE" if self.state else "INACTIVE"}' \
                f'{" CHANGED" if self.changed else ""}>'
+
+
+class Conflict(Exception):
+    pass

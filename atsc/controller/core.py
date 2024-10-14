@@ -44,14 +44,19 @@ from atsc.controller.constants import (
 from atsc.controller.simulation import IntersectionSimulator
 
 
-def vehicle_signal_field_mapping(stop_field_id: int):
-    return {
+def vehicle_signal_field_mapping(stop_field_id: int, fya_output: Optional[int] = None):
+    rv = {
         SignalState.LS_FLASH: ref(FieldOutput, stop_field_id),
         SignalState.STOP    : ref(FieldOutput, stop_field_id),
         SignalState.CAUTION : ref(FieldOutput, stop_field_id + 1),
         SignalState.EXTEND  : ref(FieldOutput, stop_field_id + 2),
         SignalState.GO      : ref(FieldOutput, stop_field_id + 2)
     }
+    if fya_output:
+        rv.update({
+            SignalState.FYA : ref(FieldOutput, fya_output)
+        })
+    return rv
 
 
 def ped_signal_field_mapping(dont_walk_field_id: int):
@@ -99,13 +104,13 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.EXTEND  : IntervalTiming(2.5),
             SignalState.GO      : IntervalTiming(5.0, 20.0)
         }
-        self.interval_timing_vehicle_turn = {
+        self.interval_timing_vehicle_fya = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0, revert=2.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
             SignalState.GO      : IntervalTiming(5.0, 15.0),
-            SignalState.FYA     : IntervalTiming(4.0)
+            SignalState.FYA     : IntervalTiming(2.0)
         }
         self.interval_timing_ped1 = {
             SignalState.STOP   : IntervalTiming(0.0),
@@ -136,11 +141,12 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self.signals = [
             Signal(
                 501,
-                self.interval_timing_vehicle_turn,
+                self.interval_timing_vehicle_fya,
                 self.interval_config_vehicle,
-                vehicle_signal_field_mapping(101),
+                vehicle_signal_field_mapping(101, fya_output=126),
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PROTECTED_TURN
+                movement=TrafficMovement.PROTECTED_TURN,
+                fya_enabled=True
             ),
             Signal(
                 502,
@@ -153,11 +159,12 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 503,
-                self.interval_timing_vehicle_turn,
+                self.interval_timing_vehicle_fya,
                 self.interval_config_vehicle,
-                vehicle_signal_field_mapping(107),
+                vehicle_signal_field_mapping(107, fya_output=129),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
+                fya_enabled=True
             ),
             Signal(
                 504,
@@ -169,11 +176,12 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 505,
-                self.interval_timing_vehicle_turn,
+                self.interval_timing_vehicle_fya,
                 self.interval_config_vehicle,
-                vehicle_signal_field_mapping(113),
+                vehicle_signal_field_mapping(113, fya_output=132),
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PROTECTED_TURN
+                movement=TrafficMovement.PROTECTED_TURN,
+                fya_enabled=True
             ),
             Signal(
                 506,
@@ -186,11 +194,12 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             ),
             Signal(
                 507,
-                self.interval_timing_vehicle_turn,
+                self.interval_timing_vehicle_fya,
                 self.interval_config_vehicle,
-                vehicle_signal_field_mapping(119),
+                vehicle_signal_field_mapping(119, fya_output=135),
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PROTECTED_TURN
+                movement=TrafficMovement.PROTECTED_TURN,
+                fya_enabled=True
             ),
             Signal(
                 508,
@@ -251,6 +260,10 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         ]
         ref(Phase, 608).default_phases.append(ref(Phase, 604))
         ref(Phase, 604).default_phases.append(ref(Phase, 608))
+        ref(Signal, 501).fya_phase = ref(Phase, 602)
+        ref(Signal, 505).fya_phase = ref(Phase, 606)
+        ref(Signal, 503).fya_phase = ref(Phase, 604)
+        ref(Signal, 507).fya_phase = ref(Phase, 608)
         self.rings = [
             Ring(701, refs(Phase, 601, 602, 603, 604)),
             Ring(702, refs(Phase, 605, 606, 607, 608))
@@ -261,18 +274,19 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         ]
         self.cycler = IntersectionService(self.rings,
                                           self.barriers,
-                                          PhaseCyclerMode.CONCURRENT)
+                                          PhaseCyclerMode.CONCURRENT,
+                                          fya_enabled=True)
         
         self.tickables.append(self.cycler)
         self.routines.extend((
             self.test_rpc_calls(),
             self.cycler.run()
         ))
-        self.presence_simulation = True
+        self.presence_simulation = False
         self.simulator = IntersectionSimulator(self.signals)
         
-        for phase in self.phases:
-            phase.demand = True
+        # for phase in self.phases:
+        #     phase.demand = True
     
     async def test_rpc_calls(self):
         await self.get_metadata(rpc_controller.ControllerMetadataRequest())
@@ -369,6 +383,15 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         before = self.presence_simulation
         self.presence_simulation = request.enabled
         changed = self.presence_simulation != before
+        return controller.ControllerChangeVariableResult(True, changed)
+    
+    async def set_fya_enabled(
+        self,
+        request: controller.ControllerFyaEnabledRequest
+    ):
+        before = self.cycler.fya_enabled
+        self.cycler.fya_enabled = request.enabled
+        changed = self.cycler.fya_enabled != before
         return controller.ControllerChangeVariableResult(True, changed)
     
     async def get_field_output(

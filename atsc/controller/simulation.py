@@ -14,8 +14,10 @@
 import enum
 import random
 from typing import List
+
+from atsc.common.constants import EdgeType
 from atsc.common.structs import Context
-from atsc.common.primitives import Timer, Identifiable
+from atsc.common.primitives import Timer, Identifiable, EdgeTrigger
 from atsc.controller.models import Signal
 from atsc.controller.constants import SignalType, SignalState
 
@@ -52,8 +54,8 @@ class ApproachSimulator(Identifiable):
         return self.timer.value
     
     @property
-    def is_left_turn(self):
-        return self.signal.id % 2
+    def is_thru(self):
+        return not self.signal.id % 2
     
     @property
     def is_arterial(self):
@@ -68,10 +70,11 @@ class ApproachSimulator(Identifiable):
         self.rng = rng
         self.signal = signal
         self.enabled = enabled
-        self.turn_on_red = False
+        self.permissive_turn = False
         self.state = ApproachState.IDLE
         self.trigger = self.get_idle_time(first=True)
         self.timer = Timer()
+        self._presence_edge = EdgeTrigger()
     
     def random_range_biased(self, start: int, end: int, bias: float):
         return random_range_biased(start, end, bias, rng=self.rng)
@@ -81,10 +84,10 @@ class ApproachSimulator(Identifiable):
         match self.signal.type:
             case SignalType.VEHICLE:
                 if self.is_arterial:
-                    bias = 0.9 if self.is_left_turn else 0.1
+                    bias = 0.1 if self.is_thru else 0.9
                     return self.random_range_biased(min_idle, 60, bias)
                 else:
-                    bias = 0.9 if self.is_left_turn else 0.5
+                    bias = 0.5 if self.is_thru else 0.9
                     return self.random_range_biased(min_idle, 300, bias)
             case SignalType.PEDESTRIAN:
                 bias = 0.5 if self.is_arterial else 0.9
@@ -112,11 +115,11 @@ class ApproachSimulator(Identifiable):
         
         match self.state:
             case ApproachState.IDLE:
-                match self.signal.type:
-                    case SignalType.VEHICLE:
-                        self.turn_on_red = round(self.rng.random()) if not self.is_left_turn else False
-                    case _:
-                        self.turn_on_red = False
+                if self.signal.type == SignalType.VEHICLE:
+                    if self.signal.fya_enabled or self.is_thru:
+                        self.permissive_turn = round(self.rng.random())
+                else:
+                    self.permissive_turn = False
                 
                 self.state = ApproachState.PRESENCE
                 self.trigger = self.get_presence_time(after_idle=True)
@@ -143,7 +146,7 @@ class ApproachSimulator(Identifiable):
             match self.signal.type:
                 case SignalType.VEHICLE:
                     if not self.signal.active and self.state == ApproachState.PRESENCE:
-                        if self.turn_on_red:
+                        if self.permissive_turn:
                             self.trigger = self.random_range_biased(4, 15, 0.6)
                         else:
                             self.timer.value = 0.0
@@ -154,7 +157,12 @@ class ApproachSimulator(Identifiable):
             if self.timer.poll(context, self.trigger):
                 self.change()
             
-            self.signal.presence = self.state == ApproachState.PRESENCE
+            edge = self._presence_edge.poll(self.state == ApproachState.PRESENCE)
+            match edge:
+                case EdgeType.RISING:
+                    self.signal.presence = True
+                case EdgeType.FALLING:
+                    self.signal.presence = False
     
     def __repr__(self):
         return f'<ApproachSimulator {self.state.name} {self.elapsed:.1f} of {self.trigger:.1f}>'

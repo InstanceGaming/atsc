@@ -173,6 +173,11 @@ class ControllerPresenceSimulationRequest(betterproto.Message):
     enabled: bool = betterproto.bool_field(1)
 
 
+@dataclass(eq=False, repr=False)
+class ControllerFyaEnabledRequest(betterproto.Message):
+    enabled: bool = betterproto.bool_field(1)
+
+
 class ControllerStub(betterproto.ServiceStub):
     async def test_connection(
         self,
@@ -270,6 +275,23 @@ class ControllerStub(betterproto.ServiceStub):
         return await self._unary_unary(
             "/atsc.rpc.controller.Controller/set_presence_simulation",
             controller_presence_simulation_request,
+            ControllerChangeVariableResult,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def set_fya_enabled(
+        self,
+        controller_fya_enabled_request: "ControllerFyaEnabledRequest",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "ControllerChangeVariableResult":
+        return await self._unary_unary(
+            "/atsc.rpc.controller.Controller/set_fya_enabled",
+            controller_fya_enabled_request,
             ControllerChangeVariableResult,
             timeout=timeout,
             deadline=deadline,
@@ -463,6 +485,11 @@ class ControllerBase(ServiceBase):
     ) -> "ControllerChangeVariableResult":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def set_fya_enabled(
+        self, controller_fya_enabled_request: "ControllerFyaEnabledRequest"
+    ) -> "ControllerChangeVariableResult":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def get_field_output(
         self,
         controller_identifiable_object_request: "ControllerIdentifiableObjectRequest",
@@ -557,6 +584,14 @@ class ControllerBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.set_presence_simulation(request)
+        await stream.send_message(response)
+
+    async def __rpc_set_fya_enabled(
+        self,
+        stream: "grpclib.server.Stream[ControllerFyaEnabledRequest, ControllerChangeVariableResult]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.set_fya_enabled(request)
         await stream.send_message(response)
 
     async def __rpc_get_field_output(
@@ -667,6 +702,12 @@ class ControllerBase(ServiceBase):
                 self.__rpc_set_presence_simulation,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 ControllerPresenceSimulationRequest,
+                ControllerChangeVariableResult,
+            ),
+            "/atsc.rpc.controller.Controller/set_fya_enabled": grpclib.const.Handler(
+                self.__rpc_set_fya_enabled,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                ControllerFyaEnabledRequest,
                 ControllerChangeVariableResult,
             ),
             "/atsc.rpc.controller.Controller/get_field_output": grpclib.const.Handler(
