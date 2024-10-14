@@ -158,6 +158,7 @@ class SignalWidget(Widget):
         self.service_time = SignalTimeWidget()
         self.demand = SignalDemandWidget()
         self.presence = SignalPresenceWidget()
+        self.presence_time = SignalTimeWidget()
     
     def compose(self) -> ComposeResult:
         yield self.title
@@ -166,6 +167,7 @@ class SignalWidget(Widget):
         yield self.service_time
         yield self.demand
         yield self.presence
+        yield self.presence_time
         
         for field_output in self.field_outputs:
             yield field_output

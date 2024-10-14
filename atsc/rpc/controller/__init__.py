@@ -142,6 +142,12 @@ class ControllerSignalDemandRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class ControllerSignalPresenceRequest(betterproto.Message):
+    id: int = betterproto.uint32_field(1)
+    presence: bool = betterproto.bool_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class ControllerPhaseReply(betterproto.Message):
     phase: "_phase__.Phase" = betterproto.message_field(1)
 
@@ -355,6 +361,23 @@ class ControllerStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def set_signal_presence(
+        self,
+        controller_signal_presence_request: "ControllerSignalPresenceRequest",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "ControllerChangeVariableResult":
+        return await self._unary_unary(
+            "/atsc.rpc.controller.Controller/set_signal_presence",
+            controller_signal_presence_request,
+            ControllerChangeVariableResult,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def get_phase(
         self,
         controller_identifiable_object_request: "ControllerIdentifiableObjectRequest",
@@ -467,6 +490,11 @@ class ControllerBase(ServiceBase):
     ) -> "ControllerChangeVariableResult":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def set_signal_presence(
+        self, controller_signal_presence_request: "ControllerSignalPresenceRequest"
+    ) -> "ControllerChangeVariableResult":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def get_phase(
         self,
         controller_identifiable_object_request: "ControllerIdentifiableObjectRequest",
@@ -571,6 +599,14 @@ class ControllerBase(ServiceBase):
         response = await self.set_signal_demand(request)
         await stream.send_message(response)
 
+    async def __rpc_set_signal_presence(
+        self,
+        stream: "grpclib.server.Stream[ControllerSignalPresenceRequest, ControllerChangeVariableResult]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.set_signal_presence(request)
+        await stream.send_message(response)
+
     async def __rpc_get_phase(
         self,
         stream: "grpclib.server.Stream[ControllerIdentifiableObjectRequest, ControllerPhaseReply]",
@@ -661,6 +697,12 @@ class ControllerBase(ServiceBase):
                 self.__rpc_set_signal_demand,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 ControllerSignalDemandRequest,
+                ControllerChangeVariableResult,
+            ),
+            "/atsc.rpc.controller.Controller/set_signal_presence": grpclib.const.Handler(
+                self.__rpc_set_signal_presence,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                ControllerSignalPresenceRequest,
                 ControllerChangeVariableResult,
             ),
             "/atsc.rpc.controller.Controller/get_phase": grpclib.const.Handler(

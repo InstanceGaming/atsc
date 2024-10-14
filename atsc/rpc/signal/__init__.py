@@ -49,4 +49,5 @@ class Signal(betterproto.Message):
     demand: bool = betterproto.bool_field(13)
     interval_time: float = betterproto.float_field(20)
     service_time: float = betterproto.float_field(21)
+    presence_time: float = betterproto.float_field(22)
     state: "SignalState" = betterproto.enum_field(30)

@@ -199,6 +199,7 @@ class TUI(App[int]):
             signal.service_time.elapsed = data.service_time
             signal.demand.demand = data.demand
             signal.presence.presence = data.presence
+            signal.presence_time.elapsed = data.presence_time
     
     async def on_rpc_connection_success(self, message: RpcConnectionSuccess):
         self.rpc_connected = True

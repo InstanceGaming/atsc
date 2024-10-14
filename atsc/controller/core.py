@@ -29,7 +29,7 @@ from atsc.controller.models import (
     Signal,
     Barrier,
     FieldOutput,
-    PhaseCycler,
+    IntersectionService,
     IntervalConfig,
     IntervalTiming
 )
@@ -39,7 +39,7 @@ from atsc.controller.constants import (
     SignalState,
     PhaseCyclerMode,
     ServiceModifiers,
-    ServiceConditions, TrafficMovement
+    TrafficMovement
 )
 from atsc.controller.simulation import IntersectionSimulator
 
@@ -123,10 +123,14 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.GO      : IntervalConfig(rest=True),
             SignalState.FYA     : IntervalConfig(flashing=True, rest=True)
         }
-        self.interval_config_ped = {
+        self.interval_config_ped1 = {
+            SignalState.STOP   : IntervalConfig(rest=True),
+            SignalState.CAUTION: IntervalConfig(flashing=True),
+            SignalState.GO     : IntervalConfig(rest=True)
+        }
+        self.interval_config_ped2 = {
             SignalState.STOP    : IntervalConfig(rest=True),
-            SignalState.CAUTION : IntervalConfig(flashing=True),
-            SignalState.GO      : IntervalConfig(rest=False)
+            SignalState.CAUTION : IntervalConfig(flashing=True)
         }
         self.field_outputs = [FieldOutput(100 + i) for i in range(1, 97)]
         self.signals = [
@@ -145,8 +149,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(104),
                 recall=RecallMode.MINIMUM,
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN,
-                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
+                movement=TrafficMovement.PERMISSIVE_TURN
             ),
             Signal(
                 503,
@@ -162,8 +165,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(110),
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN,
-                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
+                movement=TrafficMovement.PERMISSIVE_TURN
             ),
             Signal(
                 505,
@@ -180,8 +182,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(116),
                 recall=RecallMode.MINIMUM,
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN,
-                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
+                movement=TrafficMovement.PERMISSIVE_TURN
             ),
             Signal(
                 507,
@@ -197,13 +198,12 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(122),
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN,
-                service_conditions=ServiceConditions.WITH_DEMAND | ServiceConditions.WITH_PEDESTRIAN
+                movement=TrafficMovement.PERMISSIVE_TURN
             ),
             Signal(
                 509,
                 self.interval_timing_ped1,
-                self.interval_config_ped,
+                self.interval_config_ped1,
                 ped_signal_field_mapping(125),
                 recycle=True,
                 latch=True,
@@ -213,7 +213,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 510,
                 self.interval_timing_ped2,
-                self.interval_config_ped,
+                self.interval_config_ped2,
                 ped_signal_field_mapping(128),
                 latch=True,
                 type=SignalType.PEDESTRIAN,
@@ -222,7 +222,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 511,
                 self.interval_timing_ped1,
-                self.interval_config_ped,
+                self.interval_config_ped1,
                 ped_signal_field_mapping(131),
                 recycle=True,
                 latch=True,
@@ -232,7 +232,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 512,
                 self.interval_timing_ped2,
-                self.interval_config_ped,
+                self.interval_config_ped2,
                 ped_signal_field_mapping(134),
                 latch=True,
                 type=SignalType.PEDESTRIAN,
@@ -241,14 +241,16 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         ]
         self.phases = [
             Phase(601, refs(Signal, 501)),
-            Phase(602, refs(Signal, 502, 509)),
+            Phase(602, refs(Signal, 502, 509), default_signals=refs(Signal, 502)),
             Phase(603, refs(Signal, 503)),
-            Phase(604, refs(Signal, 504, 510)),
+            Phase(604, refs(Signal, 504, 510), default_signals=refs(Signal, 504)),
             Phase(605, refs(Signal, 505)),
-            Phase(606, refs(Signal, 506, 511)),
+            Phase(606, refs(Signal, 506, 511), default_signals=refs(Signal, 506)),
             Phase(607, refs(Signal, 507)),
-            Phase(608, refs(Signal, 508, 512))
+            Phase(608, refs(Signal, 508, 512), default_signals=refs(Signal, 508))
         ]
+        ref(Phase, 608).default_phases.append(ref(Phase, 604))
+        ref(Phase, 604).default_phases.append(ref(Phase, 608))
         self.rings = [
             Ring(701, refs(Phase, 601, 602, 603, 604)),
             Ring(702, refs(Phase, 605, 606, 607, 608))
@@ -257,20 +259,20 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Barrier(801, refs(Phase, 601, 602, 605, 606)),
             Barrier(802, refs(Phase, 603, 604, 607, 608))
         ]
-        self.cycler = PhaseCycler(self.rings,
-                                  self.barriers,
-                                  PhaseCyclerMode.CONCURRENT)
+        self.cycler = IntersectionService(self.rings,
+                                          self.barriers,
+                                          PhaseCyclerMode.CONCURRENT)
         
         self.tickables.append(self.cycler)
         self.routines.extend((
             self.test_rpc_calls(),
             self.cycler.run()
         ))
-        self.presence_simulation = False
+        self.presence_simulation = True
         self.simulator = IntersectionSimulator(self.signals)
         
-        # for phase in self.phases:
-        #     phase.demand = True
+        for phase in self.phases:
+            phase.demand = True
     
     async def test_rpc_calls(self):
         await self.get_metadata(rpc_controller.ControllerMetadataRequest())
@@ -422,6 +424,21 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 before = signal.demand
                 signal.demand = request.demand
                 changed = signal.demand != before
+                success = True
+                break
+        return controller.ControllerChangeVariableResult(success, changed)
+    
+    async def set_signal_presence(
+        self,
+        request: controller.ControllerSignalPresenceRequest
+    ):
+        success = False
+        changed = False
+        for signal in self.signals:
+            if signal.id == request.id:
+                before = signal.presence
+                signal.presence = request.presence
+                changed = signal.presence != before
                 success = True
                 break
         return controller.ControllerChangeVariableResult(success, changed)

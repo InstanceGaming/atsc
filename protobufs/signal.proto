@@ -59,6 +59,7 @@ message Signal {
 
   float interval_time = 20;
   float service_time = 21;
+  float presence_time = 22;
 
   SignalState state = 30;
 }

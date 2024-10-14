@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from enum import IntEnum
+from enum import IntEnum, Enum, auto
 from jacob.logging import CustomLevel
 
 
@@ -50,3 +50,8 @@ class ExitCode(IntEnum):
     PID_EXISTS = 6
     PID_REMOVE_FAIL = 7
     RPC_BIND_FAILED = 8
+
+
+class EdgeType(Enum):
+    RISING = auto()
+    FALLING = auto()

@@ -14,7 +14,7 @@
 from typing import Dict, List, Self, Type, TypeVar, Optional
 from asyncio import Event
 from atsc.common.structs import Context
-from atsc.common.constants import FLOAT_PRECISION_TIME
+from atsc.common.constants import FLOAT_PRECISION_TIME, EdgeType
 from jacob.datetime.timing import millis
 
 
@@ -108,38 +108,32 @@ class Tickable:
 
 
 class EdgeTrigger:
-
-    @property
-    def triggered(self):
-        return self._triggered
     
-    def __init__(self, polarity: bool):
+    def __init__(self, polarity: Optional[bool] = None):
         """
         Pulse when a logic signal has changed from one state to another.
 
-        :param polarity: True for rising-edge, False for falling-edge.
+        :param polarity: True for rising-edge, False for falling-edge, None for either.
         """
         super().__init__()
         self._polarity = polarity
         self._previous = polarity
-        self._triggered = False
     
-    def poll(self, signal: bool) -> bool:
+    def poll(self, signal: bool) -> Optional[EdgeType]:
         """
         Check the signal state against the previous.
 
         :param signal: Logic signal to monitor for edge changes.
-        :return: True only if the edge has changed this poll.
+        :return: None if no change, EdgeType if changed.
         """
-        if (self._polarity and (not self._previous and signal) or
-            not self._polarity and (self._previous and not signal)):
-            
-            self._triggered = True
-        else:
-            self._triggered = False
+        edge = None
+        if (self._polarity is None or self._polarity) and (not self._previous and signal):
+            edge = EdgeType.RISING
+        elif (self._polarity is None or not self._polarity) and (self._previous and not signal):
+            edge = EdgeType.FALLING
         
         self._previous = signal
-        return self._triggered
+        return edge
 
 
 class Timer:

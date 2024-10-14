@@ -108,6 +108,11 @@ message ControllerSignalDemandRequest {
   bool demand = 2;
 }
 
+message ControllerSignalPresenceRequest {
+  uint32 id = 1;
+  bool presence = 2;
+}
+
 message ControllerPhaseReply {
   atsc.rpc.phase.Phase phase = 1;
 }
@@ -142,6 +147,7 @@ service Controller {
   rpc get_signal(ControllerIdentifiableObjectRequest) returns (ControllerSignalReply) {}
   rpc get_signals(ControllerSignalsRequest) returns (ControllerSignalsReply) {}
   rpc set_signal_demand(ControllerSignalDemandRequest) returns (ControllerChangeVariableResult) {}
+  rpc set_signal_presence(ControllerSignalPresenceRequest) returns (ControllerChangeVariableResult) {}
 
   rpc get_phase(ControllerIdentifiableObjectRequest) returns (ControllerPhaseReply) {}
   rpc get_phases(ControllerPhasesRequest) returns (ControllerPhasesReply) {}
