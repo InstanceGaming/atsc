@@ -4,14 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="phase and signal recycle logic, rpc presence, presence timer">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="fya draft">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc.service" beforeDir="false" afterPath="$PROJECT_DIR$/atsc.service" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/protobufs/controller.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/controller.proto" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -215,14 +212,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00002" summary="re-ignore .idea folder">
-      <option name="closed" value="true" />
-      <created>1713741121893</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1713741121893</updated>
     </task>
     <task id="LOCAL-00003" summary="update timing, cet delay calc, phase timing validation deductions">
       <option name="closed" value="true" />
@@ -608,7 +597,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728864928720</updated>
     </task>
-    <option name="localTasksCounter" value="51" />
+    <task id="LOCAL-00051" summary="fya draft">
+      <option name="closed" value="true" />
+      <created>1728912822293</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1728912822293</updated>
+    </task>
+    <option name="localTasksCounter" value="52" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -635,7 +632,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="tui controller topbar and styling" />
     <MESSAGE value="rpc endpoints, bug fixes, refactoring, tui layout" />
     <MESSAGE value="tui styling" />
     <MESSAGE value="service time maximum threshold fix" />
@@ -660,6 +656,7 @@
     <MESSAGE value="signal service tasks pulled up to cycler" />
     <MESSAGE value="signal recycling, field output bug fix" />
     <MESSAGE value="phase and signal recycle logic, rpc presence, presence timer" />
-    <option name="LAST_COMMIT_MESSAGE" value="phase and signal recycle logic, rpc presence, presence timer" />
+    <MESSAGE value="fya draft" />
+    <option name="LAST_COMMIT_MESSAGE" value="fya draft" />
   </component>
 </project>

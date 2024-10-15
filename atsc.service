@@ -8,13 +8,13 @@ WorkingDirectory=%h/atsc-async/
 ExecStart=/bin/sh %h/atsc-async/start.sh
 ExecStop=/bin/sh %h/atsc-async/stop.sh
 
-Restart=always
-RestartSec=16
-TimeoutSec=4
-SuccessExitStatus=0
+Restart=on-success
+RestartSec=1
+TimeoutStartSec=15
+TimeoutStopSec=5
 
-MemoryMax=100M
-CPUQuota=80%
+MemoryMax=64M
+CPUQuota=50%
 
 [Install]
 WantedBy=default.target
