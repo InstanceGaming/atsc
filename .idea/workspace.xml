@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="fya draft">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="fya and timer logic fixes, rpc fya toggle">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc.service" beforeDir="false" afterPath="$PROJECT_DIR$/atsc.service" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -212,22 +210,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00003" summary="update timing, cet delay calc, phase timing validation deductions">
-      <option name="closed" value="true" />
-      <created>1713743223030</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1713743223030</updated>
-    </task>
-    <task id="LOCAL-00004" summary="correct phase go time deduction">
-      <option name="closed" value="true" />
-      <created>1713745359616</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1713745359616</updated>
     </task>
     <task id="LOCAL-00005" summary="enforce sequential phase serve order">
       <option name="closed" value="true" />
@@ -605,7 +587,23 @@
       <option name="project" value="LOCAL" />
       <updated>1728912822293</updated>
     </task>
-    <option name="localTasksCounter" value="52" />
+    <task id="LOCAL-00052" summary="pyproject.toml fix, service config">
+      <option name="closed" value="true" />
+      <created>1728950553007</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1728950553008</updated>
+    </task>
+    <task id="LOCAL-00053" summary="fya and timer logic fixes, rpc fya toggle">
+      <option name="closed" value="true" />
+      <created>1729144626430</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1729144626430</updated>
+    </task>
+    <option name="localTasksCounter" value="54" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -632,8 +630,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="rpc endpoints, bug fixes, refactoring, tui layout" />
-    <MESSAGE value="tui styling" />
     <MESSAGE value="service time maximum threshold fix" />
     <MESSAGE value="service conditions, service modifiers" />
     <MESSAGE value="tui field outputs, rpc metadata, comments" />
@@ -657,6 +653,8 @@
     <MESSAGE value="signal recycling, field output bug fix" />
     <MESSAGE value="phase and signal recycle logic, rpc presence, presence timer" />
     <MESSAGE value="fya draft" />
-    <option name="LAST_COMMIT_MESSAGE" value="fya draft" />
+    <MESSAGE value="pyproject.toml fix, service config" />
+    <MESSAGE value="fya and timer logic fixes, rpc fya toggle" />
+    <option name="LAST_COMMIT_MESSAGE" value="fya and timer logic fixes, rpc fya toggle" />
   </component>
 </project>

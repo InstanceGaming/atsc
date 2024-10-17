@@ -19,59 +19,77 @@ PHASE_SERVICE_POLL_RATE = 0.1
 
 
 class FieldOutputState(IntEnum):
-    OFF = 0
-    ON = 1
-    FLASHING = 2
-    INHERIT = 3
+    OFF                 = 0
+    ON                  = 1
+    FLASHING            = 2
+    INHERIT             = 3
     
 
 class SignalType(IntEnum):
-    GENERIC         = 0
-    VEHICLE         = 1
-    PEDESTRIAN      = 2
+    GENERIC             = 0
+    VEHICLE             = 1
+    PEDESTRIAN          = 2
     
     
 class TrafficMovement(IntEnum):
-    THRU            = 0
-    PROTECTED_TURN  = 1
-    PERMISSIVE_TURN = 2
+    THRU                = 0
+    PROTECTED_TURN      = 1
+    PERMISSIVE_TURN     = 2
 
 
 class SignalState(IntEnum):
-    DARK            = 0
-    STOP            = 1
-    CAUTION         = 2
-    EXTEND          = 3
-    GO              = 4
-    FYA             = 5
-    LS_FLASH        = 6
+    DARK                = 0
+    STOP                = 1
+    CAUTION             = 2
+    EXTEND              = 3
+    GO                  = 4
+    FYA                 = 5
+    LS_FLASH            = 6
 
 
-FYA_SIGNAL_STATES = (SignalState.GO, SignalState.EXTEND)
+FYA_SIGNAL_ACTIVATION_STATES = [SignalState.GO]
+FYA_SIGNAL_DEACTIVATION_STATES = [SignalState.CAUTION, SignalState.STOP]
+
+
+class FYAState(IntFlag):
+    INACTIVE            = 0
+    ACTIVE              = 1
+    TERMINATING         = 2
+    SERVICE             = 4
+    CONTINUE            = 8
+
+
+class ExtendMode(IntEnum):
+    OFF                 = 0
+    MINIMUM_SKIP        = 1
+    MAXIMUM_SKIP        = 2
 
 
 class RecallMode(IntEnum):
-    OFF = 0
-    MINIMUM = 1
-    MAXIMUM = 2
+    OFF                 = 0
+    MINIMUM             = 1
+    MAXIMUM             = 2
 
 
 class ServiceConditions(IntFlag):
-    UNSET               = 0b00000000
-    WITH_DEMAND         = 0b00000001
-    WITH_VEHICLE        = 0b00000010
-    WITH_ANY            = 0b00000100
+    UNSET               = 0
+    WITH_DEMAND         = 1
+    WITH_VEHICLE        = 2
+    WITH_ANY            = 4
+    LEADING_ONLY        = 8
+    LAGGING_ONLY        = 16
+    NEVER               = 32
 
 
 class ServiceModifiers(IntFlag):
-    UNSET               = 0b00000000
-    BEFORE_VEHICLE      = 0b00000001
+    UNSET               = 0
+    BEFORE_VEHICLE      = 1
 
 
 class PhaseCyclerMode(IntEnum):
-    PAUSE = 0
-    SEQUENTIAL = 1
-    CONCURRENT = 2
+    PAUSE               = 0
+    SEQUENTIAL          = 1
+    CONCURRENT          = 2
 
 
 class CallSource(Enum):

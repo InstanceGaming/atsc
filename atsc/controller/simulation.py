@@ -70,7 +70,6 @@ class ApproachSimulator(Identifiable):
         self.rng = rng
         self.signal = signal
         self.enabled = enabled
-        self.permissive_turn = False
         self.state = ApproachState.IDLE
         self.trigger = self.get_idle_time(first=True)
         self.timer = Timer()
@@ -115,12 +114,6 @@ class ApproachSimulator(Identifiable):
         
         match self.state:
             case ApproachState.IDLE:
-                if self.signal.type == SignalType.VEHICLE:
-                    if self.signal.fya_enabled or self.is_thru:
-                        self.permissive_turn = round(self.rng.random())
-                else:
-                    self.permissive_turn = False
-                
                 self.state = ApproachState.PRESENCE
                 self.trigger = self.get_presence_time(after_idle=True)
             case ApproachState.PRESENCE:
@@ -146,10 +139,7 @@ class ApproachSimulator(Identifiable):
             match self.signal.type:
                 case SignalType.VEHICLE:
                     if not self.signal.active and self.state == ApproachState.PRESENCE:
-                        if self.permissive_turn:
-                            self.trigger = self.random_range_biased(4, 15, 0.6)
-                        else:
-                            self.timer.value = 0.0
+                        self.trigger = self.random_range_biased(3, 120, 0.3)
                 case SignalType.PEDESTRIAN:
                     if self.signal.active and self.state == ApproachState.IDLE:
                         self.timer.value = 0.0

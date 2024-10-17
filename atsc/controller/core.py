@@ -39,7 +39,7 @@ from atsc.controller.constants import (
     SignalState,
     PhaseCyclerMode,
     ServiceModifiers,
-    TrafficMovement
+    TrafficMovement, ExtendMode
 )
 from atsc.controller.simulation import IntersectionSimulator
 
@@ -128,12 +128,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.GO      : IntervalConfig(rest=True),
             SignalState.FYA     : IntervalConfig(flashing=True, rest=True)
         }
-        self.interval_config_ped1 = {
-            SignalState.STOP   : IntervalConfig(rest=True),
-            SignalState.CAUTION: IntervalConfig(flashing=True),
-            SignalState.GO     : IntervalConfig(rest=True)
-        }
-        self.interval_config_ped2 = {
+        self.interval_config_ped = {
             SignalState.STOP    : IntervalConfig(rest=True),
             SignalState.CAUTION : IntervalConfig(flashing=True)
         }
@@ -146,7 +141,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(101, fya_output=126),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
-                fya_enabled=True
+                extend_mode=ExtendMode.MINIMUM_SKIP,
+                fya_enabled=True,
+                fya_service_delay=30.0
             ),
             Signal(
                 502,
@@ -155,7 +152,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(104),
                 recall=RecallMode.MINIMUM,
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN
+                movement=TrafficMovement.PERMISSIVE_TURN,
+                extend_mode=ExtendMode.MAXIMUM_SKIP
             ),
             Signal(
                 503,
@@ -164,7 +162,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(107, fya_output=129),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
-                fya_enabled=True
+                extend_mode=ExtendMode.MINIMUM_SKIP,
+                fya_enabled=True,
+                fya_service_delay=30.0
             ),
             Signal(
                 504,
@@ -172,7 +172,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(110),
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN
+                movement=TrafficMovement.PERMISSIVE_TURN,
+                extend_mode=ExtendMode.MAXIMUM_SKIP
             ),
             Signal(
                 505,
@@ -181,7 +182,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(113, fya_output=132),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
-                fya_enabled=True
+                extend_mode=ExtendMode.MINIMUM_SKIP,
+                fya_enabled=True,
+                fya_service_delay=30.0
             ),
             Signal(
                 506,
@@ -190,7 +193,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(116),
                 recall=RecallMode.MINIMUM,
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN
+                movement=TrafficMovement.PERMISSIVE_TURN,
+                extend_mode=ExtendMode.MAXIMUM_SKIP
             ),
             Signal(
                 507,
@@ -199,7 +203,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(119, fya_output=135),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
-                fya_enabled=True
+                extend_mode=ExtendMode.MINIMUM_SKIP,
+                fya_enabled=True,
+                fya_service_delay=30.0
             ),
             Signal(
                 508,
@@ -207,12 +213,13 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 self.interval_config_vehicle,
                 vehicle_signal_field_mapping(122),
                 type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN
+                movement=TrafficMovement.PERMISSIVE_TURN,
+                extend_mode=ExtendMode.MAXIMUM_SKIP
             ),
             Signal(
                 509,
                 self.interval_timing_ped1,
-                self.interval_config_ped1,
+                self.interval_config_ped,
                 ped_signal_field_mapping(125),
                 recycle=True,
                 latch=True,
@@ -222,7 +229,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 510,
                 self.interval_timing_ped2,
-                self.interval_config_ped2,
+                self.interval_config_ped,
                 ped_signal_field_mapping(128),
                 latch=True,
                 type=SignalType.PEDESTRIAN,
@@ -231,7 +238,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 511,
                 self.interval_timing_ped1,
-                self.interval_config_ped1,
+                self.interval_config_ped,
                 ped_signal_field_mapping(131),
                 recycle=True,
                 latch=True,
@@ -241,7 +248,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 512,
                 self.interval_timing_ped2,
-                self.interval_config_ped2,
+                self.interval_config_ped,
                 ped_signal_field_mapping(134),
                 latch=True,
                 type=SignalType.PEDESTRIAN,
