@@ -14,10 +14,9 @@
 import enum
 import random
 from typing import List
-
-from atsc.common.constants import EdgeType
 from atsc.common.structs import Context
-from atsc.common.primitives import Timer, Identifiable, EdgeTrigger
+from atsc.common.constants import EdgeType
+from atsc.common.primitives import Timer, EdgeTrigger, Identifiable
 from atsc.controller.models import Signal
 from atsc.controller.constants import SignalType, SignalState
 

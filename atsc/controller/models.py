@@ -12,12 +12,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-from collections import defaultdict
-
 from loguru import logger
 from typing import Set, Dict, List, Self, Optional
 from asyncio import Event
 from itertools import chain
+from collections import defaultdict
 from dataclasses import dataclass
 from atsc.rpc.phase import Phase as rpc_Phase
 from atsc.controller import utils
@@ -35,21 +34,21 @@ from atsc.common.primitives import (
 )
 from atsc.controller.structs import IntervalConfig, IntervalTiming
 from atsc.controller.constants import (
+    CYCLER_SERVICE_POLL_RATE,
+    FYA_SIGNAL_ACTIVATION_STATES,
+    FYA_SIGNAL_DEACTIVATION_STATES,
+    FYAState,
+    ExtendMode,
     RecallMode,
     SignalType,
     InputAction,
     SignalState,
     InputActivation,
     PhaseCyclerMode,
+    TrafficMovement,
     FieldOutputState,
     ServiceModifiers,
-    ServiceConditions,
-    TrafficMovement,
-    CYCLER_SERVICE_POLL_RATE,
-    FYA_SIGNAL_ACTIVATION_STATES,
-    FYA_SIGNAL_DEACTIVATION_STATES,
-    ExtendMode,
-    FYAState
+    ServiceConditions
 )
 from jacob.datetime.formatting import format_ms
 
@@ -1137,9 +1136,7 @@ class IntersectionService(Tickable):
             if signal.active:
                 if self.active_barrier:
                     if signal not in self.active_barrier.signals:
-                        raise Conflict('{} not in {}',
-                                       signal.get_tag(),
-                                       self.active_barrier.get_tag())
+                        raise Conflict(f'{signal.get_tag()} not in {self.active_barrier.get_tag()}')
             else:
                 if signal.fya_phase and signal.revert_clear:
                     signal.fya_enabled = self.fya_enabled
@@ -1244,6 +1241,10 @@ class IntersectionService(Tickable):
         self.cycle_timer.poll(context)
         super().tick(context)
     
+    async def _wait_for_all_revert_clear(self):
+        while all([not s.revert_clear for s in self.signals]):
+            await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
+    
     async def run(self):
         self.try_change_barrier(next(self._barrier_sequence))
         
@@ -1254,6 +1255,7 @@ class IntersectionService(Tickable):
                 phase.recall()
             
             await self.try_idle()
+            await self._wait_for_all_revert_clear()
             
             match self.mode:
                 case PhaseCyclerMode.SEQUENTIAL:
@@ -1261,10 +1263,6 @@ class IntersectionService(Tickable):
                         phase = next(self._phase_sequence)
                         if phase not in self.phases_serviced and phase in self.waiting_phases:
                             signals = self.select_signals(phase)
-                            
-                            while not signals:
-                                await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
-                                signals = self.select_signals(phase)
                             
                             for signal in signals:
                                 self._signal_tasks.append(asyncio.create_task(signal.serve(group=signals)))
@@ -1277,10 +1275,6 @@ class IntersectionService(Tickable):
                         
                         if selected_phases:
                             signals = self.select_signals(*selected_phases)
-                            
-                            while not signals:
-                                await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
-                                signals = self.select_signals(*selected_phases)
                             
                             for signal in signals:
                                 self._signal_tasks.append(

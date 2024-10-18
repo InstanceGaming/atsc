@@ -3,9 +3,8 @@
 # plugin: python-betterproto
 # This file has been @generated
 
-from dataclasses import dataclass
-
 import betterproto
+from dataclasses import dataclass
 
 
 class FieldOutputState(betterproto.Enum):

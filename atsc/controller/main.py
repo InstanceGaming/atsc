@@ -25,7 +25,18 @@ logger = loguru.logger
 
 
 async def run():
-    cla, _ = cli.parse_common_cla('ATSC control server.', True)
+    cla, root_ap = cli.parse_common_cla('ATSC control server.', True)
+    
+    root_ap.add_argument('--simulate-presence',
+                         action='store_true',
+                         dest='simulate_presence')
+    root_ap.add_argument('--init-demand',
+                         action='store_true',
+                         dest='init_demand')
+    
+    extra_cla = vars(root_ap.parse_args())
+    simulate_presence = extra_cla['simulate_presence']
+    init_demand = extra_cla['init_demand']
     
     setup_logger_result = setup_logger(cla.log_levels_notation,
                                        log_file=cla.log_path)
@@ -34,7 +45,10 @@ async def run():
         return setup_logger_result
     
     context = Context(cla.tick_rate, cla.tick_scale)
-    controller = Controller(context, pid_file=cla.pid_path)
+    controller = Controller(context,
+                            pid_file=cla.pid_path,
+                            simulate_presence=simulate_presence,
+                            init_demand=init_demand)
     
     server = Server([controller])
     

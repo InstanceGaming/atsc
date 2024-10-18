@@ -29,17 +29,18 @@ from atsc.controller.models import (
     Signal,
     Barrier,
     FieldOutput,
-    IntersectionService,
     IntervalConfig,
-    IntervalTiming
+    IntervalTiming,
+    IntersectionService
 )
 from atsc.controller.constants import (
+    ExtendMode,
     RecallMode,
     SignalType,
     SignalState,
     PhaseCyclerMode,
-    ServiceModifiers,
-    TrafficMovement, ExtendMode
+    TrafficMovement,
+    ServiceModifiers
 )
 from atsc.controller.simulation import IntersectionSimulator
 
@@ -83,7 +84,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                  context: Context,
                  shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
                  pid_file: Optional[str] = None,
-                 loop: AbstractEventLoop = get_event_loop()):
+                 loop: AbstractEventLoop = get_event_loop(),
+                 simulate_presence: bool = False,
+                 init_demand: bool = False):
         AsyncDaemon.__init__(self,
                              context,
                              shutdown_timeout=shutdown_timeout,
@@ -289,11 +292,12 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             self.test_rpc_calls(),
             self.cycler.run()
         ))
-        self.presence_simulation = True
+        self.presence_simulation = simulate_presence
         self.simulator = IntersectionSimulator(self.signals)
         
-        for phase in self.phases:
-            phase.demand = True
+        if init_demand:
+            for phase in self.phases:
+                phase.demand = True
     
     async def test_rpc_calls(self):
         await self.get_metadata(rpc_controller.ControllerMetadataRequest())

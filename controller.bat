@@ -1,2 +1,2 @@
 @echo off
-.\env\win32\scripts\python.exe -m atsc.controller.main %*
+.\env\win32\scripts\python.exe -m atsc.controller.main -a 0.0.0.0 --init-demand --simulate-presence %*

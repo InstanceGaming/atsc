@@ -3,10 +3,9 @@
 # plugin: python-betterproto
 # This file has been @generated
 
-from dataclasses import dataclass
-from typing import List
-
 import betterproto
+from typing import List
+from dataclasses import dataclass
 
 
 class SignalState(betterproto.Enum):
