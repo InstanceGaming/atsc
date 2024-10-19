@@ -15,6 +15,7 @@ from grpc import RpcError
 from typing import Dict, Optional
 from pathlib import Path
 from datetime import datetime
+from atsc.common import utils
 from textual.app import App, ComposeResult
 from grpclib.client import Channel
 from textual.widget import MountError
@@ -48,7 +49,11 @@ from atsc.rpc.controller import (
 )
 from atsc.tui.components import Banner
 from atsc.tui.containers import MainContentSwitcher
-from atsc.common.constants import ExitCode
+from atsc.common.constants import (
+    RPC_CALL_TIMEOUT,
+    RPC_CALL_DEADLINE_POLL,
+    ExitCode
+)
 
 
 class TUI(App[int]):
@@ -152,8 +157,16 @@ class TUI(App[int]):
     async def poll_controller(self):
         if self.rpc_connected:
             try:
-                request = ControllerGetStateStreamRequest()
-                async for response in self.controller.get_state_stream(request):
+                request = ControllerGetStateStreamRequest(
+                    runtime_info=True,
+                    field_outputs=True,
+                    signals=True
+                )
+                async for response in self.controller.get_state_stream(
+                    request,
+                    timeout=RPC_CALL_TIMEOUT,
+                    deadline=utils.deadline_from_timeout(RPC_CALL_DEADLINE_POLL)
+                ):
                     self.post_message(RpcControllerPoll(response.runtime_info,
                                                         response.field_outputs,
                                                         response.signals))

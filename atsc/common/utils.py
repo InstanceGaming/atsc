@@ -16,6 +16,7 @@ import loguru
 from typing import Optional
 from pathlib import Path
 from jacob.logging import setup_logger as jacob_setup_logger
+from grpclib.metadata import Deadline
 from atsc.common.constants import CUSTOM_LOG_LEVELS, ExitCode
 
 
@@ -29,9 +30,18 @@ def get_program_dir() -> Path:
 def setup_logger(levels_notation, log_file: Optional[Path] = None):
     try:
         loguru.logger = jacob_setup_logger(levels_notation,
-                                     custom_levels=CUSTOM_LOG_LEVELS,
-                                     log_file=log_file)
+                                           custom_levels=CUSTOM_LOG_LEVELS,
+                                           log_file=log_file)
+        loguru.logger.info('log levels = {}', levels_notation)
+        if log_file:
+            loguru.logger.info('logging to file at "{}"', log_file)
     except ValueError as e:
         print(f'Malformed logging level specification "{levels_notation}":', e)
         return ExitCode.LOG_LEVEL_PARSE_FAIL
     return ExitCode.OK
+
+
+def deadline_from_timeout(timeout: float | None):
+    if timeout is None:
+        return None
+    return Deadline.from_timeout(timeout)

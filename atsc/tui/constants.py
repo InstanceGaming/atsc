@@ -11,19 +11,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import os
 from enum import Enum, auto
 
 
 DEFAULT_APP_STYLESHEET_PATH = 'tui/css/app.tcss'
-
-
-if os.getenv('LOOSEN_RPC_WATCHDOG'):
-    RPC_CALL_DEADLINE_POLL = None
-    RPC_CALL_TIMEOUT = None
-else:
-    RPC_CALL_DEADLINE_POLL = 0.4
-    RPC_CALL_TIMEOUT = 0.4
 
 
 class FieldOutputStyle(Enum):

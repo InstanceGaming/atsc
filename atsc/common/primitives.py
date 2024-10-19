@@ -149,6 +149,7 @@ class Timer:
     
     def __init__(self, value=None):
         self._value = 0.0
+        self._trigger_edge = EdgeTrigger(True)
         self.value = value
     
     def poll(self, context: Context, trigger: Optional[float] = None) -> bool:
@@ -158,7 +159,9 @@ class Timer:
             if trigger:
                 rv = self._value > trigger - context.delay
         
-        self._value = round(self.value + context.delay, FLOAT_PRECISION_TIME)
+        if not self._trigger_edge.poll(rv):
+            self._value = round(self.value + context.delay, FLOAT_PRECISION_TIME)
+        
         return rv
     
     def __repr__(self):

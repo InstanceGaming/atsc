@@ -135,7 +135,11 @@ message ControllerFYAEnabledRequest {
   bool enabled = 1;
 }
 
-message ControllerGetStateStreamRequest {}
+message ControllerGetStateStreamRequest {
+  bool runtime_info = 1;
+  bool field_outputs = 2;
+  bool signals = 3;
+}
 message ControllerGetStateStreamResponse {
   ControllerRuntimeInfoReply runtime_info = 1;
   repeated atsc.rpc.field_output.FieldOutput field_outputs = 2;

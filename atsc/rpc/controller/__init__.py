@@ -171,7 +171,9 @@ class ControllerFyaEnabledRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ControllerGetStateStreamRequest(betterproto.Message):
-    pass
+    runtime_info: bool = betterproto.bool_field(1)
+    field_outputs: bool = betterproto.bool_field(2)
+    signals: bool = betterproto.bool_field(3)
 
 
 @dataclass(eq=False, repr=False)

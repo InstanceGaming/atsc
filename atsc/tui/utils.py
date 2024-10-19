@@ -12,7 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from rich.text import Text
-from grpclib.metadata import Deadline
 from atsc.common.constants import FLOAT_PRECISION_TIME
 
 
@@ -49,9 +48,3 @@ def combine_texts_new_line(*texts) -> Text:
         if i < len(texts):
             text = text.append_text(texts[i])
     return text
-
-
-def deadline_from_timeout(timeout: float | None):
-    if timeout is None:
-        return None
-    return Deadline.from_timeout(timeout)

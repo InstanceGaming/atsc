@@ -502,7 +502,7 @@ class Signal(Identifiable, Tickable):
             
             if not minmax_inhibit and timing.maximum:
                 if self.conflicting_demand or not config.rest:
-                    if self.interval_timer.value > timing.maximum - context.delay:
+                    if self.interval_timer.value > timing.maximum:
                         self.change()
         
         self.presence_timer.poll(context)
@@ -1077,7 +1077,6 @@ class IntersectionService(Tickable):
         assert self.active_barrier
         
         selected_phases = []
-        
         for ring in self.rings:
             if ring.active_phase:
                 continue
@@ -1210,13 +1209,13 @@ class IntersectionService(Tickable):
             else:
                 phase.conflicting_demand = False
                 
-                if phase.inactive_signals and self.active_barrier:
-                    if all([s.resting and not s.leading_signals for s in phase.active_signals]):
-                        for signal in phase.inactive_signals:
-                            if not signal.fya_enabled:
-                                status = signal.get_service_status(group=phase.active_signals)
-                                if status.service:
-                                    self._signal_tasks.append(asyncio.create_task(signal.serve(group=phase.active_signals)))
+                # if phase.inactive_signals and self.active_barrier:
+                #     if all([s.resting and not s.leading_signals for s in phase.active_signals]):
+                #         for signal in phase.inactive_signals:
+                #             if not signal.fya_enabled:
+                #                 status = signal.get_service_status(group=phase.active_signals)
+                #                 if status.service:
+                #                     self._signal_tasks.append(asyncio.create_task(signal.serve(group=phase.active_signals)))
         
         if self.active_barrier and 0 < len(self.active_phases) < len(self.rings):
             if set(self.active_phases + self.waiting_phases).issubset(self.active_barrier.phases):
@@ -1238,15 +1237,15 @@ class IntersectionService(Tickable):
                                              phase.runtime_maximum,
                                              active_remaining)
             
-            selected_phases = self.select_phases()
-            if selected_phases:
-                signals = self.select_signals(*selected_phases)
-
-                if signals:
-                    for signal in signals:
-                        self._signal_tasks.append(
-                            asyncio.create_task(signal.serve(group=signals))
-                        )
+            # selected_phases = self.select_phases()
+            # if selected_phases:
+            #     signals = self.select_signals(*selected_phases)
+            #
+            #     if signals:
+            #         for signal in signals:
+            #             self._signal_tasks.append(
+            #                 asyncio.create_task(signal.serve(group=signals))
+            #             )
         
         for ring in self.rings:
             if len(ring.active_phases) > 1:

@@ -534,9 +534,21 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         request: controller.ControllerGetStateStreamRequest
     ):
         while self.running.is_set():
+            runtime_info = self._get_runtime_info() if request.runtime_info else None
+            
+            if request.field_outputs:
+                field_outputs = list(self._get_field_outputs())
+            else:
+                field_outputs = None
+            
+            if request.signals:
+                signals = list(self._get_signals())
+            else:
+                signals = None
+            
             yield controller.ControllerGetStateStreamResponse(
-                self._get_runtime_info(),
-                list(self._get_field_outputs()),
-                list(self._get_signals())
+                runtime_info=runtime_info,
+                field_outputs=field_outputs,
+                signals=signals
             )
             await asyncio.sleep(self.context.delay)
