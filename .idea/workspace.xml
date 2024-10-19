@@ -4,19 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="all revert wait, cli args, refactoring">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="no serve detection">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/primitives.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/tui/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/constants.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/tui/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controller.bat" beforeDir="false" afterPath="$PROJECT_DIR$/controller.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tui.bat" beforeDir="false" afterPath="$PROJECT_DIR$/tui.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/protobufs/controller.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/controller.proto" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -77,6 +73,7 @@
     &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
     &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
     &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.models.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
@@ -220,14 +217,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00008" summary="phase and call sorting">
-      <option name="closed" value="true" />
-      <created>1720292347374</created>
-      <option name="number" value="00008" />
-      <option name="presentableId" value="LOCAL-00008" />
-      <option name="project" value="LOCAL" />
-      <updated>1720292347374</updated>
     </task>
     <task id="LOCAL-00009" summary="basic phase cycling working draft, refactoring">
       <option name="closed" value="true" />
@@ -613,7 +602,15 @@
       <option name="project" value="LOCAL" />
       <updated>1729225784698</updated>
     </task>
-    <option name="localTasksCounter" value="57" />
+    <task id="LOCAL-00057" summary="no serve detection">
+      <option name="closed" value="true" />
+      <created>1729323606913</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1729323606913</updated>
+    </task>
+    <option name="localTasksCounter" value="58" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -640,7 +637,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="tui field outputs, rpc metadata, comments" />
     <MESSAGE value="traffic movement enum" />
     <MESSAGE value="phase and signal serve logic" />
     <MESSAGE value="conflicting demand logic fix" />
@@ -665,6 +661,7 @@
     <MESSAGE value="fya and timer logic fixes, rpc fya toggle" />
     <MESSAGE value="conflict fix" />
     <MESSAGE value="all revert wait, cli args, refactoring" />
-    <option name="LAST_COMMIT_MESSAGE" value="all revert wait, cli args, refactoring" />
+    <MESSAGE value="no serve detection" />
+    <option name="LAST_COMMIT_MESSAGE" value="no serve detection" />
   </component>
 </project>

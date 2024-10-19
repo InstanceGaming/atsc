@@ -11,8 +11,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from grpclib.metadata import Deadline
 from rich.text import Text
+from grpclib.metadata import Deadline
 from atsc.common.constants import FLOAT_PRECISION_TIME
 
 

@@ -135,6 +135,13 @@ message ControllerFYAEnabledRequest {
   bool enabled = 1;
 }
 
+message ControllerGetStateStreamRequest {}
+message ControllerGetStateStreamResponse {
+  ControllerRuntimeInfoReply runtime_info = 1;
+  repeated atsc.rpc.field_output.FieldOutput field_outputs = 2;
+  repeated atsc.rpc.signal.Signal signals = 3;
+}
+
 service Controller {
   rpc test_connection(ControllerTestConnectionRequest) returns (ControllerTestConnectionReply) {}
   rpc get_metadata(ControllerMetadataRequest) returns (ControllerMetadataReply) {}
@@ -157,4 +164,6 @@ service Controller {
   rpc get_phase(ControllerIdentifiableObjectRequest) returns (ControllerPhaseReply) {}
   rpc get_phases(ControllerPhasesRequest) returns (ControllerPhasesReply) {}
   rpc set_phase_demand(ControllerPhaseDemandRequest) returns (ControllerChangeVariableResult) {}
+
+  rpc get_state_stream(ControllerGetStateStreamRequest) returns (stream ControllerGetStateStreamResponse) {}
 }

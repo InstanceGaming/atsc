@@ -11,13 +11,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import enum
 import os
+import enum
 import random
-from typing import List
-
 from loguru import logger
-
+from typing import List
 from atsc.common.structs import Context
 from atsc.common.constants import EdgeType
 from atsc.common.primitives import Timer, EdgeTrigger, Identifiable

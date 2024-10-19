@@ -11,7 +11,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import asyncio
 from grpc import RpcError
 from typing import Dict, Optional
 from pathlib import Path
@@ -20,8 +19,6 @@ from textual.app import App, ComposeResult
 from grpclib.client import Channel
 from textual.widget import MountError
 from textual.worker import Worker
-
-from atsc.tui import utils
 from atsc.tui.panels import ControllerPanel
 from textual.widgets import Footer, Header
 from atsc.tui.widgets import (
@@ -32,7 +29,6 @@ from atsc.tui.widgets import (
     ControllerTimeFreeze,
     ControllerDurationReadout
 )
-from grpclib.metadata import Deadline
 from textual.reactive import reactive
 from atsc.tui.messages import (
     ShowBanner,
@@ -44,18 +40,11 @@ from atsc.tui.messages import (
     RpcConnectionFailed,
     RpcConnectionSuccess
 )
-from atsc.tui.constants import (
-    POLL_RATE,
-    RPC_CALL_TIMEOUT,
-    RPC_CALL_DEADLINE_POLL
-)
 from grpclib.exceptions import StreamTerminatedError
 from atsc.rpc.controller import (
     ControllerStub,
-    ControllerSignalsRequest,
     ControllerMetadataRequest,
-    ControllerRuntimeInfoRequest,
-    ControllerFieldOutputsRequest
+    ControllerGetStateStreamRequest
 )
 from atsc.tui.components import Banner
 from atsc.tui.containers import MainContentSwitcher
@@ -161,27 +150,16 @@ class TUI(App[int]):
         ))
     
     async def poll_controller(self):
-        while self.rpc_connected:
+        if self.rpc_connected:
             try:
-                runtime_info = await self.controller.get_runtime_info(
-                    ControllerRuntimeInfoRequest(),
-                    timeout=RPC_CALL_TIMEOUT,
-                    deadline=utils.deadline_from_timeout(RPC_CALL_DEADLINE_POLL)
-                )
-                field_outputs_reply = await self.controller.get_field_outputs(
-                    ControllerFieldOutputsRequest(),
-                    timeout=RPC_CALL_TIMEOUT,
-                    deadline=utils.deadline_from_timeout(RPC_CALL_DEADLINE_POLL)
-                )
-                signal_reply = await self.controller.get_signals(ControllerSignalsRequest())
-                self.post_message(RpcControllerPoll(runtime_info,
-                                                    field_outputs_reply.field_outputs,
-                                                    signal_reply.signals))
-                await asyncio.sleep(POLL_RATE)
+                request = ControllerGetStateStreamRequest()
+                async for response in self.controller.get_state_stream(request):
+                    self.post_message(RpcControllerPoll(response.runtime_info,
+                                                        response.field_outputs,
+                                                        response.signals))
             except (RpcError, TimeoutError, StreamTerminatedError) as e:
                 self.post_message(RpcConnectionLost(e))
-                break
-                
+    
     async def on_rpc_controller_poll(self, message: RpcControllerPoll):
         self.query(ControllerCycleCount).only_one().cycle_count = message.runtime_info.cycle_count
         self.query(ControllerDurationReadout).only_one().seconds = message.runtime_info.run_seconds

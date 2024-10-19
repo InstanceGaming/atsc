@@ -8,7 +8,7 @@ import betterproto
 from .. import phase as _phase__
 from .. import signal as _signal__
 from .. import field_output as _field_output__
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, AsyncIterator
 from dataclasses import dataclass
 from betterproto.grpc.grpclib_server import ServiceBase
 
@@ -167,6 +167,18 @@ class ControllerPresenceSimulationRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class ControllerFyaEnabledRequest(betterproto.Message):
     enabled: bool = betterproto.bool_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class ControllerGetStateStreamRequest(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
+class ControllerGetStateStreamResponse(betterproto.Message):
+    runtime_info: "ControllerRuntimeInfoReply" = betterproto.message_field(1)
+    field_outputs: List["_field_output__.FieldOutput"] = betterproto.message_field(2)
+    signals: List["_signal__.Signal"] = betterproto.message_field(3)
 
 
 class ControllerStub(betterproto.ServiceStub):
@@ -442,6 +454,24 @@ class ControllerStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def get_state_stream(
+        self,
+        controller_get_state_stream_request: "ControllerGetStateStreamRequest",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> AsyncIterator[ControllerGetStateStreamResponse]:
+        async for response in self._unary_stream(
+            "/atsc.rpc.controller.Controller/get_state_stream",
+            controller_get_state_stream_request,
+            ControllerGetStateStreamResponse,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        ):
+            yield response
+
 
 class ControllerBase(ServiceBase):
 
@@ -528,6 +558,12 @@ class ControllerBase(ServiceBase):
         self, controller_phase_demand_request: "ControllerPhaseDemandRequest"
     ) -> "ControllerChangeVariableResult":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def get_state_stream(
+        self, controller_get_state_stream_request: "ControllerGetStateStreamRequest"
+    ) -> AsyncIterator[ControllerGetStateStreamResponse]:
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+        yield ControllerGetStateStreamResponse()
 
     async def __rpc_test_connection(
         self,
@@ -657,6 +693,17 @@ class ControllerBase(ServiceBase):
         response = await self.set_phase_demand(request)
         await stream.send_message(response)
 
+    async def __rpc_get_state_stream(
+        self,
+        stream: "grpclib.server.Stream[ControllerGetStateStreamRequest, ControllerGetStateStreamResponse]",
+    ) -> None:
+        request = await stream.recv_message()
+        await self._call_rpc_handler_server_stream(
+            self.get_state_stream,
+            stream,
+            request,
+        )
+
     def __mapping__(self) -> Dict[str, grpclib.const.Handler]:
         return {
             "/atsc.rpc.controller.Controller/test_connection": grpclib.const.Handler(
@@ -754,5 +801,11 @@ class ControllerBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 ControllerPhaseDemandRequest,
                 ControllerChangeVariableResult,
+            ),
+            "/atsc.rpc.controller.Controller/get_state_stream": grpclib.const.Handler(
+                self.__rpc_get_state_stream,
+                grpclib.const.Cardinality.UNARY_STREAM,
+                ControllerGetStateStreamRequest,
+                ControllerGetStateStreamResponse,
             ),
         }

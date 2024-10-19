@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 from atsc import __version__ as atsc_version
 from loguru import logger
 from typing import Optional
@@ -363,10 +364,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             signals=signal_metadata
         )
     
-    async def get_runtime_info(
-        self,
-        request: controller.ControllerRuntimeInfoRequest
-    ):
+    def _get_runtime_info(self):
         rv = controller.ControllerRuntimeInfoReply(
             run_seconds=self.started_at_monotonic_delta,
             control_seconds=self.started_at_monotonic_delta,
@@ -381,6 +379,12 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             cycle_count=self.cycler.cycle_count
         )
         return rv
+    
+    async def get_runtime_info(
+        self,
+        request: controller.ControllerRuntimeInfoRequest
+    ):
+        return self._get_runtime_info()
     
     async def set_time_freeze(self, request: controller.ControllerTimeFreezeRequest):
         before = self.time_freeze
@@ -427,16 +431,16 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 result = field_output.rpc_model()
         return controller.ControllerFieldOutputReply(result)
     
+    def _get_field_outputs(self):
+        for field_output in self.field_outputs:
+            yield field_output.rpc_model()
+    
     async def get_field_outputs(
         self,
         request: controller.ControllerFieldOutputsRequest
     ):
-        rpc_field_outputs = []
-        
-        for field_output in self.field_outputs:
-            rpc_field_outputs.append(field_output.rpc_model())
-        
-        return controller.ControllerFieldOutputsReply(rpc_field_outputs)
+        field_outputs = list(self._get_field_outputs())
+        return controller.ControllerFieldOutputsReply(field_outputs)
     
     async def get_signal(
         self,
@@ -448,16 +452,16 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 result = signal.rpc_model()
         return controller.ControllerSignalsReply(result)
     
+    def _get_signals(self):
+        for signal in self.signals:
+            yield signal.rpc_model()
+    
     async def get_signals(
         self,
         request: controller.ControllerSignalsRequest
     ):
-        rpc_signals = []
-        
-        for signal in self.signals:
-            rpc_signals.append(signal.rpc_model())
-            
-        return controller.ControllerSignalsReply(rpc_signals)
+        signals = list(self._get_signals())
+        return controller.ControllerSignalsReply(signals)
     
     async def set_signal_demand(
         self,
@@ -524,3 +528,15 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 success = True
                 break
         return controller.ControllerChangeVariableResult(success, changed)
+
+    async def get_state_stream(
+        self,
+        request: controller.ControllerGetStateStreamRequest
+    ):
+        while self.running.is_set():
+            yield controller.ControllerGetStateStreamResponse(
+                self._get_runtime_info(),
+                list(self._get_field_outputs()),
+                list(self._get_signals())
+            )
+            await asyncio.sleep(self.context.delay)
