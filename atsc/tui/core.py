@@ -20,6 +20,8 @@ from textual.app import App, ComposeResult
 from grpclib.client import Channel
 from textual.widget import MountError
 from textual.worker import Worker
+
+from atsc.tui import utils
 from atsc.tui.panels import ControllerPanel
 from textual.widgets import Footer, Header
 from atsc.tui.widgets import (
@@ -164,12 +166,12 @@ class TUI(App[int]):
                 runtime_info = await self.controller.get_runtime_info(
                     ControllerRuntimeInfoRequest(),
                     timeout=RPC_CALL_TIMEOUT,
-                    deadline=Deadline.from_timeout(RPC_CALL_DEADLINE_POLL)
+                    deadline=utils.deadline_from_timeout(RPC_CALL_DEADLINE_POLL)
                 )
                 field_outputs_reply = await self.controller.get_field_outputs(
                     ControllerFieldOutputsRequest(),
                     timeout=RPC_CALL_TIMEOUT,
-                    deadline=Deadline.from_timeout(RPC_CALL_DEADLINE_POLL)
+                    deadline=utils.deadline_from_timeout(RPC_CALL_DEADLINE_POLL)
                 )
                 signal_reply = await self.controller.get_signals(ControllerSignalsRequest())
                 self.post_message(RpcControllerPoll(runtime_info,

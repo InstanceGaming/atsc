@@ -12,8 +12,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import enum
+import os
 import random
 from typing import List
+
+from loguru import logger
+
 from atsc.common.structs import Context
 from atsc.common.constants import EdgeType
 from atsc.common.primitives import Timer, EdgeTrigger, Identifiable
@@ -162,6 +166,11 @@ class IntersectionSimulator:
     def __init__(self,
                  signals: List[Signal],
                  seed=None):
+        if seed is None:
+            seed = int.from_bytes(os.urandom(8))
+        
+        logger.debug('simulation seed = {}', seed)
+        
         self.rng = random.Random(seed)
         self.signals = signals
         self.approaches = []

@@ -80,18 +80,30 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             logger.info('time freeze = {}', not value)
             self.context.timing = not value
     
+    @property
+    def presence_simulation(self):
+        return self._presence_simulation
+    
+    @presence_simulation.setter
+    def presence_simulation(self, value):
+        if value != self._presence_simulation:
+            logger.info('presence simulation = {}', value)
+            self._presence_simulation = value
+    
     def __init__(self,
                  context: Context,
                  shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
                  pid_file: Optional[str] = None,
                  loop: AbstractEventLoop = get_event_loop(),
-                 simulate_presence: bool = False,
+                 presence_simulation: bool = False,
+                 simulation_seed: Optional[int] = None,
                  init_demand: bool = False):
         AsyncDaemon.__init__(self,
                              context,
                              shutdown_timeout=shutdown_timeout,
                              pid_file=pid_file,
                              loop=loop)
+        self._presence_simulation = False
         
         self.interval_timing_vehicle1 = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
@@ -112,8 +124,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.STOP    : IntervalTiming(1.0, revert=2.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
-            SignalState.GO      : IntervalTiming(5.0, 15.0),
-            SignalState.FYA     : IntervalTiming(2.0)
+            SignalState.GO      : IntervalTiming(5.0, 15.0)
         }
         self.interval_timing_ped1 = {
             SignalState.STOP   : IntervalTiming(0.0),
@@ -292,8 +303,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             self.test_rpc_calls(),
             self.cycler.run()
         ))
-        self.presence_simulation = simulate_presence
-        self.simulator = IntersectionSimulator(self.signals)
+        self.presence_simulation = presence_simulation
+        self.simulator = IntersectionSimulator(self.signals,
+                                               seed=simulation_seed)
         
         if init_demand:
             for phase in self.phases:

@@ -137,6 +137,13 @@ class Signal(Identifiable, Tickable):
         return True
     
     @property
+    def revert_time(self):
+        timing = self.timings[SignalState.STOP]
+        if timing.revert:
+            return timing.revert
+        return 0.0
+    
+    @property
     def initial_state(self):
         return self._initial_state
     
@@ -415,6 +422,9 @@ class Signal(Identifiable, Tickable):
                             go_time = self.timings.get(SignalState.GO, 0.0)
                             if go_time and go_time.maximum:
                                 proceed = self.service_timer.value < go_time.maximum
+                                
+                        if self.presence:
+                            proceed = True
                         
                         if proceed:
                             if self.recall_state != RecallMode.MAXIMUM:
@@ -461,40 +471,41 @@ class Signal(Identifiable, Tickable):
             self.leading_signals.clear()
     
     def tick(self, context: Context):
-        timing = self.timings[self.state]
+        timing = self.timings.get(self.state)
         config = self.configs[self.state]
         minmax_inhibit = any([ls.active for ls in self.leading_signals])
+        presence_edge = self._presence_edge.poll(self.presence)
         
-        if not timing.minimum and self.interval_timer.value < context.delay:
-            if self.state == SignalState.STOP:
-                self._terminate()
-        
-        if self.interval_timer.poll(context, timing.minimum):
-            match self.state:
-                case SignalState.STOP:
+        if timing is not None:
+            if not timing.minimum and self.interval_timer.value < context.delay:
+                if self.state == SignalState.STOP:
                     self._terminate()
-                case SignalState.CAUTION:
-                    self.change()
-                case SignalState.EXTEND:
-                    if not minmax_inhibit:
-                        if self.conflicting_demand or not config.rest:
-                            self.change()
-                case SignalState.GO:
-                    if not minmax_inhibit and self.recall_state != RecallMode.MAXIMUM:
-                        if self.conflicting_demand or not config.rest:
-                            self.change()
-                case SignalState.FYA:
-                    if not self.fya_enabled:
-                        self.change(state=SignalState.CAUTION)
-                    else:
-                        if not self.fya_state & FYAState.SERVICE:
-                            if self.fya_phase.state in FYA_SIGNAL_DEACTIVATION_STATES:
+            
+            if self.interval_timer.poll(context, timing.minimum):
+                match self.state:
+                    case SignalState.STOP:
+                        self._terminate()
+                    case SignalState.CAUTION:
+                        self.change()
+                    case SignalState.EXTEND:
+                        if not minmax_inhibit:
+                            if self.conflicting_demand or not config.rest:
                                 self.change()
-                case _:
-                    raise NotImplementedError()
+                    case SignalState.GO:
+                        if not minmax_inhibit and self.recall_state != RecallMode.MAXIMUM:
+                            if self.conflicting_demand or not config.rest:
+                                self.change()
+                    case SignalState.FYA:
+                        pass
+                    case _:
+                        raise NotImplementedError()
+            
+            if not minmax_inhibit and timing.maximum:
+                if self.conflicting_demand or not config.rest:
+                    if self.interval_timer.value > timing.maximum - context.delay:
+                        self.change()
         
         self.presence_timer.poll(context)
-        presence_edge = self._presence_edge.poll(self.presence)
         
         if presence_edge is not None:
             self.presence_timer.value = 0.0
@@ -525,11 +536,12 @@ class Signal(Identifiable, Tickable):
                 if not self.presence and self.fya_state & FYAState.SERVICE:
                     self._fya_state ^= FYAState.SERVICE
                     self.demand = False
-        
-        if not minmax_inhibit and timing.maximum:
-            if self.conflicting_demand or not config.rest:
-                if self.interval_timer.value > (timing.maximum - context.delay):
-                    self.change()
+                if not self.fya_enabled:
+                    self.change(state=SignalState.CAUTION)
+                else:
+                    if not self.fya_state & FYAState.SERVICE:
+                        if self.fya_phase.state in FYA_SIGNAL_DEACTIVATION_STATES:
+                            self.change()
         
         super().tick(context)
     
@@ -635,8 +647,8 @@ class Signal(Identifiable, Tickable):
         return (f'<Signal #{self.id} {self.state.name} '
                 f'interval_time={self.interval_timer.value:.1f} '
                 f'service_time={self.service_timer.value:.1f} '
-                f'demand={self.demand} presence={self.presence} '
-                f'presence_time={self.presence_timer.value} '
+                f'active={self.active} demand={self.demand} '
+                f'presence={self.presence} presence_time={self.presence_timer.value} '
                 f'resting={self.resting} recall={self.recall_mode.name} '
                 f'recycle={self.recycle}>')
     
@@ -962,6 +974,8 @@ class IntersectionService(Tickable):
         self._cycle_count: int = 0
         self._signal_tasks: List[asyncio.Task] = []
         self._fya_enabled = fya_enabled
+        self._max_revert_time = max([s.revert_time for s in self.signals])
+        self._stopped_with_demand_timer = Timer()
         
         # sequential mode only
         self._phase_sequence = utils.cycle(self.phases)
@@ -1151,7 +1165,7 @@ class IntersectionService(Tickable):
                                         break
                             else:
                                 signal.change(state=SignalState.FYA)
-        
+            
         for phase in self.phases:
             if phase.fya_active:
                 continue
@@ -1227,7 +1241,7 @@ class IntersectionService(Tickable):
             selected_phases = self.select_phases()
             if selected_phases:
                 signals = self.select_signals(*selected_phases)
-                
+
                 if signals:
                     for signal in signals:
                         self._signal_tasks.append(
@@ -1240,12 +1254,29 @@ class IntersectionService(Tickable):
         
         self.cycle_timer.poll(context)
         super().tick(context)
+        
+        stopped_resting_signals = 0
+        signals_with_demand = 0
+        for signal in self.signals:
+            if signal.state == SignalState.STOP and signal.resting:
+                stopped_resting_signals += 1
+            if signal.demand:
+                signals_with_demand += 1
+        
+        if stopped_resting_signals == len(self.signals) and signals_with_demand:
+            if self._stopped_with_demand_timer.poll(context, self._max_revert_time):
+                breakpoint()
+                # raise RuntimeError(f'{stopped_signals_count} stopped with '
+                #                    f'{signals_with_demand_count} in demand for more '
+                #                    f'than {self._max_revert_time:03.1f} seconds')
     
     async def _wait_for_all_revert_clear(self):
         while all([not s.revert_clear for s in self.signals]):
             await asyncio.sleep(CYCLER_SERVICE_POLL_RATE)
     
     async def run(self):
+        logger.debug('max revert time is {}', self._max_revert_time)
+        
         self.try_change_barrier(next(self._barrier_sequence))
         
         while True:

@@ -4,19 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="conflict fix">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="all revert wait, cli args, refactoring">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/primitives.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/rpc/field_output/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/field_output/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/rpc/phase/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/phase/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/rpc/signal/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/signal/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/controller.bat" beforeDir="false" afterPath="$PROJECT_DIR$/controller.bat" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tui.bat" beforeDir="false" afterPath="$PROJECT_DIR$/tui.bat" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -138,7 +138,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.controller.main" />
-      <option name="PARAMETERS" value="" />
+      <option name="PARAMETERS" value="--presence-simulation --init-demand --simulation-seed 6255602971349152301" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
       <option name="MODULE_MODE" value="true" />
@@ -220,14 +220,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00007" summary="enforce phase order, timer elapse, fixed interval change">
-      <option name="closed" value="true" />
-      <created>1714373277240</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1714373277240</updated>
     </task>
     <task id="LOCAL-00008" summary="phase and call sorting">
       <option name="closed" value="true" />
@@ -613,7 +605,15 @@
       <option name="project" value="LOCAL" />
       <updated>1729146133520</updated>
     </task>
-    <option name="localTasksCounter" value="56" />
+    <task id="LOCAL-00056" summary="all revert wait, cli args, refactoring">
+      <option name="closed" value="true" />
+      <created>1729225784697</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1729225784698</updated>
+    </task>
+    <option name="localTasksCounter" value="57" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -640,7 +640,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="service conditions, service modifiers" />
     <MESSAGE value="tui field outputs, rpc metadata, comments" />
     <MESSAGE value="traffic movement enum" />
     <MESSAGE value="phase and signal serve logic" />
@@ -665,13 +664,7 @@
     <MESSAGE value="pyproject.toml fix, service config" />
     <MESSAGE value="fya and timer logic fixes, rpc fya toggle" />
     <MESSAGE value="conflict fix" />
-    <option name="LAST_COMMIT_MESSAGE" value="conflict fix" />
-  </component>
-  <component name="XDebuggerManager">
-    <watches-manager>
-      <configuration name="PythonConfigurationType">
-        <watch expression="self.signals" />
-      </configuration>
-    </watches-manager>
+    <MESSAGE value="all revert wait, cli args, refactoring" />
+    <option name="LAST_COMMIT_MESSAGE" value="all revert wait, cli args, refactoring" />
   </component>
 </project>

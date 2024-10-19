@@ -156,7 +156,7 @@ class Timer:
         
         if context.timing:
             if trigger:
-                rv = self._value >= trigger
+                rv = self._value > trigger - context.delay
         
         self._value = round(self.value + context.delay, FLOAT_PRECISION_TIME)
         return rv
