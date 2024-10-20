@@ -30,7 +30,7 @@ from pathlib import Path
 from datetime import datetime
 from atsc.common.structs import Context
 from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT, ExitCode
-from jacob.datetime.timing import seconds
+from jacob.datetime.timing import seconds, micros
 from atsc.common.primitives import Tickable, StopwatchEvent
 from jacob.datetime.formatting import format_ms, format_dhms, compact_datetime
 
@@ -53,8 +53,6 @@ class AsyncDaemon(Tickable, ABC):
         self.context = context
         self.started_at_epoch: Optional[int] = None
         self.started_at_monotonic: Optional[int] = None
-        self.ticking = True
-        
         self.routines: List[Coroutine] = []
         self.tasks: List[Task] = []
         self.running = StopwatchEvent()
@@ -135,10 +133,13 @@ class AsyncDaemon(Tickable, ABC):
                 if self.request_shutdown.is_set():
                     break
                 
-                if self.ticking:
-                    self.tick(self.context)
+                marker = micros()
+                self.tick(self.context)
+                delta = micros() - marker
+                tick_duration = delta / 100000
                 
-                await sleep(self.context.delay)
+                sleep_duration = self.context.delay - tick_duration
+                await sleep(sleep_duration)
             await self.after_run()
         finally:
             pid_unlock_result = await self.unlock_pid()

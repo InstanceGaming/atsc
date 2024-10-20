@@ -78,7 +78,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     @time_freeze.setter
     def time_freeze(self, value):
         if value == self.context.timing:
-            logger.info('time freeze = {}', not value)
+            logger.info('time freeze = {}', value)
             self.context.timing = not value
     
     @property
@@ -122,7 +122,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         }
         self.interval_timing_vehicle_fya = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
-            SignalState.STOP    : IntervalTiming(1.0, revert=2.0),
+            SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
             SignalState.GO      : IntervalTiming(5.0, 15.0)
@@ -147,6 +147,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.STOP    : IntervalConfig(rest=True),
             SignalState.CAUTION : IntervalConfig(flashing=True)
         }
+        
         self.field_outputs = [FieldOutput(100 + i) for i in range(1, 97)]
         self.signals = [
             Signal(
@@ -157,8 +158,10 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
+                presence_lockout_delay=30.0,
                 fya_enabled=True,
-                fya_service_delay=30.0
+                fya_service_delay=30.0,
+                revert_time=2.0
             ),
             Signal(
                 502,
@@ -168,7 +171,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 recall=RecallMode.MINIMUM,
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP
+                extend_mode=ExtendMode.MAXIMUM_SKIP,
+                presence_lockout_delay=30.0
             ),
             Signal(
                 503,
@@ -178,8 +182,10 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
+                presence_lockout_delay=30.0,
                 fya_enabled=True,
-                fya_service_delay=30.0
+                fya_service_delay=30.0,
+                revert_time=2.0
             ),
             Signal(
                 504,
@@ -188,7 +194,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(110),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP
+                extend_mode=ExtendMode.MAXIMUM_SKIP,
+                presence_lockout_delay=30.0
             ),
             Signal(
                 505,
@@ -198,8 +205,10 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
+                presence_lockout_delay=30.0,
                 fya_enabled=True,
-                fya_service_delay=30.0
+                fya_service_delay=30.0,
+                revert_time=2.0
             ),
             Signal(
                 506,
@@ -209,7 +218,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 recall=RecallMode.MINIMUM,
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP
+                extend_mode=ExtendMode.MAXIMUM_SKIP,
+                presence_lockout_delay=30.0
             ),
             Signal(
                 507,
@@ -219,8 +229,10 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
+                presence_lockout_delay=30.0,
                 fya_enabled=True,
-                fya_service_delay=30.0
+                fya_service_delay=30.0,
+                revert_time=2.0
             ),
             Signal(
                 508,
@@ -229,7 +241,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(122),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP
+                extend_mode=ExtendMode.MAXIMUM_SKIP,
+                presence_lockout_delay=30.0
             ),
             Signal(
                 509,
@@ -239,7 +252,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 recycle=True,
                 latch=True,
                 type=SignalType.PEDESTRIAN,
-                service_modifiers=ServiceModifiers.BEFORE_VEHICLE
+                service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
+                presence_lockout_delay=30.0
             ),
             Signal(
                 510,
@@ -248,7 +262,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 ped_signal_field_mapping(128),
                 latch=True,
                 type=SignalType.PEDESTRIAN,
-                service_modifiers=ServiceModifiers.BEFORE_VEHICLE
+                service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
+                presence_lockout_delay=30.0
             ),
             Signal(
                 511,
@@ -258,7 +273,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 recycle=True,
                 latch=True,
                 type=SignalType.PEDESTRIAN,
-                service_modifiers=ServiceModifiers.BEFORE_VEHICLE
+                service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
+                presence_lockout_delay=30.0
             ),
             Signal(
                 512,
@@ -267,7 +283,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 ped_signal_field_mapping(134),
                 latch=True,
                 type=SignalType.PEDESTRIAN,
-                service_modifiers=ServiceModifiers.BEFORE_VEHICLE
+                service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
+                presence_lockout_delay=30.0
             )
         ]
         self.phases = [

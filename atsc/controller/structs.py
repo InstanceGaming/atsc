@@ -19,7 +19,6 @@ from dataclasses import dataclass
 class IntervalTiming:
     minimum: float
     maximum: Optional[float] = None
-    revert: Optional[float] = None
 
 
 @dataclass(slots=True)

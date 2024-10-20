@@ -100,6 +100,8 @@ class ApproachSimulator(Identifiable):
             case SignalType.VEHICLE:
                 if self.signal.state in (SignalState.GO, SignalState.EXTEND):
                     return self.rng.randrange(1, 3)
+                elif self.signal.state == SignalState.FYA:
+                    return self.random_range_biased(1, 35, 0.3)
                 else:
                     if after_idle:
                         return self.random_range_biased(2, 15, 0.1)
@@ -140,7 +142,10 @@ class ApproachSimulator(Identifiable):
             match self.signal.type:
                 case SignalType.VEHICLE:
                     if not self.signal.active and self.state == ApproachState.PRESENCE:
-                        self.trigger = self.random_range_biased(3, 120, 0.3)
+                        if self.signal.state == SignalState.FYA:
+                            self.trigger = self.random_range_biased(2, 60, 0.2)
+                        else:
+                            self.trigger = self.random_range_biased(2, 120, 0.3)
                 case SignalType.PEDESTRIAN:
                     if self.signal.active and self.state == ApproachState.IDLE:
                         self.timer.value = 0.0
@@ -167,7 +172,7 @@ class IntersectionSimulator:
         if seed is None:
             seed = int.from_bytes(os.urandom(8))
         
-        logger.debug('simulation seed = {}', seed)
+        logger.info('simulation seed = {}', seed)
         
         self.rng = random.Random(seed)
         self.signals = signals
