@@ -13,7 +13,7 @@
 #  limitations under the License.
 import asyncio
 from loguru import logger
-from typing import Set, Dict, List, Self, Optional
+from typing import Set, Dict, List, Optional
 from asyncio import Event
 from itertools import chain
 from collections import defaultdict
@@ -24,14 +24,6 @@ from atsc.rpc.signal import Signal as rpc_Signal
 from atsc.common.constants import FLOAT_PRECISION_TIME, EdgeType
 from atsc.rpc.field_output import FieldOutput as rpc_FieldOutput
 from jacob.datetime.timing import millis
-from atsc.common.primitives import (
-    Timer,
-    Context,
-    Flasher,
-    Tickable,
-    EdgeTrigger,
-    Identifiable
-)
 from atsc.controller.structs import IntervalConfig, IntervalTiming
 from atsc.controller.constants import (
     CYCLER_SERVICE_POLL_RATE,
@@ -51,6 +43,13 @@ from atsc.controller.constants import (
     ServiceConditions
 )
 from jacob.datetime.formatting import format_ms
+from atsc.controller.primitives import (
+    Timer,
+    Context,
+    Tickable,
+    EdgeTrigger,
+    Identifiable
+)
 
 
 class FieldOutput(Identifiable, Tickable):
@@ -60,25 +59,29 @@ class FieldOutput(Identifiable, Tickable):
         return self._state
     
     @property
-    def flasher(self):
-        return self._flasher
+    def fpm(self):
+        return self._fpm
+    
+    @property
+    def flash_delay(self):
+        return (60.0 / self._fpm) / 2.0
     
     def __init__(self, id_: int, fpm: float = 60.0):
         Identifiable.__init__(self, id_)
         Tickable.__init__(self)
         self._state = FieldOutputState.OFF
         self._bit = False
-        self._flasher = Flasher(fpm)
+        self._fpm = fpm
+        self._timer = Timer()
     
     def set(self, state: FieldOutputState):
         if state != FieldOutputState.INHERIT:
             match state:
                 case FieldOutputState.OFF:
                     self._bit = False
-                case FieldOutputState.FLASHING:
-                    self._flasher.reset()
-                case FieldOutputState.ON:
+                case FieldOutputState.ON | FieldOutputState.FLASHING:
                     self._bit = True
+                    self._timer.value = 0.0
             
             self._state = state
     
@@ -91,20 +94,21 @@ class FieldOutput(Identifiable, Tickable):
     def __repr__(self):
         return f'<FieldOutput #{self.id} {self.state.name}'
     
-    def tick(self, context: Context):
+    async def tick(self, context: Context):
         if self.state == FieldOutputState.FLASHING:
-            self._flasher.poll(context)
-            self._bit = bool(self._flasher)
+            if self._timer.poll(context, self.flash_delay):
+                self._timer.value = 0.0
+                self._bit = not self._bit
     
     def rpc_model(self):
         return rpc_FieldOutput(self.id,
                                state=self.state,
                                value=self._bit,
-                               fpm=self.flasher.fpm)
+                               fpm=self.fpm)
 
 
 class Signal(Identifiable, Tickable):
-    global_field_output_mapping: Dict[FieldOutput, Self] = {}
+    global_field_output_mapping: Dict[FieldOutput, 'Signal'] = {}
     
     @dataclass(slots=True, frozen=True)
     class ServiceStatus:
@@ -113,7 +117,7 @@ class Signal(Identifiable, Tickable):
         lagging_signal: Optional['Signal'] = None
     
     @classmethod
-    def by_field_output(cls, fo: FieldOutput) -> Optional[Self]:
+    def by_field_output(cls, fo: FieldOutput) -> Optional['Signal']:
         return cls.global_field_output_mapping.get(fo)
     
     @property
@@ -278,7 +282,7 @@ class Signal(Identifiable, Tickable):
     def service_maximum(self):
         go_timing = self.timings.get(SignalState.GO)
         
-        if go_timing and go_timing.maximum and go_timing.maximum >= 1.0:
+        if go_timing and go_timing.maximum and go_timing.maximum > 1.0:
             return go_timing.maximum
         else:
             return None
@@ -485,7 +489,7 @@ class Signal(Identifiable, Tickable):
             self.recall()
             self.leading_signals.clear()
     
-    def tick(self, context: Context):
+    async def tick(self, context: Context):
         timing = self.timings.get(self.state)
         config = self.configs[self.state]
         minmax_inhibit = any([ls.active for ls in self.leading_signals])
@@ -519,6 +523,8 @@ class Signal(Identifiable, Tickable):
                 if self.conflicting_demand or not config.rest:
                     if self.interval_timer.value > timing.maximum:
                         self.change()
+        else:
+            self.interval_timer.poll(context)
         
         self.presence_timer.poll(context)
         
@@ -563,7 +569,7 @@ class Signal(Identifiable, Tickable):
                         if self.fya_phase.state in FYA_SIGNAL_DEACTIVATION_STATES:
                             self.change()
         
-        super().tick(context)
+        await super().tick(context)
     
     def change(self, state: Optional[SignalState] = None):
         if state is not None:
@@ -685,10 +691,10 @@ class Signal(Identifiable, Tickable):
 
 
 class Phase(Identifiable, Tickable):
-    global_field_output_mapping: Dict[FieldOutput, Self] = {}
+    global_field_output_mapping: Dict[FieldOutput, 'Phase'] = {}
     
     @classmethod
-    def by_field_output(cls, fo: FieldOutput) -> Optional[Self]:
+    def by_field_output(cls, fo: FieldOutput) -> Optional['Signal']:
         return cls.global_field_output_mapping.get(fo)
     
     @property
@@ -1150,6 +1156,8 @@ class IntersectionService(Tickable):
             return False
     
     async def _wait_for_signals(self):
+        assert self._signal_tasks
+        
         done, pending = await asyncio.wait(self._signal_tasks,
                                            return_when=asyncio.FIRST_COMPLETED)
         while pending:
@@ -1160,7 +1168,7 @@ class IntersectionService(Tickable):
         self._signal_tasks.clear()
         assert not self.active_phases
     
-    def tick(self, context: Context):
+    async def tick(self, context: Context):
         for signal in self.signals:
             if signal.active:
                 if self.active_barrier:
@@ -1247,8 +1255,8 @@ class IntersectionService(Tickable):
                             if active_resting:
                                 logger.debug('removed {} from cycled phases list',
                                              phase.get_tag())
-                            if phase.runtime_maximum <= active_remaining:
-                                logger.debug('removed {} from cycled phases list ({}s <= {}s)',
+                            if phase.runtime_maximum < active_remaining:
+                                logger.debug('removed {} from cycled phases list ({}s < {}s)',
                                              phase.get_tag(),
                                              phase.runtime_maximum,
                                              active_remaining)
@@ -1268,7 +1276,7 @@ class IntersectionService(Tickable):
                 raise Conflict(f'{ring.get_tag()} has multiple phases active')
         
         self.cycle_timer.poll(context)
-        super().tick(context)
+        await super().tick(context)
         
         stopped_resting_signals = 0
         signals_with_demand = 0
@@ -1318,15 +1326,12 @@ class IntersectionService(Tickable):
                 case PhaseCyclerMode.CONCURRENT:
                     while True:
                         selected_phases = self.select_phases()
-                        
                         if selected_phases:
                             signals = self.select_signals(*selected_phases)
-                            
                             for signal in signals:
                                 self._signal_tasks.append(
                                     asyncio.create_task(signal.serve(group=signals))
                                 )
-                            
                             await self._wait_for_signals()
                         else:
                             if self.try_change_barrier(next(self._barrier_sequence)):

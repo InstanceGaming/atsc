@@ -18,9 +18,9 @@ from loguru import logger
 from typing import List
 from atsc.common.structs import Context
 from atsc.common.constants import EdgeType
-from atsc.common.primitives import Timer, EdgeTrigger, Identifiable
 from atsc.controller.models import Signal
 from atsc.controller.constants import SignalType, SignalState
+from atsc.controller.primitives import Timer, EdgeTrigger, Identifiable
 
 
 def random_range_biased(start: int,
@@ -31,7 +31,7 @@ def random_range_biased(start: int,
     Generates a random number biased toward the higher or lower end of the range,
     using a normalized bias between 0.0 and 1.0.
     """
-    assert 0.0 <= bias <= 1.0
+    assert 0.0 < bias < 1.0
     
     rng = rng or random.Random()
     
@@ -137,7 +137,7 @@ class ApproachSimulator(Identifiable):
                     self.state = ApproachState.IDLE
                     self.trigger = self.get_idle_time()
     
-    def tick(self, context: Context):
+    async def tick(self, context: Context):
         if self.enabled:
             match self.signal.type:
                 case SignalType.VEHICLE:
@@ -166,14 +166,26 @@ class ApproachSimulator(Identifiable):
 
 class IntersectionSimulator:
     
+    @property
+    def enabled(self):
+        return self._enabled
+    
+    @enabled.setter
+    def enabled(self, value):
+        if value != self._enabled:
+            logger.info('presence simulation = {}', value)
+            self._enabled = value
+    
     def __init__(self,
                  signals: List[Signal],
-                 seed=None):
+                 seed=None,
+                 enabled=False):
         if seed is None:
-            seed = int.from_bytes(os.urandom(8))
+            seed = int.from_bytes(os.urandom(8), byteorder='big')
         
         logger.info('simulation seed = {}', seed)
-        
+
+        self._enabled = enabled
         self.rng = random.Random(seed)
         self.signals = signals
         self.approaches = []
@@ -184,9 +196,10 @@ class IntersectionSimulator:
                                                      self.rng,
                                                      signal))
     
-    def tick(self, context: Context):
+    async def tick(self, context: Context):
         # ignore time freeze
-        context = Context(context.rate, context.scale, timing=True)
+        context = Context(context.rate, timing=True)
         
         for approach in self.approaches:
-            approach.tick(context)
+            approach.enabled = self.enabled
+            await approach.tick(context)

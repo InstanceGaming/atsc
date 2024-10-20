@@ -14,6 +14,7 @@
 from enum import Enum, IntEnum, IntFlag, auto
 
 
+DEFAULT_TICK_RATE = 10.0
 CYCLER_SERVICE_POLL_RATE = 0.1
 PHASE_SERVICE_POLL_RATE = 0.1
 

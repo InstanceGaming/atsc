@@ -19,10 +19,9 @@ from atsc.common.constants import (
     RPC_PORT,
     RPC_ADDRESS,
     DEBUG_LEVELS,
-    DEFAULT_LEVELS,
-    DEFAULT_TICK_RATE,
-    DEFAULT_TICK_SCALE
+    DEFAULT_LEVELS
 )
+from atsc.controller.constants import DEFAULT_TICK_RATE
 
 
 def arg_port_number_type(v: str) -> int:
@@ -69,11 +68,6 @@ def parse_common_cla(description: str,
                           dest='tick_rate',
                           default=DEFAULT_TICK_RATE,
                           help=f'Tick rate. Default is {DEFAULT_TICK_RATE}.')
-        root.add_argument('--tick-scale',
-                          type=arg_context_value_type,
-                          dest='tick_scale',
-                          default=DEFAULT_TICK_SCALE,
-                          help=f'Tick scale. Default is {DEFAULT_TICK_SCALE}.')
     root.add_argument('-a', '--rpc-address',
                       type=str,
                       default=RPC_ADDRESS,
@@ -104,6 +98,5 @@ def parse_common_cla(description: str,
         rpc_port=cla['rpc_port'],
         log_path=fix_path(cla.get('log_path')),
         pid_path=fix_path(cla.get('pid_path')),
-        tick_rate=cla.get('tick_rate'),
-        tick_scale=cla.get('tick_scale')
+        tick_rate=cla.get('tick_rate')
     ), root

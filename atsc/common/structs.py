@@ -19,12 +19,11 @@ from dataclasses import dataclass
 @dataclass(slots=True)
 class Context:
     rate: float
-    scale: float
     timing: bool = True
     
     @property
     def delay(self):
-        return self.scale / self.rate
+        return 1.0 / self.rate
 
 
 @dataclass(slots=True, frozen=True)
@@ -35,4 +34,3 @@ class CommonCommandLineArguments:
     log_path: Optional[Path] = None
     pid_path: Optional[Path] = None
     tick_rate: Optional[float] = None
-    tick_scale: Optional[float] = None

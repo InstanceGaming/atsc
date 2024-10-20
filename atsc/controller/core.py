@@ -23,7 +23,6 @@ from atsc.common.models import AsyncDaemon
 from atsc.common.structs import Context
 from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT
 from atsc.rpc.field_output import FieldOutputMetadata as rpc_FieldOutputMetadata
-from atsc.common.primitives import ref, refs
 from atsc.controller.models import (
     Ring,
     Phase,
@@ -43,6 +42,7 @@ from atsc.controller.constants import (
     TrafficMovement,
     ServiceModifiers
 )
+from atsc.controller.primitives import ref, refs
 from atsc.controller.simulation import IntersectionSimulator
 
 
@@ -80,16 +80,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         if value == self.context.timing:
             logger.info('time freeze = {}', value)
             self.context.timing = not value
-    
-    @property
-    def presence_simulation(self):
-        return self._presence_simulation
-    
-    @presence_simulation.setter
-    def presence_simulation(self, value):
-        if value != self._presence_simulation:
-            logger.info('presence simulation = {}', value)
-            self._presence_simulation = value
     
     def __init__(self,
                  context: Context,
@@ -311,19 +301,20 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Barrier(801, refs(Phase, 601, 602, 605, 606)),
             Barrier(802, refs(Phase, 603, 604, 607, 608))
         ]
+        
         self.cycler = IntersectionService(self.rings,
                                           self.barriers,
                                           PhaseCyclerMode.CONCURRENT,
                                           fya_enabled=True)
+        self.simulator = IntersectionSimulator(self.signals,
+                                               seed=simulation_seed,
+                                               enabled=presence_simulation)
         
-        self.tickables.append(self.cycler)
+        self.tickables.extend((self.cycler, self.simulator))
         self.routines.extend((
             self.test_rpc_calls(),
             self.cycler.run()
         ))
-        self.presence_simulation = presence_simulation
-        self.simulator = IntersectionSimulator(self.signals,
-                                               seed=simulation_seed)
         
         if init_demand:
             for phase in self.phases:
@@ -335,12 +326,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         await self.get_field_outputs(rpc_controller.ControllerFieldOutputsRequest())
         await self.get_signals(rpc_controller.ControllerSignalsRequest())
         await self.get_phases(rpc_controller.ControllerPhasesRequest())
-        
-    def tick(self, context: Context):
-        super().tick(context)
-        
-        if self.presence_simulation:
-            self.simulator.tick(context)
     
     def shutdown(self):
         super().shutdown()
@@ -386,7 +371,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             run_seconds=self.started_at_monotonic_delta,
             control_seconds=self.started_at_monotonic_delta,
             time_freeze=self.time_freeze,
-            time_scale=self.context.scale,
+            time_scale=1.0,
             coordinating=False,
             on_schedule=False,
             dimming=False,
@@ -424,9 +409,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self,
         request: controller.ControllerPresenceSimulationRequest
     ):
-        before = self.presence_simulation
-        self.presence_simulation = request.enabled
-        changed = self.presence_simulation != before
+        before = self.simulator.enabled
+        self.simulator.enabled = request.enabled
+        changed = self.simulator.enabled != before
         return controller.ControllerChangeVariableResult(True, changed)
     
     async def set_fya_enabled(

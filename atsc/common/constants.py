@@ -27,8 +27,6 @@ else:
     RPC_CALL_TIMEOUT = 0.4
 
 FLOAT_PRECISION_TIME = 1
-DEFAULT_TICK_RATE = 10.0
-DEFAULT_TICK_SCALE = 1.0
 DAEMON_SHUTDOWN_TIMEOUT = 5.0
 DEFAULT_LEVELS = 'info,warning;stderr=error;file=info,error'
 DEBUG_LEVELS = 'verbose,warning;stderr=error;file=debug,error'

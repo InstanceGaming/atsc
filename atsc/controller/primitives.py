@@ -11,34 +11,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Dict, List, Self, Type, TypeVar, Optional
-from asyncio import Event
+import asyncio
+from typing import Dict, List, Type, TypeVar, Optional
 from atsc.common.structs import Context
-from atsc.common.constants import FLOAT_PRECISION_TIME, EdgeType
-from jacob.datetime.timing import millis
-
-
-class StopwatchEvent(Event):
-    
-    @property
-    def elapsed(self):
-        return millis() - self._marker
-    
-    def __init__(self):
-        Event.__init__(self)
-        self._marker = 0
-    
-    def set(self):
-        Event.set(self)
-        self._marker = millis()
-    
-    def clear(self):
-        Event.clear(self)
-        self._marker = millis()
+from atsc.common.constants import EdgeType
 
 
 class Identifiable:
-    global_objects_mapping: Dict[int, Self] = {}
+    global_objects_mapping: Dict[int, 'Identifiable'] = {}
     
     @property
     def id(self) -> int:
@@ -102,9 +82,8 @@ class Tickable:
     def __init__(self):
         self.tickables: List[Tickable] = []
     
-    def tick(self, context: Context):
-        for tickable in self.tickables:
-            tickable.tick(context)
+    async def tick(self, context: Context):
+        await asyncio.gather(*[t.tick(context) for t in self.tickables])
 
 
 class EdgeTrigger:
@@ -152,45 +131,13 @@ class Timer:
         self.value = value
     
     def poll(self, context: Context, trigger: Optional[float] = None) -> bool:
+        rv = False
+        
         if context.timing:
-            self._value = round(self.value + context.delay, FLOAT_PRECISION_TIME)
-        return trigger and self._value > trigger - context.delay
+            rv = trigger and self._value > trigger - context.delay
+            self._value = self.value + context.delay
+    
+        return rv
     
     def __repr__(self):
         return f'<Timer {self._value:01.1f}>'
-
-
-class Flasher:
-    
-    @property
-    def fpm(self):
-        return self._fpm
-    
-    @property
-    def fps(self):
-        return 60.0 / self._fpm
-    
-    @property
-    def delay(self):
-        return self.fps / 2
-    
-    def __init__(self, fpm: float, initial: bool = True):
-        self._fpm = fpm
-        self._timer = Timer()
-        self._initial = initial
-        self._flasher = initial
-    
-    def __bool__(self):
-        return self._flasher
-    
-    def reset(self):
-        self._flasher = self._initial
-    
-    def poll(self, context: Context):
-        rv = False
-        if context.timing:
-            rv = self._timer.poll(context, self.delay)
-            if rv:
-                self._timer.value = 0.0
-                self._flasher = not self._flasher
-        return rv

@@ -50,7 +50,7 @@ async def run():
     if setup_logger_result != ExitCode.OK:
         return setup_logger_result
     
-    context = Context(cla.tick_rate, cla.tick_scale)
+    context = Context(cla.tick_rate)
     controller = Controller(context,
                             pid_file=cla.pid_path,
                             presence_simulation=presence_simulation,

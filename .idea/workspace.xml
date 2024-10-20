@@ -4,14 +4,22 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="fieldbus rpc streaming">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="tick duration compensation, presence lockout">
+      <change afterPath="$PROJECT_DIR$/controller-pypy.bat" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/constants.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/primitives.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/structs.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/structs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/structs.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/structs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -66,21 +74,21 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
-    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.models.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc/scripts&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;,
-    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
+    "Python.Controller.executor": "Run",
+    "Python.Field Bus.executor": "Run",
+    "Python.TUI.executor": "Debug",
+    "Python.models.executor": "Run",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "F:/Projects/Code/Python/atsc/scripts",
+    "settings.editor.selected.configurable": "terminal",
+    "settings.editor.splitter.proportion": "0.25"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\scripts" />
@@ -89,10 +97,10 @@
       <recent name="F:\Projects\Code\Python\atsc" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="F:\Projects\Code\Python\atsc\atsc\controller" />
       <recent name="F:\Projects\Code\Python\atsc" />
       <recent name="F:\Projects\Code\Python\atsc\atsc\fieldbus" />
       <recent name="F:\Projects\Code\Python\atsc\protobufs" />
-      <recent name="F:\Projects\Code\Python\atsc\atsc\controller" />
       <recent name="F:\Projects\Code\Python\atsc\atsc\rpc\v1" />
     </key>
   </component>
@@ -122,7 +130,7 @@
     <configuration name="Controller" type="PythonConfigurationType" factoryName="Python">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="INTERPRETER_OPTIONS" value="-OO" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
@@ -134,7 +142,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.controller.main" />
-      <option name="PARAMETERS" value="--presence-simulation --init-demand --simulation-seed 6255602971349152301" />
+      <option name="PARAMETERS" value="--presence-simulation --simulation-seed 6255602971349152301" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
       <option name="MODULE_MODE" value="true" />
@@ -217,14 +225,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00011" summary="refactor, cycler modes">
-      <option name="closed" value="true" />
-      <created>1725251741813</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1725251741813</updated>
     </task>
     <task id="LOCAL-00012" summary="rest, reduce in IntervalConfig">
       <option name="closed" value="true" />
@@ -610,7 +610,15 @@
       <option name="project" value="LOCAL" />
       <updated>1729368565166</updated>
     </task>
-    <option name="localTasksCounter" value="60" />
+    <task id="LOCAL-00060" summary="tick duration compensation, presence lockout">
+      <option name="closed" value="true" />
+      <created>1729385727172</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1729385727173</updated>
+    </task>
+    <option name="localTasksCounter" value="61" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -637,7 +645,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="conflicting demand logic fix" />
     <MESSAGE value="sim logic, remove phase from cycled list" />
     <MESSAGE value="remove phase from cycled list within barrier" />
     <MESSAGE value="remove phase from cycled list fix" />
@@ -662,7 +669,8 @@
     <MESSAGE value="no serve detection" />
     <MESSAGE value="rpc controller state streaming" />
     <MESSAGE value="fieldbus rpc streaming" />
-    <option name="LAST_COMMIT_MESSAGE" value="fieldbus rpc streaming" />
+    <MESSAGE value="tick duration compensation, presence lockout" />
+    <option name="LAST_COMMIT_MESSAGE" value="tick duration compensation, presence lockout" />
   </component>
   <component name="XDebuggerManager">
     <watches-manager>

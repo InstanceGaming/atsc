@@ -14,10 +14,31 @@
 import sys
 import loguru
 from typing import Optional
+from asyncio import Event
 from pathlib import Path
 from jacob.logging import setup_logger as jacob_setup_logger
 from grpclib.metadata import Deadline
 from atsc.common.constants import CUSTOM_LOG_LEVELS, ExitCode
+from jacob.datetime.timing import millis
+
+
+class StopwatchEvent(Event):
+    
+    @property
+    def elapsed(self):
+        return millis() - self._marker
+    
+    def __init__(self):
+        Event.__init__(self)
+        self._marker = 0
+    
+    def set(self):
+        Event.set(self)
+        self._marker = millis()
+    
+    def clear(self):
+        Event.clear(self)
+        self._marker = millis()
 
 
 def get_program_dir() -> Path:

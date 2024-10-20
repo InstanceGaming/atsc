@@ -5,7 +5,7 @@ description = "Actuated traffic signal controller suite."
 authors = [
     { name = "Jacob Jewett", email = "jacoblj3333@gmail.com" }
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "asyncio==3.4.3",
     "grpclib==0.4.7",

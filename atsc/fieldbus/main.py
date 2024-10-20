@@ -54,7 +54,7 @@ def run():
     if setup_logger_result != ExitCode.OK:
         return setup_logger_result
     
-    context = Context(cla.tick_rate, cla.tick_scale)
+    context = Context(cla.tick_rate)
     
     channel = Channel(host=cla.rpc_address, port=cla.rpc_port)
     controller = ControllerStub(channel)
