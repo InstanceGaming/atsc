@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+import blinker
 from atsc import __version__ as atsc_version
 from loguru import logger
 from typing import Optional
@@ -20,7 +21,6 @@ from atsc.rpc import controller
 from atsc.rpc import controller as rpc_controller
 from atsc.rpc.signal import SignalMetadata as rpc_SignalMetadata
 from atsc.common.models import AsyncDaemon
-from atsc.common.structs import Context
 from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT
 from atsc.rpc.field_output import FieldOutputMetadata as rpc_FieldOutputMetadata
 from atsc.controller.models import (
@@ -34,6 +34,7 @@ from atsc.controller.models import (
     IntersectionService
 )
 from atsc.controller.constants import (
+    POLL_RATE,
     ExtendMode,
     RecallMode,
     SignalType,
@@ -70,30 +71,32 @@ def ped_signal_field_mapping(dont_walk_field_id: int):
 
 
 class Controller(AsyncDaemon, controller.ControllerBase):
+    freeze_time = blinker.signal('atsc.controller.time_freeze')
+    unfreeze_time = blinker.signal('atsc.controller.time_unfreeze')
+    presence_simulation_enabled = blinker.signal('atsc.controller.presence_simulation.enabled')
+    presence_simulation_disabled = blinker.signal('atsc.controller.presence_simulation.disabled')
     
     @property
     def time_freeze(self):
-        return not self.context.timing
+        return self._time_freeze
     
-    @time_freeze.setter
-    def time_freeze(self, value):
-        if value == self.context.timing:
-            logger.info('time freeze = {}', value)
-            self.context.timing = not value
+    @property
+    def presence_simulation(self):
+        return self._presence_simulation
     
     def __init__(self,
-                 context: Context,
                  shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
                  pid_file: Optional[str] = None,
                  loop: AbstractEventLoop = get_event_loop(),
+                 time_freeze: bool = False,
                  presence_simulation: bool = False,
                  simulation_seed: Optional[int] = None,
                  init_demand: bool = False):
         AsyncDaemon.__init__(self,
-                             context,
                              shutdown_timeout=shutdown_timeout,
                              pid_file=pid_file,
                              loop=loop)
+        self._time_freeze = False
         self._presence_simulation = False
         
         self.interval_timing_vehicle1 = {
@@ -133,9 +136,14 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.GO      : IntervalConfig(rest=True),
             SignalState.FYA     : IntervalConfig(flashing=True, rest=True)
         }
-        self.interval_config_ped = {
+        self.interval_config_ped1 = {
             SignalState.STOP    : IntervalConfig(rest=True),
-            SignalState.CAUTION : IntervalConfig(flashing=True)
+            SignalState.CAUTION : IntervalConfig(flashing=True),
+            SignalState.GO      : IntervalConfig(rest=True)
+        }
+        self.interval_config_ped2 = {
+            SignalState.STOP   : IntervalConfig(rest=True),
+            SignalState.CAUTION: IntervalConfig(flashing=True)
         }
         
         self.field_outputs = [FieldOutput(100 + i) for i in range(1, 97)]
@@ -150,7 +158,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 extend_mode=ExtendMode.MINIMUM_SKIP,
                 presence_lockout_delay=30.0,
                 fya_enabled=True,
-                fya_service_delay=30.0,
                 revert_time=2.0
             ),
             Signal(
@@ -174,7 +181,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 extend_mode=ExtendMode.MINIMUM_SKIP,
                 presence_lockout_delay=30.0,
                 fya_enabled=True,
-                fya_service_delay=30.0,
                 revert_time=2.0
             ),
             Signal(
@@ -197,7 +203,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 extend_mode=ExtendMode.MINIMUM_SKIP,
                 presence_lockout_delay=30.0,
                 fya_enabled=True,
-                fya_service_delay=30.0,
                 revert_time=2.0
             ),
             Signal(
@@ -221,7 +226,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 extend_mode=ExtendMode.MINIMUM_SKIP,
                 presence_lockout_delay=30.0,
                 fya_enabled=True,
-                fya_service_delay=30.0,
                 revert_time=2.0
             ),
             Signal(
@@ -237,7 +241,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 509,
                 self.interval_timing_ped1,
-                self.interval_config_ped,
+                self.interval_config_ped1,
                 ped_signal_field_mapping(125),
                 recycle=True,
                 latch=True,
@@ -248,8 +252,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 510,
                 self.interval_timing_ped2,
-                self.interval_config_ped,
+                self.interval_config_ped2,
                 ped_signal_field_mapping(128),
+                recycle=True,
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
@@ -258,7 +263,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 511,
                 self.interval_timing_ped1,
-                self.interval_config_ped,
+                self.interval_config_ped1,
                 ped_signal_field_mapping(131),
                 recycle=True,
                 latch=True,
@@ -269,8 +274,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 512,
                 self.interval_timing_ped2,
-                self.interval_config_ped,
+                self.interval_config_ped2,
                 ped_signal_field_mapping(134),
+                recycle=True,
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
@@ -306,19 +312,21 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                                           self.barriers,
                                           PhaseCyclerMode.CONCURRENT,
                                           fya_enabled=True)
-        self.simulator = IntersectionSimulator(self.signals,
-                                               seed=simulation_seed,
-                                               enabled=presence_simulation)
+        self.simulator = IntersectionSimulator(self.signals, seed=simulation_seed)
+        self.add_tasks([a.run() for a in self.simulator.approaches])
         
-        self.tickables.extend((self.cycler, self.simulator))
-        self.routines.extend((
+        self.add_tasks((
             self.test_rpc_calls(),
-            self.cycler.run()
+            self.cycler.service(),
+            self.cycler.poll()
         ))
         
         if init_demand:
             for phase in self.phases:
                 phase.demand = True
+        
+        self._set_time_freeze(time_freeze)
+        self._set_presence_simulation(presence_simulation)
     
     async def test_rpc_calls(self):
         await self.get_metadata(rpc_controller.ControllerMetadataRequest())
@@ -388,10 +396,22 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     ):
         return self._get_runtime_info()
     
+    def _set_time_freeze(self, freeze: bool):
+        if freeze != self.time_freeze:
+            self._time_freeze = freeze
+            
+            logger.debug('time freeze = {}', self.time_freeze)
+            
+            if freeze:
+                self.freeze_time.send(self)
+            else:
+                self.unfreeze_time.send(self)
+            
+            return True
+        return False
+    
     async def set_time_freeze(self, request: controller.ControllerTimeFreezeRequest):
-        before = self.time_freeze
-        self.time_freeze = request.time_freeze
-        changed = self.time_freeze != before
+        changed = self._set_time_freeze(request.time_freeze)
         return controller.ControllerChangeVariableResult(True, changed)
     
     async def set_cycle_mode(self, request: controller.ControllerCycleModeRequest):
@@ -405,13 +425,25 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             success = False
         return controller.ControllerChangeVariableResult(success, changed)
     
+    def _set_presence_simulation(self, simulation: bool):
+        if simulation != self.presence_simulation:
+            self._presence_simulation = simulation
+            
+            logger.debug('presence simulation = {}', self.presence_simulation)
+            
+            if self.presence_simulation:
+                self.presence_simulation_enabled.send(self)
+            else:
+                self.presence_simulation_disabled.send(self)
+            
+            return True
+        return False
+    
     async def set_presence_simulation(
         self,
         request: controller.ControllerPresenceSimulationRequest
     ):
-        before = self.simulator.enabled
-        self.simulator.enabled = request.enabled
-        changed = self.simulator.enabled != before
+        changed = self._set_presence_simulation(request.enabled)
         return controller.ControllerChangeVariableResult(True, changed)
     
     async def set_fya_enabled(
@@ -553,4 +585,4 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 field_outputs=field_outputs,
                 signals=signals
             )
-            await asyncio.sleep(self.context.delay)
+            await asyncio.sleep(POLL_RATE)

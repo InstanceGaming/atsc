@@ -8,6 +8,7 @@ authors = [
 requires-python = ">=3.10"
 dependencies = [
     "asyncio==3.4.3",
+    "blinker==1.8.2",
     "grpclib==0.4.7",
     "protobuf==5.28.2",
     "betterproto==2.0.0b7",

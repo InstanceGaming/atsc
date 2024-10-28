@@ -21,7 +21,6 @@ from atsc.common.constants import (
     DEBUG_LEVELS,
     DEFAULT_LEVELS
 )
-from atsc.controller.constants import DEFAULT_TICK_RATE
 
 
 def arg_port_number_type(v: str) -> int:
@@ -63,11 +62,6 @@ def parse_common_cla(description: str,
                           type=Path,
                           dest='pid_path',
                           help=f'Use PID file at this path.')
-        root.add_argument('--tick-rate',
-                          type=arg_context_value_type,
-                          dest='tick_rate',
-                          default=DEFAULT_TICK_RATE,
-                          help=f'Tick rate. Default is {DEFAULT_TICK_RATE}.')
     root.add_argument('-a', '--rpc-address',
                       type=str,
                       default=RPC_ADDRESS,
@@ -97,6 +91,5 @@ def parse_common_cla(description: str,
         rpc_address=rpc_address,
         rpc_port=cla['rpc_port'],
         log_path=fix_path(cla.get('log_path')),
-        pid_path=fix_path(cla.get('pid_path')),
-        tick_rate=cla.get('tick_rate')
+        pid_path=fix_path(cla.get('pid_path'))
     ), root

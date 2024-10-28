@@ -14,13 +14,14 @@
 import os
 import enum
 import random
+import asyncio
+
+import blinker
 from loguru import logger
 from typing import List
-from atsc.common.structs import Context
-from atsc.common.constants import EdgeType
 from atsc.controller.models import Signal
-from atsc.controller.constants import SignalType, SignalState
-from atsc.controller.primitives import Timer, EdgeTrigger, Identifiable
+from atsc.controller.constants import POLL_RATE, SignalType, SignalState
+from atsc.controller.primitives import AsyncTimer, Identifiable
 
 
 def random_range_biased(start: int,
@@ -49,10 +50,12 @@ class ApproachState(enum.Enum):
 
 
 class ApproachSimulator(Identifiable):
+    presence_simulation_enabled = blinker.signal('atsc.controller.presence_simulation.enabled')
+    presence_simulation_disabled = blinker.signal('atsc.controller.presence_simulation.disabled')
     
     @property
     def elapsed(self):
-        return self.timer.value
+        return self.timer.elapsed
     
     @property
     def is_thru(self):
@@ -65,16 +68,17 @@ class ApproachSimulator(Identifiable):
     def __init__(self,
                  id_: int,
                  rng: random.Random,
-                 signal: Signal,
-                 enabled: bool = True):
+                 signal: Signal):
         super().__init__(id_)
+        self.presence_simulation_enabled.connect(self._on_enable)
+        self.presence_simulation_disabled.connect(self._on_disable)
+        self._enabled = False
+        
         self.rng = rng
         self.signal = signal
-        self.enabled = enabled
         self.state = ApproachState.IDLE
-        self.trigger = self.get_idle_time(first=True)
-        self.timer = Timer()
-        self._presence_edge = EdgeTrigger()
+        self.timer = AsyncTimer()
+        self.cycle_count = 0
     
     def random_range_biased(self, start: int, end: int, bias: float):
         return random_range_biased(start, end, bias, rng=self.rng)
@@ -112,94 +116,75 @@ class ApproachSimulator(Identifiable):
             case _:
                 raise NotImplementedError()
     
-    def change(self):
-        self.timer.value = 0.0
-        
-        match self.state:
-            case ApproachState.IDLE:
-                self.state = ApproachState.PRESENCE
-                self.trigger = self.get_presence_time(after_idle=True)
-            case ApproachState.PRESENCE:
-                match self.signal.type:
-                    case SignalType.VEHICLE:
-                        self.state = ApproachState.GAP
-                        self.trigger = self.random_range_biased(1, 5, 0.5)
-                    case SignalType.PEDESTRIAN:
-                        self.state = ApproachState.IDLE
-                        self.trigger = self.get_idle_time()
-                    case _:
-                        raise NotImplementedError()
-            case ApproachState.GAP:
-                if round(self.rng.random()):
-                    self.state = ApproachState.PRESENCE
-                    self.trigger = self.get_presence_time()
-                else:
-                    self.state = ApproachState.IDLE
-                    self.trigger = self.get_idle_time()
+    def get_gap_time(self):
+        return self.random_range_biased(1, 5, 0.5)
     
-    async def tick(self, context: Context):
-        if self.enabled:
-            match self.signal.type:
-                case SignalType.VEHICLE:
-                    if not self.signal.active and self.state == ApproachState.PRESENCE:
-                        if self.signal.state == SignalState.FYA:
-                            self.trigger = self.random_range_biased(2, 60, 0.2)
+    async def run(self):
+        while True:
+            if self._enabled:
+                self.state = ApproachState.IDLE
+                self.timer.set(self.get_idle_time(self.cycle_count == 0))
+                await self.timer.wait()
+                
+                if self._enabled:
+                    platoon = True
+                    after_idle = True
+                    while platoon:
+                        permissive = round(self.rng.random()) if self.is_thru else False
+                        self.state = ApproachState.PRESENCE
+                        self.timer.set(self.get_presence_time(after_idle))
+                        self.signal.presence = True
+                        await self.timer.wait()
+                        
+                        if self.signal.type == SignalType.VEHICLE:
+                            while not self.signal.active:
+                                if permissive:
+                                    await asyncio.sleep(self.random_range_biased(3, 15, 0.5))
+                                else:
+                                    await asyncio.sleep(POLL_RATE)
+                            
+                            self.signal.presence = False
+                            
+                            self.state = ApproachState.GAP
+                            self.timer.set(self.get_gap_time())
+                            await self.timer.wait()
+                            
+                            if not self._enabled:
+                                break
+                            
+                            platoon = round(self.rng.random())
                         else:
-                            self.trigger = self.random_range_biased(2, 120, 0.3)
-                case SignalType.PEDESTRIAN:
-                    if self.signal.active and self.state == ApproachState.IDLE:
-                        self.timer.value = 0.0
-            
-            if self.timer.poll(context, self.trigger):
-                self.change()
-            
-            edge = self._presence_edge.poll(self.state == ApproachState.PRESENCE)
-            match edge:
-                case EdgeType.RISING:
-                    self.signal.presence = True
-                case EdgeType.FALLING:
-                    self.signal.presence = False
+                            self.signal.presence = False
+                            platoon = False
+                        
+                        after_idle = False
+                
+                self.cycle_count += 1
+            else:
+                await asyncio.sleep(POLL_RATE)
+    
+    def _on_enable(self, _):
+        self._enabled = True
+        
+    def _on_disable(self, _):
+        self._enabled = False
     
     def __repr__(self):
-        return f'<ApproachSimulator {self.state.name} {self.elapsed:.1f} of {self.trigger:.1f}>'
+        return f'<ApproachSimulator {self.state.name} {self.elapsed:.1f}>'
 
 
 class IntersectionSimulator:
     
-    @property
-    def enabled(self):
-        return self._enabled
-    
-    @enabled.setter
-    def enabled(self, value):
-        if value != self._enabled:
-            logger.info('presence simulation = {}', value)
-            self._enabled = value
-    
-    def __init__(self,
-                 signals: List[Signal],
-                 seed=None,
-                 enabled=False):
+    def __init__(self, signals: List[Signal], seed=None):
         if seed is None:
             seed = int.from_bytes(os.urandom(8), byteorder='big')
         
         logger.info('simulation seed = {}', seed)
-
-        self._enabled = enabled
+        
         self.rng = random.Random(seed)
         self.signals = signals
         self.approaches = []
         
         for i in range(len(signals)):
             signal = signals[i]
-            self.approaches.append(ApproachSimulator(i + 7001,
-                                                     self.rng,
-                                                     signal))
-    
-    async def tick(self, context: Context):
-        # ignore time freeze
-        context = Context(context.rate, timing=True)
-        
-        for approach in self.approaches:
-            approach.enabled = self.enabled
-            await approach.tick(context)
+            self.approaches.append(ApproachSimulator(i + 7001, self.rng, signal))

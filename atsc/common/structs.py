@@ -16,16 +16,6 @@ from pathlib import Path
 from dataclasses import dataclass
 
 
-@dataclass(slots=True)
-class Context:
-    rate: float
-    timing: bool = True
-    
-    @property
-    def delay(self):
-        return 1.0 / self.rate
-
-
 @dataclass(slots=True, frozen=True)
 class CommonCommandLineArguments:
     log_levels_notation: str
@@ -33,4 +23,3 @@ class CommonCommandLineArguments:
     rpc_port: int
     log_path: Optional[Path] = None
     pid_path: Optional[Path] = None
-    tick_rate: Optional[float] = None

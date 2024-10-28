@@ -15,6 +15,7 @@ from typing import List
 from datetime import datetime
 from rich.text import Text
 from textual.app import RenderResult, ComposeResult
+from textual.timer import Timer
 from atsc.tui.utils import boolean_text, text_or_dash, get_time_text
 from textual.widget import Widget
 from atsc.rpc.signal import SignalType
@@ -224,6 +225,7 @@ class ControllerTimeFreeze(Widget):
         super().__init__()
         self._flasher = True
         self._style = ''
+        self._animation_timer = self.set_interval(0.5, self.toggle_color)
     
     def render(self) -> RenderResult:
         if self.time_freeze:
@@ -241,7 +243,9 @@ class ControllerTimeFreeze(Widget):
     
     def watch_time_freeze(self):
         if self.time_freeze:
-            self.set_interval(0.5, self.toggle_color)
+            self._animation_timer.resume()
+        else:
+            self._animation_timer.pause()
 
 
 class ControllerCycleMode(Widget):

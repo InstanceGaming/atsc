@@ -14,9 +14,7 @@
 from enum import Enum, IntEnum, IntFlag, auto
 
 
-DEFAULT_TICK_RATE = 10.0
-CYCLER_SERVICE_POLL_RATE = 0.1
-PHASE_SERVICE_POLL_RATE = 0.1
+POLL_RATE = 0.1
 
 
 class FieldOutputState(IntEnum):
@@ -50,14 +48,6 @@ class SignalState(IntEnum):
 
 FYA_SIGNAL_ACTIVATION_STATES = [SignalState.GO]
 FYA_SIGNAL_DEACTIVATION_STATES = [SignalState.CAUTION, SignalState.STOP]
-
-
-class FYAState(IntFlag):
-    INACTIVE            = 0
-    ACTIVE              = 1
-    TERMINATING         = 2
-    SERVICE             = 4
-    CONTINUE            = 8
 
 
 class ExtendMode(IntEnum):

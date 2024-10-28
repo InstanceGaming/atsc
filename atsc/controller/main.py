@@ -16,7 +16,6 @@ import asyncio
 from atsc.common import cli
 from grpclib.server import Server
 from atsc.common.utils import setup_logger
-from atsc.common.structs import Context
 from atsc.controller.core import Controller
 from atsc.common.constants import ExitCode
 
@@ -38,11 +37,15 @@ async def run():
     root_ap.add_argument('--init-demand',
                          action='store_true',
                          dest='init_demand')
-    
+    root_ap.add_argument('--time-freeze',
+                         action='store_true',
+                         dest='time_freeze')
+                         
     extra_cla = vars(root_ap.parse_args())
     presence_simulation = extra_cla['presence_simulation']
     simulation_seed = extra_cla['simulation_seed']
     init_demand = extra_cla['init_demand']
+    time_freeze = extra_cla['time_freeze']
     
     setup_logger_result = setup_logger(cla.log_levels_notation,
                                        log_file=cla.log_path)
@@ -50,12 +53,11 @@ async def run():
     if setup_logger_result != ExitCode.OK:
         return setup_logger_result
     
-    context = Context(cla.tick_rate)
-    controller = Controller(context,
-                            pid_file=cla.pid_path,
+    controller = Controller(pid_file=cla.pid_path,
+                            init_demand=init_demand,
+                            time_freeze=time_freeze,
                             presence_simulation=presence_simulation,
-                            simulation_seed=simulation_seed,
-                            init_demand=init_demand)
+                            simulation_seed=simulation_seed)
     
     server = Server([controller])
     
