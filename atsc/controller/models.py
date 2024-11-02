@@ -1175,181 +1175,187 @@ class IntersectionService:
             await asyncio.sleep(POLL_RATE)
     
     async def poll(self):
-        while True:
-            for signal in self.signals:
-                if signal.active:
-                    if self.active_barrier:
-                        if signal not in self.active_barrier.signals:
-                            raise Conflict(f'{signal.get_tag()} not in {self.active_barrier.get_tag()}')
-                else:
-                        signal.fya_enabled = self.fya_enabled
-                        if signal.fya_enabled and signal.state != SignalState.FYA:
-                            if signal.revert_clear is None or signal.revert_clear:
-                                if signal.fya_phase and signal.fya_phase.state in (SignalState.GO, SignalState.EXTEND):
-                                    for ps in signal.fya_phase.signals:
-                                        if ps.type == SignalType.PEDESTRIAN:
-                                            if ps.active:
-                                                break
-        
-                                            if ps.interval_timer.elapsed < 1.0:
-                                                break
-                                    else:
-                                        await signal.fya()
+        try:
+            while True:
+                for signal in self.signals:
+                    if signal.active:
+                        if self.active_barrier:
+                            if signal not in self.active_barrier.signals:
+                                raise Conflict(f'{signal.get_tag()} not in {self.active_barrier.get_tag()}')
+                    else:
+                            signal.fya_enabled = self.fya_enabled
+                            if signal.fya_enabled and signal.state != SignalState.FYA:
+                                if signal.revert_clear is None or signal.revert_clear:
+                                    if signal.fya_phase and signal.fya_phase.state in (SignalState.GO, SignalState.EXTEND):
+                                        for ps in signal.fya_phase.signals:
+                                            if ps.type == SignalType.PEDESTRIAN:
+                                                if ps.active:
+                                                    break
             
-            for phase in self.phases:
-                if phase.fya_active:
-                    continue
+                                                if ps.interval_timer.elapsed < 1.0:
+                                                    break
+                                        else:
+                                            await signal.fya()
                 
-                if phase.demand:
-                    for signal in phase.default_signals:
-                        if not signal.demand and not signal.active:
-                            signal.demand = True
+                for phase in self.phases:
+                    if phase.fya_active:
+                        continue
                     
-                    barrier = self.get_barrier_by_phase(phase)
+                    if phase.demand:
+                        for signal in phase.default_signals:
+                            if not signal.demand and not signal.active:
+                                signal.demand = True
+                        
+                        barrier = self.get_barrier_by_phase(phase)
+                        
+                        if barrier:
+                            for barrier_phase in barrier.phases:
+                                if barrier_phase == phase:
+                                    continue
+                                if barrier_phase.demand:
+                                    break
+                            else:
+                                for other_phase in phase.default_phases:
+                                    if (not other_phase.demand and
+                                        not other_phase.active_signals and
+                                        other_phase not in self.phases_serviced):
+                                        if other_phase.default_signals:
+                                            for default_signal in other_phase.default_signals:
+                                                default_signal.demand = True
+                                        else:
+                                            other_phase.demand = True
                     
-                    if barrier:
-                        for barrier_phase in barrier.phases:
-                            if barrier_phase == phase:
-                                continue
-                            if barrier_phase.demand:
+                    ring = self.get_ring_by_phase(phase)
+                    
+                    for waiting_phase in self.waiting_phases:
+                        if self.active_barrier:
+                            if waiting_phase not in self.active_barrier.phases:
+                                phase.conflicting_demand = True
                                 break
-                        else:
-                            for other_phase in phase.default_phases:
-                                if (not other_phase.demand and
-                                    not other_phase.active_signals and
-                                    other_phase not in self.phases_serviced):
-                                    if other_phase.default_signals:
-                                        for default_signal in other_phase.default_signals:
-                                            default_signal.demand = True
-                                    else:
-                                        other_phase.demand = True
-                
-                ring = self.get_ring_by_phase(phase)
-                
-                for waiting_phase in self.waiting_phases:
-                    if self.active_barrier:
-                        if waiting_phase not in self.active_barrier.phases:
+                            if waiting_phase in ring.phases and waiting_phase.fya_active:
+                                phase.conflicting_demand = True
+                                break
+                        if ring and waiting_phase in ring.phases:
                             phase.conflicting_demand = True
                             break
-                        if waiting_phase in ring.phases and waiting_phase.fya_active:
-                            phase.conflicting_demand = True
-                            break
-                    if ring and waiting_phase in ring.phases:
-                        phase.conflicting_demand = True
-                        break
+                    else:
+                        phase.conflicting_demand = False
+                        
+                        if phase.inactive_signals and self.active_barrier:
+                            if all([s.resting and not s.leading_signals for s in phase.active_signals]):
+                                for signal in phase.inactive_signals:
+                                    if not signal.fya_enabled:
+                                        status = signal.get_service_status(group=phase.active_signals)
+                                        if status.service:
+                                            self._signal_tasks.append(asyncio.create_task(signal.serve(group=phase.active_signals)))
+                
+                if self.active_barrier and 0 < len(self.active_phases) < len(self.rings):
+                    if set(self.active_phases + self.waiting_phases).issubset(self.active_barrier.phases):
+                        active_resting = any([p.resting for p in self.active_phases])
+                        active_remaining = max([p.runtime_remaining for p in self.active_phases])
+                        
+                        for phase in self.waiting_phases:
+                            if phase in self.phases_serviced:
+                                if not phase.demand:
+                                    continue
+                                
+                                if self.recycle_phase(phase):
+                                    if active_resting:
+                                        logger.debug('removed {} from cycled phases list',
+                                                     phase.get_tag())
+                                    if phase.runtime_maximum < active_remaining:
+                                        logger.debug('removed {} from cycled phases list ({}s < {}s)',
+                                                     phase.get_tag(),
+                                                     phase.runtime_maximum,
+                                                     active_remaining)
+                    
+                    selected_phases = self.select_phases()
+                    if selected_phases:
+                        signals = self.select_signals(*selected_phases)
+                        
+                        if signals:
+                            for signal in signals:
+                                self._signal_tasks.append(
+                                    asyncio.create_task(signal.serve(group=signals))
+                                )
+                
+                for ring in self.rings:
+                    if len(ring.active_phases) > 1:
+                        raise Conflict(f'{ring.get_tag()} has multiple phases active')
+                
+                stopped_resting_signals = 0
+                signals_with_demand = 0
+                for signal in self.signals:
+                    if signal.state == SignalState.STOP and signal.resting:
+                        stopped_resting_signals += 1
+                    if signal.demand:
+                        signals_with_demand += 1
+                
+                if stopped_resting_signals == len(self.signals) and signals_with_demand:
+                    if self._stopped_with_demand_stopwatch.elapsed > self._max_revert_time:
+                        self._stopped_with_demand_stopwatch.reset()
+                        breakpoint()
                 else:
-                    phase.conflicting_demand = False
-                    
-                    if phase.inactive_signals and self.active_barrier:
-                        if all([s.resting and not s.leading_signals for s in phase.active_signals]):
-                            for signal in phase.inactive_signals:
-                                if not signal.fya_enabled:
-                                    status = signal.get_service_status(group=phase.active_signals)
-                                    if status.service:
-                                        self._signal_tasks.append(asyncio.create_task(signal.serve(group=phase.active_signals)))
-            
-            if self.active_barrier and 0 < len(self.active_phases) < len(self.rings):
-                if set(self.active_phases + self.waiting_phases).issubset(self.active_barrier.phases):
-                    active_resting = any([p.resting for p in self.active_phases])
-                    active_remaining = max([p.runtime_remaining for p in self.active_phases])
-                    
-                    for phase in self.waiting_phases:
-                        if phase in self.phases_serviced:
-                            if not phase.demand:
-                                continue
-                            
-                            if self.recycle_phase(phase):
-                                if active_resting:
-                                    logger.debug('removed {} from cycled phases list',
-                                                 phase.get_tag())
-                                if phase.runtime_maximum < active_remaining:
-                                    logger.debug('removed {} from cycled phases list ({}s < {}s)',
-                                                 phase.get_tag(),
-                                                 phase.runtime_maximum,
-                                                 active_remaining)
-                
-                selected_phases = self.select_phases()
-                if selected_phases:
-                    signals = self.select_signals(*selected_phases)
-                    
-                    if signals:
-                        for signal in signals:
-                            self._signal_tasks.append(
-                                asyncio.create_task(signal.serve(group=signals))
-                            )
-            
-            for ring in self.rings:
-                if len(ring.active_phases) > 1:
-                    raise Conflict(f'{ring.get_tag()} has multiple phases active')
-            
-            stopped_resting_signals = 0
-            signals_with_demand = 0
-            for signal in self.signals:
-                if signal.state == SignalState.STOP and signal.resting:
-                    stopped_resting_signals += 1
-                if signal.demand:
-                    signals_with_demand += 1
-            
-            if stopped_resting_signals == len(self.signals) and signals_with_demand:
-                if self._stopped_with_demand_stopwatch.elapsed > self._max_revert_time:
                     self._stopped_with_demand_stopwatch.reset()
-                    breakpoint()
-            else:
-                self._stopped_with_demand_stopwatch.reset()
-            
-            await asyncio.sleep(POLL_RATE)
+                
+                await asyncio.sleep(POLL_RATE)
+        except asyncio.CancelledError:
+            pass
     
     async def service(self):
         logger.debug('max revert time is {}', self._max_revert_time)
         
         self.try_change_barrier(next(self._barrier_sequence))
         
-        while True:
-            await self._try_pause()
-            
-            for phase in self.phases:
-                phase.recall()
-            
-            await self._try_idle()
-            await self._wait_for_all_revert_clear()
-            
-            match self.mode:
-                case PhaseCyclerMode.SEQUENTIAL:
-                    for _ in range(len(self.phases)):
-                        phase = next(self._phase_sequence)
-                        if phase not in self.phases_serviced and phase in self.waiting_phases:
-                            signals = self.select_signals(phase)
+        try:
+            while True:
+                await self._try_pause()
+                
+                for phase in self.phases:
+                    phase.recall()
+                
+                await self._try_idle()
+                await self._wait_for_all_revert_clear()
+                
+                match self.mode:
+                    case PhaseCyclerMode.SEQUENTIAL:
+                        for _ in range(len(self.phases)):
+                            phase = next(self._phase_sequence)
+                            if phase not in self.phases_serviced and phase in self.waiting_phases:
+                                signals = self.select_signals(phase)
+                                
+                                for signal in signals:
+                                    self._signal_tasks.append(asyncio.create_task(signal.serve(group=signals)))
+                                
+                                await self._wait_for_signals()
+                        self._signal_tasks.clear()
+                    case PhaseCyclerMode.CONCURRENT:
+                        while True:
+                            selected_phases = self.select_phases()
+                            if selected_phases:
+                                signals = self.select_signals(*selected_phases)
+                                for signal in signals:
+                                    self._signal_tasks.append(
+                                        asyncio.create_task(signal.serve(group=signals))
+                                    )
+                                await self._wait_for_signals()
+                            else:
+                                if self.try_change_barrier(next(self._barrier_sequence)):
+                                    break
                             
-                            for signal in signals:
-                                self._signal_tasks.append(asyncio.create_task(signal.serve(group=signals)))
-                            
-                            await self._wait_for_signals()
-                    self._signal_tasks.clear()
-                case PhaseCyclerMode.CONCURRENT:
-                    while True:
-                        selected_phases = self.select_phases()
-                        if selected_phases:
-                            signals = self.select_signals(*selected_phases)
-                            for signal in signals:
-                                self._signal_tasks.append(
-                                    asyncio.create_task(signal.serve(group=signals))
-                                )
-                            await self._wait_for_signals()
-                        else:
-                            if self.try_change_barrier(next(self._barrier_sequence)):
+                            if self.active_barrier is None:
                                 break
-                        
-                        if self.active_barrier is None:
-                            break
-            
-            if self.cycle_stopwatch.elapsed < 1.0:
-                raise RuntimeError('cycle completed too quickly')
-            else:
-                self.cycle_stopwatch.reset()
-                self.signals_serviced.clear()
-                self.signals_recycled.clear()
-                self._cycle_count += 1
-                logger.debug('cycle #{}', self._cycle_count)
+                
+                if self.cycle_stopwatch.elapsed < 1.0:
+                    raise RuntimeError('cycle completed too quickly')
+                else:
+                    self.cycle_stopwatch.reset()
+                    self.signals_serviced.clear()
+                    self.signals_recycled.clear()
+                    self._cycle_count += 1
+                    logger.debug('cycle #{}', self._cycle_count)
+        except asyncio.CancelledError:
+            pass
 
 
 class Input(Identifiable):

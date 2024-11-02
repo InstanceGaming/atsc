@@ -17,7 +17,7 @@ import signal
 import asyncio
 from abc import ABC
 from loguru import logger
-from typing import List, TextIO, Iterable, Optional, Coroutine
+from typing import List, TextIO, Optional, Coroutine
 from pathlib import Path
 from datetime import datetime
 from atsc.common import utils
@@ -46,9 +46,10 @@ class AsyncDaemon(ABC):
         self.tasks: List[asyncio.Task] = []
         
         self.running = asyncio.Event()
+        self.shutdown_task = None
         self.shutdown_timeout = shutdown_timeout
-        self.request_shutdown = utils.StopwatchEvent()
-        self.shutdown_clean = asyncio.Event()
+        self.shutdown_begin = utils.StopwatchEvent()
+        self.shutdown_complete = asyncio.Event()
         
         for sig in signal.valid_signals():
             try:
@@ -61,7 +62,7 @@ class AsyncDaemon(ABC):
         match sig:
             case signal.SIGTERM | signal.SIGINT:
                 logger.info('signal {} received', sig)
-                await self.on_terminate()
+                self.shutdown()
             case unhandled_signal:
                 logger.warning('unhandled signal {} received', unhandled_signal)
     
@@ -104,18 +105,10 @@ class AsyncDaemon(ABC):
             logger.info('removed PID file at {}', pid_path)
         return ExitCode.OK
     
-    def add_task(self, coro: Coroutine) -> asyncio.Task:
-        task = asyncio.create_task(coro)
+    def add_task(self, coro: Coroutine, name: Optional[str] = None) -> asyncio.Task:
+        task = asyncio.create_task(coro, name=name)
         self.tasks.append(task)
         return task
-    
-    def add_tasks(self, coros: Iterable[Coroutine]) -> List[asyncio.Task]:
-        tasks = []
-        
-        for coro in coros:
-            tasks.append(self.add_task(coro))
-        
-        return tasks
     
     async def before_run(self):
         self.started_at_epoch = round(time.time())
@@ -137,10 +130,7 @@ class AsyncDaemon(ABC):
                 return result
             
             if len(self.tasks) and self.running.is_set():
-                try:
-                    await asyncio.gather(*self.tasks)
-                except KeyboardInterrupt:
-                    self.shutdown()
+                await asyncio.gather(*self.tasks)
             
             result = await self.after_run()
             
@@ -155,11 +145,6 @@ class AsyncDaemon(ABC):
         return ExitCode.OK
     
     async def after_run(self):
-        logger.debug('canceling {} tasks', len(self.tasks))
-        
-        for task in self.tasks:
-            task.cancel()
-        
         monotonic_delta = seconds() - self.started_at_monotonic
         ed, eh, em, es = format_dhms(monotonic_delta)
         started_at_dt = datetime.fromtimestamp(self.started_at_epoch)
@@ -168,29 +153,33 @@ class AsyncDaemon(ABC):
                     '(since {})',
                     ed, eh, em, es, formatted_timestamp)
         
-        self.running.clear()
-        self.shutdown_clean.set()
-        
         return ExitCode.OK
     
-    async def on_terminate(self):
-        self.shutdown()
-    
     async def _shutdown_wait(self):
-        try:
-            await asyncio.wait_for(self.shutdown_clean.wait(),
-                                   timeout=self.shutdown_timeout)
-            logger.info('shutdown took {}',
-                        format_ms(self.request_shutdown.elapsed))
-        except TimeoutError:
-            delta = self.request_shutdown.elapsed - (self.shutdown_timeout / 1000)
-            logger.error('exceeded shutdown timeout by {}', format_ms(delta))
+        while True:
+            incomplete = [t for t in self.tasks if not t.done()]
+            if incomplete:
+                logger.debug('waiting for {} tasks to return', len(incomplete))
+                logger.verbose('pending tasks: {}', ', '.join([t.get_name() for t in incomplete]))
+                await asyncio.sleep(1.0)
+            else:
+                break
+        
+        self.shutdown_complete.set()
+        logger.info('shutdown complete ({})',
+                    format_ms(self.shutdown_begin.elapsed))
     
     def shutdown(self):
-        if not self.request_shutdown.is_set():
-            logger.info('shutdown requested')
-            self.request_shutdown.set()
+        if not self.shutdown_begin.is_set():
+            logger.info('shutdown begin')
             
-            asyncio.create_task(self._shutdown_wait())
+            self.shutdown_begin.set()
+            self.running.clear()
+            
+            logger.debug('canceling {} tasks', len(self.tasks))
+            for task in self.tasks:
+                task.cancel()
+            
+            self.shutdown_task = asyncio.create_task(self._shutdown_wait())
         else:
             logger.warning('shutdown already pending')

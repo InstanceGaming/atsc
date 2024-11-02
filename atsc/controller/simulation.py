@@ -119,48 +119,51 @@ class ApproachSimulator(Identifiable):
         return self.random_range_biased(1, 5, 0.5)
     
     async def run(self):
-        while True:
-            if self._enabled:
-                self.state = ApproachState.IDLE
-                self.timer.set(self.get_idle_time(self.cycle_count == 0))
-                await self.timer.wait()
-                
+        try:
+            while True:
                 if self._enabled:
-                    platoon = True
-                    after_idle = True
-                    while platoon:
-                        permissive = round(self.rng.random()) if self.is_thru else False
-                        self.state = ApproachState.PRESENCE
-                        self.timer.set(self.get_presence_time(after_idle))
-                        self.signal.presence = True
-                        await self.timer.wait()
-                        
-                        if self.signal.type == SignalType.VEHICLE:
-                            while not self.signal.active:
-                                if permissive:
-                                    await asyncio.sleep(self.random_range_biased(3, 15, 0.5))
-                                else:
-                                    await asyncio.sleep(POLL_RATE)
-                            
-                            self.signal.presence = False
-                            
-                            self.state = ApproachState.GAP
-                            self.timer.set(self.get_gap_time())
+                    self.state = ApproachState.IDLE
+                    self.timer.set(self.get_idle_time(self.cycle_count == 0))
+                    await self.timer.wait()
+                    
+                    if self._enabled:
+                        platoon = True
+                        after_idle = True
+                        while platoon:
+                            permissive = round(self.rng.random()) if self.is_thru else False
+                            self.state = ApproachState.PRESENCE
+                            self.timer.set(self.get_presence_time(after_idle))
+                            self.signal.presence = True
                             await self.timer.wait()
                             
-                            if not self._enabled:
-                                break
+                            if self.signal.type == SignalType.VEHICLE:
+                                while not self.signal.active:
+                                    if permissive:
+                                        await asyncio.sleep(self.random_range_biased(3, 15, 0.5))
+                                    else:
+                                        await asyncio.sleep(POLL_RATE)
+                                
+                                self.signal.presence = False
+                                
+                                self.state = ApproachState.GAP
+                                self.timer.set(self.get_gap_time())
+                                await self.timer.wait()
+                                
+                                if not self._enabled:
+                                    break
+                                
+                                platoon = round(self.rng.random())
+                            else:
+                                self.signal.presence = False
+                                platoon = False
                             
-                            platoon = round(self.rng.random())
-                        else:
-                            self.signal.presence = False
-                            platoon = False
-                        
-                        after_idle = False
-                
-                self.cycle_count += 1
-            else:
-                await asyncio.sleep(POLL_RATE)
+                            after_idle = False
+                    
+                    self.cycle_count += 1
+                else:
+                    await asyncio.sleep(POLL_RATE)
+        except asyncio.CancelledError:
+            pass
     
     def _on_enable(self, _):
         self._enabled = True

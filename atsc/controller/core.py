@@ -313,13 +313,13 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                                           PhaseCyclerMode.CONCURRENT,
                                           fya_enabled=True)
         self.simulator = IntersectionSimulator(self.signals, seed=simulation_seed)
-        self.add_tasks([a.run() for a in self.simulator.approaches])
         
-        self.add_tasks((
-            self.test_rpc_calls(),
-            self.cycler.service(),
-            self.cycler.poll()
-        ))
+        for approach in self.simulator.approaches:
+            self.add_task(approach.run(), name=f'ApproachSimulator{approach.id}.run()')
+
+        self.add_task(self.test_rpc_calls(), name='test_rpc_calls()')
+        self.add_task(self.cycler.service(), name='IntersectionService.service()')
+        self.add_task(self.cycler.poll(), name='IntersectionService.poll()')
         
         if init_demand:
             for phase in self.phases:
