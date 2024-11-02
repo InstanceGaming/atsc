@@ -4,14 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="poetry, uvloop/winloop, time logging, refactoring">
-      <change afterPath="$PROJECT_DIR$/start-debug.sh" afterDir="false" />
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="shutdown hang fix, start-debug.sh">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -216,14 +212,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00016" summary="busfuzz.py, field bus impl">
-      <option name="closed" value="true" />
-      <created>1726896934904</created>
-      <option name="number" value="00016" />
-      <option name="presentableId" value="LOCAL-00016" />
-      <option name="project" value="LOCAL" />
-      <updated>1726896934904</updated>
     </task>
     <task id="LOCAL-00017" summary="simulator, presence, edge detection">
       <option name="closed" value="true" />
@@ -609,7 +597,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730520057709</updated>
     </task>
-    <option name="localTasksCounter" value="65" />
+    <task id="LOCAL-00065" summary="shutdown hang fix, start-debug.sh">
+      <option name="closed" value="true" />
+      <created>1730561153660</created>
+      <option name="number" value="00065" />
+      <option name="presentableId" value="LOCAL-00065" />
+      <option name="project" value="LOCAL" />
+      <updated>1730561153660</updated>
+    </task>
+    <option name="localTasksCounter" value="66" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -636,7 +632,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="pin deps" />
     <MESSAGE value="graceful signal handler attach" />
     <MESSAGE value="start.sh fix" />
     <MESSAGE value="rpc address, tui timeout" />
@@ -661,18 +656,10 @@
     <MESSAGE value="overhaul task-based approach" />
     <MESSAGE value="winloop" />
     <MESSAGE value="poetry, uvloop/winloop, time logging, refactoring" />
-    <option name="LAST_COMMIT_MESSAGE" value="poetry, uvloop/winloop, time logging, refactoring" />
+    <MESSAGE value="shutdown hang fix, start-debug.sh" />
+    <option name="LAST_COMMIT_MESSAGE" value="shutdown hang fix, start-debug.sh" />
   </component>
   <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/atsc/common/models.py</url>
-          <line>184</line>
-          <option name="timeStamp" value="2" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
     <watches-manager>
       <configuration name="PythonConfigurationType">
         <watch expression="self.signals" language="Python" />

@@ -12,12 +12,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import threading
-
 import loguru
 import asyncio
 from atsc.common import cli
 from grpclib.server import Server
 from atsc.common.utils import setup_logger, asyncio_loop_patch
+from atsc.controller.constants import POLL_RATE
 from atsc.controller.core import Controller
 from atsc.common.constants import ExitCode
 
@@ -27,7 +27,8 @@ logger = loguru.logger
 
 async def rpc_server(host: str,
                      port: int,
-                     controller: Controller):
+                     controller: Controller,
+                     cancel_event: threading.Event):
     logger.debug('starting RPC server...')
     
     server = Server([controller])
@@ -38,19 +39,24 @@ async def rpc_server(host: str,
             logger.info('RPC server listening on {} port {}', host, port)
         else:
             logger.info('RPC server listening on port {} (all interfaces)', port)
+        
+        while not cancel_event.is_set():
+            await asyncio.sleep(POLL_RATE)
     except (OSError, TimeoutError, ConnectionError) as e:
         logger.error('RPC server failed to start: {}', str(e))
     finally:
-        await controller.shutdown_complete.wait()
         logger.debug('closing RPC server')
         server.close()
         await server.wait_closed()
         logger.debug('RPC server closed')
 
 
-def _rpc_server_shim(host: str, port: int, controller: Controller):
+def _rpc_server_shim(host: str,
+                     port: int,
+                     controller: Controller,
+                     cancel_event: threading.Event):
     loop = asyncio.new_event_loop()
-    loop.run_until_complete(rpc_server(host, port, controller))
+    loop.run_until_complete(rpc_server(host, port, controller, cancel_event))
 
 
 async def run():
@@ -88,13 +94,20 @@ async def run():
                             time_freeze=time_freeze,
                             presence_simulation=presence_simulation,
                             simulation_seed=simulation_seed)
+    rpc_cancel_event = threading.Event()
     rpc_thread = threading.Thread(target=_rpc_server_shim,
                                   args=(cla.rpc_address,
                                         cla.rpc_port,
-                                        controller))
+                                        controller,
+                                        rpc_cancel_event))
     rpc_thread.start()
     result = await controller.run()
+    rpc_cancel_event.set()
+    
+    logger.debug('waiting on RPC server thread')
     rpc_thread.join()
+    logger.debug('RPC server thread joined')
+    
     return result
 
 

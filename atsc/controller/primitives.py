@@ -207,7 +207,7 @@ class AsyncTimer(AsyncStopwatch):
         self._task: Optional[asyncio.Task] = None
         
         if goal_handler:
-            self.reached_goal.connect(goal_handler)
+            self.reached_goal.connect(goal_handler, sender=self)
         
         if goal is not None:
             self.set(goal)
