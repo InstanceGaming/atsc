@@ -55,7 +55,8 @@ message Signal {
   bool active = 10;
   bool resting = 11;
   bool presence = 12;
-  bool demand = 13;
+  bool presence_lockout = 14;
+  bool demand = 15;
 
   float interval_time = 20;
   float service_time = 21;

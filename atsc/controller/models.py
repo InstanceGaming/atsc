@@ -159,10 +159,10 @@ class Signal(Identifiable):
         return not self.active and self.state == SignalState.STOP and minimum_time
     
     @property
-    def revert_clear(self) -> Optional[bool]:
+    def revert_clear(self):
         if self.state == SignalState.STOP:
             return self.interval_timer.elapsed > self._revert_time
-        return None
+        return False
     
     @property
     def revert_time(self):
@@ -177,18 +177,36 @@ class Signal(Identifiable):
         return self.mapping
     
     @property
+    def fya_force_service_delay(self):
+        return self._fya_force_service_delay
+    
+    @property
+    def fya_force_service(self):
+        return self._fya_force_service
+    
+    @fya_force_service.setter
+    def fya_force_service(self, value):
+        if value != self._fya_force_service:
+            logger.debug('{} fya_force_service = {}', self.get_tag(), value)
+            self._fya_force_service = value
+    
+    @property
     def demand(self):
         if self.state in (SignalState.GO, SignalState.EXTEND):
             return self._demand
-        else:
-            return self._demand or self.presence
+        
+        if self.state == SignalState.FYA:
+            if not self.fya_force_service:
+                return False
+        
+        return self._demand or self.presence
     
     @demand.setter
     def demand(self, value):
         if value != self._demand:
             logger.verbose('{} demand = {}', self.get_tag(), value)
             self._demand = bool(value)
-    
+
     @property
     def latch(self):
         return self._latch
@@ -394,9 +412,10 @@ class Signal(Identifiable):
                  service_conditions: ServiceConditions = ServiceConditions.WITH_DEMAND,
                  service_modifiers: ServiceModifiers = ServiceModifiers.UNSET,
                  initial_state: SignalState = SignalState.STOP,
-                 fya_phase: Optional['Phase'] = None,
                  fya_enabled: bool = False,
-                 fya_force_service_delay: float = 0.0,
+                 fya_concurrent_phase: Optional['Phase'] = None,
+                 fya_guard_phase: Optional['Phase'] = None,
+                 fya_force_service_delay: Optional[float] = None,
                  revert_time: float = 0.0,
                  presence_lockout_delay: Optional[float] = None):
         Identifiable.__init__(self, id_)
@@ -430,7 +449,10 @@ class Signal(Identifiable):
             self.global_field_output_mapping.update({fo: self})
         
         self.fya_enabled = fya_enabled
-        self.fya_phase = fya_phase
+        self.fya_concurrent_phase = fya_concurrent_phase
+        self.fya_guard_phase = fya_guard_phase
+        self._fya_force_service = False
+        
         self.leading_signals: List['Signal'] = []
         
         self.state_changed = blinker.Signal()
@@ -443,6 +465,8 @@ class Signal(Identifiable):
         self.presence_edge = EdgeTrigger()
         self.presence_changed = blinker.Signal()
         self.presence_changed.connect(self.on_presence_changed)
+        self.fya_presence_timer = AsyncTimer(goal=self.fya_force_service_delay,
+                                             goal_handler=self.on_fya_force_service)
         
         self.initial_state = initial_state
         self._change_state(self.initial_state, force=True)
@@ -493,7 +517,7 @@ class Signal(Identifiable):
         
         if service:
             if not self.fya_enabled:
-                if self.revert_clear is not None and not self.revert_clear:
+                if not self.revert_clear:
                     service = False
         
         return self.ServiceStatus(service, ServiceConditions.WITH_DEMAND)
@@ -580,12 +604,17 @@ class Signal(Identifiable):
         self.recall()
     
     async def fya(self):
-        assert not self.active
-        self.fya_phase.state_changed.connect(self._on_fya_phase_state_changed)
+        assert self.state == SignalState.STOP
+        self.fya_concurrent_phase.state_changed.connect(self._on_fya_phase_state_changed)
         self._change_state(SignalState.FYA)
+        if self.presence:
+            self.fya_presence_timer.start()
     
     def _on_fya_phase_state_changed(self, _, **kwargs):
         if self.state == SignalState.FYA:
+            if self.fya_force_service:
+                return
+            
             self._fya_task = asyncio.create_task(self._fya_terminate())
     
     async def _fya_terminate(self):
@@ -606,6 +635,7 @@ class Signal(Identifiable):
                         lagging_signals.append(signal)
         
         self._active = True
+        self.fya_force_service = False
         
         go_timing = self.timings.get(SignalState.GO)
         if go_timing:
@@ -662,13 +692,27 @@ class Signal(Identifiable):
                 self.presence_timer.start()
                 if self.state == SignalState.EXTEND:
                     self.interval_timer.reset()
+                elif self.state == SignalState.FYA:
+                    self.fya_presence_timer.start()
             case EdgeType.FALLING:
                 self.presence_timer.cancel()
+                if self.state == SignalState.FYA:
+                    self.fya_presence_timer.cancel()
                 if not self.latch and self.recall_state == RecallMode.OFF:
                     self.demand = False
         
     def on_presence_timeout(self, _):
         self.presence_lockout = True
+    
+    def on_fya_force_service(self, _):
+        if self.state == SignalState.FYA:
+            if self.fya_guard_phase is not None:
+                if not self.fya_force_service:
+                    if (self.fya_guard_phase.state in (SignalState.GO, SignalState.EXTEND) and
+                        self.fya_guard_phase.resting):
+                        if self.presence:
+                            self.fya_force_service = True
+                            self.demand = True
     
     def __repr__(self):
         return (f'<Signal #{self.id} {self.state.name} '
@@ -686,6 +730,7 @@ class Signal(Identifiable):
                           active=self.active,
                           resting=self.resting,
                           presence=self.presence,
+                          presence_lockout=self.presence_lockout,
                           demand=self.demand,
                           interval_time=round(self.interval_timer.elapsed, FLOAT_PRECISION_TIME),
                           service_time=round(self.service_timer.elapsed, FLOAT_PRECISION_TIME),
@@ -779,9 +824,11 @@ class Phase(Identifiable):
                  id_: int,
                  signals: List[Signal],
                  default_signals: Optional[List[Signal]] = None,
-                 default_phases: Optional[List['Phase']] = None):
+                 default_phases: Optional[List['Phase']] = None,
+                 recycle: bool = True):
         Identifiable.__init__(self, id_)
         
+        self.recycle = recycle
         self.state_changed = blinker.Signal()
         self.signals = signals
         self.default_signals = default_signals or []
@@ -1086,14 +1133,14 @@ class IntersectionService:
     
     def recycle_phase(self, phase: Phase) -> bool:
         if phase in self.phases_serviced and phase not in self.phases_recycled:
-            for signal in phase.signals:
-                if signal in self.signals_serviced:
-                    self.signals_serviced.remove(signal)
-                if signal in self.signals_recycled:
-                    self.signals_recycled.remove(signal)
-            return True
-        else:
-            return False
+            if phase.recycle or any([s.demand and s.fya_force_service for s in phase.signals]):
+                for signal in phase.signals:
+                    if signal in self.signals_serviced:
+                        self.signals_serviced.remove(signal)
+                    if signal in self.signals_recycled:
+                        self.signals_recycled.remove(signal)
+                return True
+        return False
     
     def select_phases(self):
         assert self.active_barrier
@@ -1185,9 +1232,9 @@ class IntersectionService:
                     else:
                             signal.fya_enabled = self.fya_enabled
                             if signal.fya_enabled and signal.state != SignalState.FYA:
-                                if signal.revert_clear is None or signal.revert_clear:
-                                    if signal.fya_phase and signal.fya_phase.state in (SignalState.GO, SignalState.EXTEND):
-                                        for ps in signal.fya_phase.signals:
+                                if signal.revert_clear:
+                                    if signal.fya_concurrent_phase and signal.fya_concurrent_phase.state in (SignalState.GO, SignalState.EXTEND):
+                                        for ps in signal.fya_concurrent_phase.signals:
                                             if ps.type == SignalType.PEDESTRIAN:
                                                 if ps.active:
                                                     break
@@ -1195,7 +1242,8 @@ class IntersectionService:
                                                 if ps.interval_timer.elapsed < 1.0:
                                                     break
                                         else:
-                                            await signal.fya()
+                                            if signal.state == SignalState.STOP:
+                                                await signal.fya()
                 
                 for phase in self.phases:
                     if phase.fya_active:

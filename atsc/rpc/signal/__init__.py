@@ -3,9 +3,10 @@
 # plugin: python-betterproto
 # This file has been @generated
 
-import betterproto
-from typing import List
 from dataclasses import dataclass
+from typing import List
+
+import betterproto
 
 
 class SignalState(betterproto.Enum):
@@ -45,7 +46,8 @@ class Signal(betterproto.Message):
     active: bool = betterproto.bool_field(10)
     resting: bool = betterproto.bool_field(11)
     presence: bool = betterproto.bool_field(12)
-    demand: bool = betterproto.bool_field(13)
+    presence_lockout: bool = betterproto.bool_field(14)
+    demand: bool = betterproto.bool_field(15)
     interval_time: float = betterproto.float_field(20)
     service_time: float = betterproto.float_field(21)
     presence_time: float = betterproto.float_field(22)

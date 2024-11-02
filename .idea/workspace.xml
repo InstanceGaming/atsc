@@ -4,11 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="shutdown hang fix, start-debug.sh">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="rpc thread cancel event">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/rpc/field_output/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/field_output/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/rpc/phase/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/phase/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/rpc/signal/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/signal/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/widgets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/protobufs/signal.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/signal.proto" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -131,7 +137,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.controller.main" />
-      <option name="PARAMETERS" value="--init-demand --presence-simulation --simulation-seed 6255602971349152301" />
+      <option name="PARAMETERS" value="--simulation-seed 6255602971349152301" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
       <option name="MODULE_MODE" value="true" />
@@ -212,14 +218,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00017" summary="simulator, presence, edge detection">
-      <option name="closed" value="true" />
-      <created>1726984204496</created>
-      <option name="number" value="00017" />
-      <option name="presentableId" value="LOCAL-00017" />
-      <option name="project" value="LOCAL" />
-      <updated>1726984204496</updated>
     </task>
     <task id="LOCAL-00018" summary="refactoring">
       <option name="closed" value="true" />
@@ -605,7 +603,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730561153660</updated>
     </task>
-    <option name="localTasksCounter" value="66" />
+    <task id="LOCAL-00066" summary="rpc thread cancel event">
+      <option name="closed" value="true" />
+      <created>1730564510650</created>
+      <option name="number" value="00066" />
+      <option name="presentableId" value="LOCAL-00066" />
+      <option name="project" value="LOCAL" />
+      <updated>1730564510650</updated>
+    </task>
+    <option name="localTasksCounter" value="67" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -632,7 +638,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="graceful signal handler attach" />
     <MESSAGE value="start.sh fix" />
     <MESSAGE value="rpc address, tui timeout" />
     <MESSAGE value="rpc all interfaces binding" />
@@ -657,13 +662,7 @@
     <MESSAGE value="winloop" />
     <MESSAGE value="poetry, uvloop/winloop, time logging, refactoring" />
     <MESSAGE value="shutdown hang fix, start-debug.sh" />
-    <option name="LAST_COMMIT_MESSAGE" value="shutdown hang fix, start-debug.sh" />
-  </component>
-  <component name="XDebuggerManager">
-    <watches-manager>
-      <configuration name="PythonConfigurationType">
-        <watch expression="self.signals" language="Python" />
-      </configuration>
-    </watches-manager>
+    <MESSAGE value="rpc thread cancel event" />
+    <option name="LAST_COMMIT_MESSAGE" value="rpc thread cancel event" />
   </component>
 </project>

@@ -156,8 +156,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
-                presence_lockout_delay=30.0,
+                presence_lockout_delay=120.0,
                 fya_enabled=True,
+                fya_force_service_delay=30.0,
                 revert_time=2.0
             ),
             Signal(
@@ -169,7 +170,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
                 extend_mode=ExtendMode.MAXIMUM_SKIP,
-                presence_lockout_delay=30.0
+                presence_lockout_delay=120.0
             ),
             Signal(
                 503,
@@ -179,8 +180,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
-                presence_lockout_delay=30.0,
+                presence_lockout_delay=120.0,
                 fya_enabled=True,
+                fya_force_service_delay=30.0,
                 revert_time=2.0
             ),
             Signal(
@@ -191,7 +193,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
                 extend_mode=ExtendMode.MAXIMUM_SKIP,
-                presence_lockout_delay=30.0
+                presence_lockout_delay=120.0
             ),
             Signal(
                 505,
@@ -201,8 +203,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
-                presence_lockout_delay=30.0,
+                presence_lockout_delay=120.0,
                 fya_enabled=True,
+                fya_force_service_delay=30.0,
                 revert_time=2.0
             ),
             Signal(
@@ -214,7 +217,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
                 extend_mode=ExtendMode.MAXIMUM_SKIP,
-                presence_lockout_delay=30.0
+                presence_lockout_delay=120.0
             ),
             Signal(
                 507,
@@ -224,8 +227,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
-                presence_lockout_delay=30.0,
+                presence_lockout_delay=120.0,
                 fya_enabled=True,
+                fya_force_service_delay=30.0,
                 revert_time=2.0
             ),
             Signal(
@@ -236,7 +240,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
                 extend_mode=ExtendMode.MAXIMUM_SKIP,
-                presence_lockout_delay=30.0
+                presence_lockout_delay=120.0
             ),
             Signal(
                 509,
@@ -247,7 +251,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=30.0
+                presence_lockout_delay=120.0
             ),
             Signal(
                 510,
@@ -258,7 +262,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=30.0
+                presence_lockout_delay=120.0
             ),
             Signal(
                 511,
@@ -269,7 +273,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=30.0
+                presence_lockout_delay=120.0
             ),
             Signal(
                 512,
@@ -280,25 +284,34 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=30.0
+                presence_lockout_delay=120.0
             )
         ]
         self.phases = [
-            Phase(601, refs(Signal, 501)),
+            Phase(601, refs(Signal, 501), recycle=False),
             Phase(602, refs(Signal, 502, 509), default_signals=refs(Signal, 502)),
-            Phase(603, refs(Signal, 503)),
+            Phase(603, refs(Signal, 503), recycle=False),
             Phase(604, refs(Signal, 504, 510), default_signals=refs(Signal, 504)),
-            Phase(605, refs(Signal, 505)),
+            Phase(605, refs(Signal, 505), recycle=False),
             Phase(606, refs(Signal, 506, 511), default_signals=refs(Signal, 506)),
-            Phase(607, refs(Signal, 507)),
+            Phase(607, refs(Signal, 507), recycle=False),
             Phase(608, refs(Signal, 508, 512), default_signals=refs(Signal, 508))
         ]
         ref(Phase, 608).default_phases.append(ref(Phase, 604))
         ref(Phase, 604).default_phases.append(ref(Phase, 608))
-        ref(Signal, 501).fya_phase = ref(Phase, 602)
-        ref(Signal, 505).fya_phase = ref(Phase, 606)
-        ref(Signal, 503).fya_phase = ref(Phase, 604)
-        ref(Signal, 507).fya_phase = ref(Phase, 608)
+        
+        ref(Signal, 501).fya_concurrent_phase = ref(Phase, 602)
+        ref(Signal, 501).fya_guard_phase = ref(Phase, 606)
+        
+        ref(Signal, 505).fya_concurrent_phase = ref(Phase, 606)
+        ref(Signal, 505).fya_guard_phase = ref(Phase, 602)
+        
+        ref(Signal, 503).fya_concurrent_phase = ref(Phase, 604)
+        ref(Signal, 503).fya_guard_phase = ref(Phase, 608)
+        
+        ref(Signal, 507).fya_concurrent_phase = ref(Phase, 608)
+        ref(Signal, 507).fya_guard_phase = ref(Phase, 604)
+        
         self.rings = [
             Ring(701, refs(Phase, 601, 602, 603, 604)),
             Ring(702, refs(Phase, 605, 606, 607, 608))

@@ -3,20 +3,30 @@
 # plugin: python-betterproto
 # This file has been @generated
 
-import grpclib
-import betterproto
-from .. import phase as _phase__
-from .. import signal as _signal__
-from .. import field_output as _field_output__
-from typing import TYPE_CHECKING, Dict, List, Optional, AsyncIterator
 from dataclasses import dataclass
+from typing import (
+    TYPE_CHECKING,
+    AsyncIterator,
+    Dict,
+    List,
+    Optional,
+)
+
+import betterproto
+import grpclib
 from betterproto.grpc.grpclib_server import ServiceBase
+
+from .. import (
+    field_output as _field_output__,
+    phase as _phase__,
+    signal as _signal__,
+)
 
 
 if TYPE_CHECKING:
     import grpclib.server
-    from grpclib.metadata import Deadline
     from betterproto.grpc.grpclib_client import MetadataLike
+    from grpclib.metadata import Deadline
 
 
 class CycleMode(betterproto.Enum):

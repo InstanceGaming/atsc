@@ -15,7 +15,6 @@ from typing import List
 from datetime import datetime
 from rich.text import Text
 from textual.app import RenderResult, ComposeResult
-from textual.timer import Timer
 from atsc.tui.utils import boolean_text, text_or_dash, get_time_text
 from textual.widget import Widget
 from atsc.rpc.signal import SignalType
@@ -114,9 +113,33 @@ class SignalDemandWidget(Widget):
 class SignalPresenceWidget(Widget):
     
     presence = reactive(False)
+    lockout = reactive(False)
+    
+    def __init__(self):
+        super().__init__()
+        self._flasher = True
+        self._style = 'bright_white'
+        self._animation_timer = self.set_interval(0.5, self.toggle_color)
+    
+    def toggle_color(self):
+        if self._flasher:
+            self._style = 'bright_red'
+        else:
+            self._style = 'black'
+        self._flasher = not self._flasher
+        self.refresh()
     
     def render(self) -> RenderResult:
-        return text_or_dash(self.presence, 'PRESENCE', 'bright_white')
+        return text_or_dash(self.presence or self.lockout,
+                            'PRESENCE',
+                            self._style)
+
+    def watch_lockout(self):
+        if self.lockout:
+            self._animation_timer.resume()
+        else:
+            self._animation_timer.pause()
+            self._style = 'bright_white'
 
 
 class SignalWidget(Widget):
