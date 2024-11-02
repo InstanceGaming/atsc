@@ -4,19 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="async tick, 3.10 compat, refactoring">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="overhaul task-based approach">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/structs.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/structs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/widgets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controller.bat" beforeDir="false" afterPath="$PROJECT_DIR$/controller.bat" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -140,7 +130,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.controller.main" />
-      <option name="PARAMETERS" value="--simulation-seed 6255602971349152301" />
+      <option name="PARAMETERS" value="--init-demand --presence-simulation --simulation-seed 6255602971349152301" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
       <option name="MODULE_MODE" value="true" />
@@ -223,14 +213,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00013" summary="continuous cycling, console formatting">
-      <option name="closed" value="true" />
-      <created>1725869723476</created>
-      <option name="number" value="00013" />
-      <option name="presentableId" value="LOCAL-00013" />
-      <option name="project" value="LOCAL" />
-      <updated>1725869723476</updated>
     </task>
     <task id="LOCAL-00014" summary="serial bus working">
       <option name="closed" value="true" />
@@ -616,7 +598,15 @@
       <option name="project" value="LOCAL" />
       <updated>1729399755093</updated>
     </task>
-    <option name="localTasksCounter" value="62" />
+    <task id="LOCAL-00062" summary="overhaul task-based approach">
+      <option name="closed" value="true" />
+      <created>1730079701436</created>
+      <option name="number" value="00062" />
+      <option name="presentableId" value="LOCAL-00062" />
+      <option name="project" value="LOCAL" />
+      <updated>1730079701437</updated>
+    </task>
+    <option name="localTasksCounter" value="63" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -643,7 +633,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="remove phase from cycled list within barrier" />
     <MESSAGE value="remove phase from cycled list fix" />
     <MESSAGE value="add rpc stubs" />
     <MESSAGE value="pin deps" />
@@ -668,7 +657,8 @@
     <MESSAGE value="fieldbus rpc streaming" />
     <MESSAGE value="tick duration compensation, presence lockout" />
     <MESSAGE value="async tick, 3.10 compat, refactoring" />
-    <option name="LAST_COMMIT_MESSAGE" value="async tick, 3.10 compat, refactoring" />
+    <MESSAGE value="overhaul task-based approach" />
+    <option name="LAST_COMMIT_MESSAGE" value="overhaul task-based approach" />
   </component>
   <component name="XDebuggerManager">
     <watches-manager>

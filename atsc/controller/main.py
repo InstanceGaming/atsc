@@ -11,8 +11,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import sys
+
 import loguru
 import asyncio
+
 from atsc.common import cli
 from grpclib.server import Server
 from atsc.common.utils import setup_logger
@@ -81,7 +84,16 @@ async def run():
         server.close()
 
 
+def _loop_patch():
+    # patch asyncio to use platform-optimized loop implementation
+    if sys.platform in ('win32', 'cygwin', 'cli'):
+        from winloop import run  # noqa
+    else:
+        from uvloop import run  # noqa
+
+
 if __name__ == '__main__':
+    _loop_patch()
     exit(asyncio.get_event_loop().run_until_complete(run()))
 else:
     print('This file must be ran directly.')
