@@ -15,7 +15,7 @@ import loguru
 from pathlib import Path
 from atsc.common import cli
 from atsc.tui.core import TUI
-from atsc.common.utils import setup_logger, get_program_dir
+from atsc.common.utils import setup_logger, get_program_dir, asyncio_loop_patch
 from atsc.tui.constants import DEFAULT_APP_STYLESHEET_PATH
 from atsc.common.constants import ExitCode
 
@@ -46,11 +46,12 @@ def create_app():
         return setup_logger_result
     
     return TUI(rpc_address=cla.rpc_address,
-              rpc_port=cla.rpc_port,
-              stylesheet_path=stylesheet_path,
-              dev_mode=__debug__)
+               rpc_port=cla.rpc_port,
+               stylesheet_path=stylesheet_path,
+               dev_mode=__debug__)
 
 
+asyncio_loop_patch()
 app = create_app()
 
 

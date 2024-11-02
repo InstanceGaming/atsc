@@ -15,9 +15,8 @@ import loguru
 import asyncio
 from atsc.common import cli
 from grpclib.client import Channel
-from atsc.common.utils import setup_logger
+from atsc.common.utils import setup_logger, asyncio_loop_patch
 from atsc.fieldbus.core import FieldBus
-from atsc.common.structs import Context
 from atsc.rpc.controller import ControllerStub
 from atsc.common.constants import ExitCode
 from atsc.fieldbus.constants import BUS_BAUD_RATE, BUS_BAUD_RATES
@@ -33,7 +32,7 @@ def arg_baud_type(v: str) -> int:
     return baud
 
 
-def run():
+async def run():
     cla, root_ap = cli.parse_common_cla('ATSC field bus server.',
                                         True,
                                         partial=True)
@@ -54,17 +53,15 @@ def run():
     if setup_logger_result != ExitCode.OK:
         return setup_logger_result
     
-    context = Context(cla.tick_rate)
-    
     channel = Channel(host=cla.rpc_address, port=cla.rpc_port)
-    controller = ControllerStub(channel)
-    field_bus = FieldBus(context, controller, serial_port, baud_rate, pid_file=cla.pid_path)
-    asyncio.get_event_loop().run_until_complete(field_bus.run())
-    channel.close()
+    try:
+        controller = ControllerStub(channel)
+        field_bus = FieldBus(controller, serial_port, baud_rate, pid_file=cla.pid_path)
+        result = await field_bus.run()
+        return result
+    finally:
+        channel.close()
 
 
-if __name__ == '__main__':
-    exit(run())
-else:
-    print('This file must be ran directly.')
-    exit(1)
+asyncio_loop_patch()
+exit(asyncio.get_event_loop().run_until_complete(run()))

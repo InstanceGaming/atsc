@@ -335,9 +335,6 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         await self.get_signals(rpc_controller.ControllerSignalsRequest())
         await self.get_phases(rpc_controller.ControllerPhasesRequest())
     
-    def shutdown(self):
-        super().shutdown()
-    
     async def test_connection(
         self,
         request: controller.ControllerTestConnectionRequest

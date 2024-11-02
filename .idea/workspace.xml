@@ -4,10 +4,38 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="overhaul task-based approach">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="winloop">
+      <change afterPath="$PROJECT_DIR$/poetry.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/atsc.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/atsc.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/compile-pb.bat" beforeDir="false" afterPath="$PROJECT_DIR$/compile-pb.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/controller-pypy.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/controller.bat" beforeDir="false" afterPath="$PROJECT_DIR$/controller.bat" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-cycle-mode.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-cycle-mode.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-fya-disabled.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-fya-disabled.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-fya-enabled.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-fya-enabled.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-get-metadata.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-get-metadata.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-phase-demand.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-phase-demand.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-signal-demand.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-signal-demand.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-signal-presence.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-signal-presence.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-sim-disable.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-sim-disable.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-sim-enable.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-sim-enable.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-time-freeze.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-time-freeze.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc-time-unfreeze.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc-time-unfreeze.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/sbclient.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/sbclient.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/sbserver.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/sbserver.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tui.bat" beforeDir="false" afterPath="$PROJECT_DIR$/tui.bat" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -62,21 +90,21 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
-    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.Field Bus.executor&quot;: &quot;Run&quot;,
-    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.models.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc/scripts&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;,
-    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
+    "Python.Controller.executor": "Debug",
+    "Python.Field Bus.executor": "Run",
+    "Python.TUI.executor": "Debug",
+    "Python.models.executor": "Run",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "F:/Projects/Code/Python/atsc/scripts",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "settings.editor.splitter.proportion": "0.25"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\scripts" />
@@ -124,7 +152,7 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.11 (atsc)" />
+      <option name="SDK_NAME" value="Poetry (atsc)" />
       <option name="WORKING_DIRECTORY" value="F:\Projects\Code\Python\atsc" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
@@ -148,7 +176,6 @@
         <env name="LOOSEN_RPC_WATCHDOG" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.11 (atsc)" />
       <option name="WORKING_DIRECTORY" value="F:\Projects\Code\Python\atsc" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
@@ -172,7 +199,6 @@
         <env name="LOOSEN_RPC_WATCHDOG" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.11 (atsc)" />
       <option name="WORKING_DIRECTORY" value="F:\Projects\Code\Python\atsc" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
@@ -213,14 +239,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00014" summary="serial bus working">
-      <option name="closed" value="true" />
-      <created>1726721299275</created>
-      <option name="number" value="00014" />
-      <option name="presentableId" value="LOCAL-00014" />
-      <option name="project" value="LOCAL" />
-      <updated>1726721299276</updated>
     </task>
     <task id="LOCAL-00015" summary="refactoring, license comments">
       <option name="closed" value="true" />
@@ -606,7 +624,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730079701437</updated>
     </task>
-    <option name="localTasksCounter" value="63" />
+    <task id="LOCAL-00063" summary="winloop">
+      <option name="closed" value="true" />
+      <created>1730506592256</created>
+      <option name="number" value="00063" />
+      <option name="presentableId" value="LOCAL-00063" />
+      <option name="project" value="LOCAL" />
+      <updated>1730506592256</updated>
+    </task>
+    <option name="localTasksCounter" value="64" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -633,7 +659,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="remove phase from cycled list fix" />
     <MESSAGE value="add rpc stubs" />
     <MESSAGE value="pin deps" />
     <MESSAGE value="graceful signal handler attach" />
@@ -658,7 +683,8 @@
     <MESSAGE value="tick duration compensation, presence lockout" />
     <MESSAGE value="async tick, 3.10 compat, refactoring" />
     <MESSAGE value="overhaul task-based approach" />
-    <option name="LAST_COMMIT_MESSAGE" value="overhaul task-based approach" />
+    <MESSAGE value="winloop" />
+    <option name="LAST_COMMIT_MESSAGE" value="winloop" />
   </component>
   <component name="XDebuggerManager">
     <watches-manager>

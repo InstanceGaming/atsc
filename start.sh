@@ -1,2 +1,2 @@
 #!/bin/sh
-screen -dmS atsc ./env/bin/python3 -OO -m atsc.controller.main -a 0.0.0.0 --init-demand --presence-simulation
+screen -dmS atsc poetry run atsc -a 0.0.0.0 --init-demand --presence-simulation $@

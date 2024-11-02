@@ -1,52 +1,55 @@
-[project]
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
 name = "atsc"
 version = "0.0.1"
 description = "Actuated traffic signal controller suite."
-authors = [
-    { name = "Jacob Jewett", email = "jacoblj3333@gmail.com" }
-]
-requires-python = ">=3.10"
-dependencies = [
-    "winloop==0.1.4",
-    "asyncio==3.4.3",
-    "blinker==1.8.2",
-    "grpclib==0.4.7",
-    "protobuf==5.28.2",
-    "betterproto==2.0.0b7",
-    "pydantic==2.9.2",
-    "loguru==0.7.2",
-    "jacob[loguru] @ git+https://github.com/InstanceGaming/jacob@a13bd47013ee806dbd9b3cb7b328995568ef45b9"
-]
+authors = ["Jacob Jewett <jacoblj3333@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "atsc" }]
 
-[project.optional-dependencies]
-fieldbus = [
-    "aioserial==1.3.1",
-    "crcmod==1.7",
-    "bitarray==2.9.2"
+[tool.poetry.dependencies]
+python = "^3.11.2"
+winloop = { version = "0.1.4", platform = "win32" }
+uvloop = [
+    { version = "0.21.0", platform = "linux" },
+    { version = "0.21.0", platform = "darwin" }
 ]
-tui = [
-    "textual==0.79.1"
-]
-dev = [
-    "grpcio-tools==1.66.1",
-    "betterproto[compiler]==2.0.0b7",
-    "textual-dev==1.6.1"
-]
-all = [
-    "aioserial==1.3.1",
-    "crcmod==1.7",
-    "bitarray==2.9.2",
-    "textual==0.79.1",
-    "textual-dev==1.6.1",
-    "grpcio-tools==1.66.1",
-    "betterproto[compiler]==2.0.0b7"
-]
+asyncio = "3.4.3"
+blinker = "1.8.2"
+grpclib = "0.4.7"
+protobuf = "5.28.2"
+betterproto = "2.0.0b7"
+pydantic = "2.9.2"
+loguru = "0.7.2"
+jacob = { git = "https://github.com/InstanceGaming/jacob.git", rev = "a13bd470" }
 
-[project.scripts]
+[tool.poetry.group.fieldbus]
+optional = true
+
+[tool.poetry.group.fieldbus.dependencies]
+aioserial = "1.3.1"
+crcmod = "1.7"
+bitarray = "2.9.2"
+
+[tool.poetry.group.tui]
+optional = true
+
+[tool.poetry.group.tui.dependencies]
+textual = "0.79.1"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+grpcio-tools = "1.66.1"
+betterproto = { version = "2.0.0b7", extras = ["compiler"] }
+textual-dev = "1.6.1"
+
+[tool.poetry.scripts]
 atsc = "atsc.controller.main:run"
 atsc-tui = "atsc.tui.main:run"
 atsc-fb = "atsc.fieldbus.main:run"
 atsc-net = "atsc.networking.main:run"
-
-[tool.setuptools]
-packages = ["atsc"]

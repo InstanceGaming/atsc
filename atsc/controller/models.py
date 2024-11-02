@@ -42,8 +42,9 @@ from atsc.controller.constants import (
 from jacob.datetime.formatting import format_ms
 from atsc.controller.primitives import (
     AsyncTimer,
+    EdgeTrigger,
     Identifiable,
-    AsyncStopwatch, EdgeTrigger
+    AsyncStopwatch
 )
 
 
@@ -74,6 +75,7 @@ class FieldOutput(Identifiable):
             goal_handler=self._on_flash_timer_reached_goal,
             repeat=True
         )
+        self._marker = None
     
     def _change_bit(self, v: bool):
         if v != self._bit:
@@ -88,9 +90,11 @@ class FieldOutput(Identifiable):
                     case FieldOutputState.OFF:
                         self._flash_timer.cancel()
                         self._change_bit(False)
+                        self._marker = None
                     case FieldOutputState.ON:
                         self._flash_timer.cancel()
                         self._change_bit(True)
+                        self._marker = None
                     case FieldOutputState.FLASHING:
                         self._change_bit(True)
                         self._flash_timer.start()
@@ -109,6 +113,12 @@ class FieldOutput(Identifiable):
     
     def _on_flash_timer_reached_goal(self, _):
         self._change_bit(not self._bit)
+        
+        if self._marker:
+            delta = millis() - self._marker
+            logger.debug('flasher toggle took {}', format_ms(delta))
+        
+        self._marker = millis()
     
     def rpc_model(self):
         return rpc_FieldOutput(self.id,
@@ -546,7 +556,10 @@ class Signal(Identifiable):
                 
                 self._change_state(SignalState.CAUTION)
                 self.interval_timer.set(caution_time)
+                marker = millis()
                 await self.interval_timer.wait()
+                delta = millis() - marker
+                logger.debug('caution interval took {}', format_ms(delta))
                 
     async def _stop_interval(self):
         self.service_timer.pause()
@@ -558,7 +571,10 @@ class Signal(Identifiable):
             stop_minimum = stop_timing.minimum
             if stop_minimum:
                 self.interval_timer.set(stop_minimum)
+                marker = millis()
                 await self.interval_timer.wait()
+                delta = millis() - marker
+                logger.debug('stop interval took {}', format_ms(delta))
         
         self.presence_lockout = False
         self.recall()
@@ -606,7 +622,10 @@ class Signal(Identifiable):
                 
                 self._change_state(SignalState.GO)
                 self.interval_timer.set(go_minimum)
+                marker = millis()
                 await self.interval_timer.wait()
+                delta = millis() - marker
+                logger.debug('go interval took {}', format_ms(delta))
             
             await self._wait_rest()
             

@@ -26,7 +26,6 @@ from collections import Counter
 from atsc.common.models import AsyncDaemon
 from atsc.fieldbus.hdlc import HDLC_FLAG, Frame, HDLCContext
 from grpclib.exceptions import StreamTerminatedError
-from atsc.common.structs import Context
 from atsc.fieldbus.errors import FieldBusError
 from atsc.fieldbus.frames import GenericFrame, OutputStateFrame
 from atsc.fieldbus.models import DecodedBusFrame
@@ -48,7 +47,6 @@ class FieldBus(AsyncDaemon):
         return len(self._receive_queue)
     
     def __init__(self,
-                 context: Context,
                  controller_rpc: controller.ControllerStub,
                  serial_port: str,
                  baud: int,
@@ -56,7 +54,6 @@ class FieldBus(AsyncDaemon):
                  pid_file: Optional[str] = None,
                  loop: AbstractEventLoop = get_event_loop()):
         AsyncDaemon.__init__(self,
-                             context,
                              shutdown_timeout=shutdown_timeout,
                              pid_file=pid_file,
                              loop=loop)
@@ -83,7 +80,7 @@ class FieldBus(AsyncDaemon):
         
         self.frames_unread = asyncio.Condition()
         
-        self.routines.extend((
+        self.add_tasks((
             self.poll_controller(),
             self.transmit(),
             self.receive()

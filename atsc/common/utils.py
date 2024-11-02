@@ -66,3 +66,11 @@ def deadline_from_timeout(timeout: float | None):
     if timeout is None:
         return None
     return Deadline.from_timeout(timeout)
+
+
+def asyncio_loop_patch():
+    # patch asyncio to use platform-optimized loop implementation
+    if sys.platform in ('win32', 'cygwin', 'cli'):
+        from winloop import run  # noqa
+    else:
+        from uvloop import run  # noqa
