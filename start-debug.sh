@@ -1,2 +1,2 @@
 #!/bin/sh
-screen -dmS atsc poetry run atsc -L "verbose,warning;stderr=error" -a 0.0.0.0 --init-demand --presence-simulation $@
+screen -dmS atsc poetry run atsc -L "debug,warning;stderr=error" -a 0.0.0.0 --init-demand --presence-simulation $@

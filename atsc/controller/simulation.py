@@ -104,7 +104,7 @@ class ApproachSimulator(Identifiable):
                 if self.signal.state in (SignalState.GO, SignalState.EXTEND):
                     return self.rng.randrange(1, 3)
                 elif self.signal.state == SignalState.FYA:
-                    return self.random_range_biased(1, 35, 0.3)
+                    return self.random_range_biased(1, 150, 0.1)
                 else:
                     if after_idle:
                         return self.random_range_biased(2, 15, 0.1)
