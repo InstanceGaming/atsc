@@ -38,6 +38,7 @@ class SignalMetadata(betterproto.Message):
     type: "SignalType" = betterproto.enum_field(3)
     movement: "TrafficMovement" = betterproto.enum_field(4)
     initial_state: "SignalState" = betterproto.enum_field(5)
+    fya_available: bool = betterproto.bool_field(6)
 
 
 @dataclass(eq=False, repr=False)

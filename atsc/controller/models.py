@@ -27,6 +27,8 @@ from jacob.datetime.timing import millis
 from atsc.controller.structs import IntervalConfig, IntervalTiming
 from atsc.controller.constants import (
     POLL_RATE,
+    FYA_MINIMUM_TIME,
+    FYA_MINIMUM_PEDESTRIAN_STOP_TIME,
     ExtendMode,
     RecallMode,
     SignalType,
@@ -176,6 +178,10 @@ class Signal(Identifiable):
         return self._state
     
     @property
+    def has_go_state(self):
+        return SignalState.GO in self.mapping.keys()
+    
+    @property
     def field_mapping(self):
         return self.mapping
     
@@ -199,16 +205,7 @@ class Signal(Identifiable):
     
     @property
     def demand(self):
-        if self.state in (SignalState.GO, SignalState.EXTEND):
-            return self._demand
-        
-        if self.state == SignalState.FYA:
-            if self.fya_force_service:
-                return self._demand
-            else:
-                return False
-        
-        return self._demand or self.presence
+        return self._demand
     
     @demand.setter
     def demand(self, value):
@@ -387,22 +384,9 @@ class Signal(Identifiable):
         remaining = 0.0
         
         for state in reversed(SignalState):
-            interval_timing = self.timings.get(state)
-            interval_time = 0.0
-            
-            if interval_timing:
-                minimum_time = interval_timing.minimum or 0.0
-                maximum_time = interval_timing.maximum or 0.0
-                
-                if state != SignalState.GO:
-                    interval_time = max(minimum_time, maximum_time)
-                else:
-                    interval_time = minimum_time
-            
-            remaining += interval_time
-            
-            if state == self.state:
-                remaining -= self.interval_timer.elapsed
+            interval_time = self.get_interval_time_remaining(state=state)
+            if interval_time:
+                remaining += interval_time
         
         return round(remaining, FLOAT_PRECISION_TIME)
     
@@ -475,7 +459,8 @@ class Signal(Identifiable):
         self.presence_changed = blinker.Signal()
         self.presence_changed.connect(self.on_presence_changed)
         self.fya_presence_timer = AsyncTimer(goal=self.fya_force_service_delay,
-                                             goal_handler=self.on_fya_force_service)
+                                             goal_handler=self.on_fya_force_service,
+                                             repeat=True)
         
         self.initial_state = initial_state
         self._change_state(self.initial_state, force=True)
@@ -494,6 +479,30 @@ class Signal(Identifiable):
                 logger.debug('{} maximum recall', self.get_tag())
             case _:
                 raise NotImplementedError()
+    
+    def get_interval_time_remaining(self, state: Optional[SignalState] = None):
+        if state is None:
+            state = self.state
+        
+        interval_timing = self.timings.get(state)
+        if interval_timing:
+            interval_time = 0.0
+            
+            if interval_timing:
+                minimum_time = interval_timing.minimum or 0.0
+                maximum_time = interval_timing.maximum or 0.0
+                
+                if state != SignalState.GO:
+                    interval_time = max(minimum_time, maximum_time)
+                else:
+                    interval_time = minimum_time
+            
+            if state == self.state:
+                interval_time -= self.interval_timer.elapsed
+            
+            return interval_time
+        else:
+            return None
     
     def get_service_status(self,
                            group: Optional[List['Signal']] = None) -> ServiceStatus:
@@ -532,12 +541,12 @@ class Signal(Identifiable):
         return self.ServiceStatus(service, ServiceConditions.WITH_DEMAND)
     
     def _can_extend(self):
-        if self.extend_mode > ExtendMode.OFF:
+        if self.extend_mode != ExtendMode.OFF:
             extend_time = self.timings.get(SignalState.EXTEND, 0.0)
             if extend_time and extend_time.minimum:
                 proceed = False
                 
-                if self.extend_mode >= ExtendMode.MINIMUM_SKIP:
+                if self.extend_mode == ExtendMode.MINIMUM_SKIP:
                     proceed = self.presence_stopwatch.elapsed < extend_time.minimum
                 
                 if proceed:
@@ -610,14 +619,18 @@ class Signal(Identifiable):
                 logger.debug('stop interval took {}', format_ms(delta))
         
         self.presence_lockout = False
+        
+        if self.presence:
+            self.demand = True
+        
         self.recall()
     
     async def fya(self):
         assert self.state == SignalState.STOP
         self.fya_concurrent_phase.state_changed.connect(self._on_fya_concurrent_phase_state_changed)
         self._change_state(SignalState.FYA)
+        self.demand = False
         if self.presence:
-            self.fya_presence_timer.reset()
             self.fya_presence_timer.start()
     
     def _on_fya_concurrent_phase_state_changed(self,
@@ -632,6 +645,9 @@ class Signal(Identifiable):
                 
                 self._fya_task = asyncio.create_task(self._fya_terminate())
             else:
+                if not self.has_go_state:
+                    self.demand = False
+                
                 self.fya_force_service = False
     
     async def _fya_terminate(self):
@@ -640,7 +656,7 @@ class Signal(Identifiable):
             await self._stop_interval()
     
     async def serve(self, group: Optional[List['Signal']] = None):
-        assert not self.active
+        assert not self.active and self.has_go_state
         
         lagging_signals = []
         if self.service_modifiers & ServiceModifiers.BEFORE_VEHICLE:
@@ -652,6 +668,7 @@ class Signal(Identifiable):
                         lagging_signals.append(signal)
         
         self._active = True
+        self.demand = False
         self.fya_force_service = False
         
         go_timing = self.timings.get(SignalState.GO)
@@ -665,8 +682,6 @@ class Signal(Identifiable):
                 self.service_timer.start()
             
             if go_minimum:
-                self.demand = False
-                
                 self._change_state(SignalState.GO)
                 self.interval_timer.set(go_minimum)
                 marker = millis()
@@ -711,8 +726,9 @@ class Signal(Identifiable):
                 if self.state == SignalState.EXTEND:
                     self.interval_timer.reset()
                 elif self.state == SignalState.FYA:
-                    self.fya_presence_timer.reset()
                     self.fya_presence_timer.start()
+                elif self.state in (SignalState.CAUTION, SignalState.STOP):
+                    self.demand = True
             case EdgeType.FALLING:
                 self.presence_timer.cancel()
                 
@@ -726,7 +742,7 @@ class Signal(Identifiable):
             self.presence_lockout = True
     
     def on_fya_force_service(self, _):
-        if self.state == SignalState.FYA:
+        if self.state == SignalState.FYA and self.has_go_state:
             if self.fya_guard_phase is not None:
                 if not self.fya_force_service:
                     if (self.fya_guard_phase.state in (SignalState.GO, SignalState.EXTEND) and
@@ -789,8 +805,16 @@ class Phase(Identifiable):
         return [s for s in self.signals if s.demand]
     
     @property
+    def fya_signals(self):
+        return [s for s in self.signals if s.fya_available]
+    
+    @property
     def state(self):
         return SignalState(max([s.state for s in self.signals]))
+    
+    @property
+    def has_go_state(self):
+        return all([s.has_go_state for s in self.signals])
     
     @property
     def demand(self):
@@ -884,6 +908,9 @@ class Phase(Identifiable):
             if status.service:
                 serviceable.append(signal)
         return serviceable
+    
+    def get_interval_time_remaining(self, state: Optional[SignalState] = None):
+        return max([s.get_interval_time_remaining(state=state) for s in self.signals])
     
     def recall(self):
         for signal in self.signals:
@@ -1081,7 +1108,6 @@ class IntersectionService:
         self.signals_recycled: List[Signal] = []
         
         self.cycle_barriers: List[Barrier] = []
-        self.cycle_stopwatch = AsyncStopwatch()
         
         self._mode = PhaseCyclerMode.PAUSE
         self._cycle_count: int = 0
@@ -1180,8 +1206,7 @@ class IntersectionService:
         if phase in self.phases_serviced and phase not in self.phases_recycled:
             if phase.recycle or any([s.demand and s.fya_force_service for s in phase.signals]):
                 if self.active_barrier:
-                    others_waiting = [b.waiting_phases for b in self.inactive_barriers]
-                    if len(others_waiting):
+                    if any([b.waiting_phases for b in self.inactive_barriers]):
                         return False
                 
                 for signal in phase.signals:
@@ -1204,15 +1229,7 @@ class IntersectionService:
             new_phases = sorted(common_phases - set(self.phases_serviced))
             
             for phase in new_phases:
-                if phase.demand:
-                    if phase.fya_available and self.active_barrier:
-                        if all([s.fya_available and not s.fya_force_service for s in phase.waiting_signals]):
-                            # don't bother serving a FYA phases normally unless other
-                            # phases in the barrier have demand, otherwise it tends to
-                            # negate the advantage of FYA conceptually. but, serve FYA
-                            # phases marked to force service regardless of other phases.
-                            continue
-                    
+                if phase.demand and phase.has_go_state:
                     selected_phases.append(phase)
                     break
         
@@ -1261,19 +1278,18 @@ class IntersectionService:
             return False
     
     async def _wait_for_signals(self):
-        assert self._signal_tasks
-        
-        done, pending = await asyncio.wait(self._signal_tasks,
-                                           return_when=asyncio.FIRST_COMPLETED)
-        while pending:
-            await asyncio.sleep(POLL_RATE)
+        if len(self._signal_tasks):
             done, pending = await asyncio.wait(self._signal_tasks,
                                                return_when=asyncio.FIRST_COMPLETED)
-        
-        self._signal_tasks.clear()
-        
-        while not all(s.safe for s in self.signals):
-            await asyncio.sleep(POLL_RATE)
+            while pending:
+                await asyncio.sleep(POLL_RATE)
+                done, pending = await asyncio.wait(self._signal_tasks,
+                                                   return_when=asyncio.FIRST_COMPLETED)
+            
+            self._signal_tasks.clear()
+            
+            while not all(s.safe for s in self.signals):
+                await asyncio.sleep(POLL_RATE)
     
     async def _wait_for_all_revert_clear(self):
         while all([s.active or not s.revert_clear for s in self.signals]):
@@ -1291,19 +1307,29 @@ class IntersectionService:
                         if signal.fya_concurrent_phase is not None:
                             signal.fya_enabled = self.fya_enabled
                             if signal.fya_enabled and signal.state != SignalState.FYA and signal.revert_clear:
-                                if signal.fya_concurrent_phase.state in (SignalState.GO,SignalState.EXTEND):
+                                if signal.fya_concurrent_phase.state in (SignalState.GO, SignalState.EXTEND):
                                     for ps in signal.fya_concurrent_phase.signals:
                                         if ps.type == SignalType.PEDESTRIAN:
                                             if ps.active:
                                                 break
                                             
-                                            if ps.interval_timer.elapsed < 1.0:
+                                            if ps.interval_timer.elapsed < FYA_MINIMUM_PEDESTRIAN_STOP_TIME:
                                                 break
                                     else:
                                         if signal.state == SignalState.STOP:
-                                            await signal.fya()
+                                            interval_remaining = signal.fya_concurrent_phase.get_interval_time_remaining()
+                                            if interval_remaining > FYA_MINIMUM_TIME:
+                                                await signal.fya()
                 
                 for phase in self.phases:
+                    if phase.fya_available and not phase.has_go_state:
+                        for signal in phase.fya_signals:
+                            other_signal: Signal
+                            for other_signal in signal.fya_concurrent_phase.signals:
+                                if other_signal.type == SignalType.VEHICLE:
+                                    other_signal.demand = other_signal.demand or phase.demand
+                                    other_signal.presence = other_signal.presence or phase.presence
+                    
                     if phase.fya_active:
                         continue
                     
@@ -1397,15 +1423,16 @@ class IntersectionService:
                     if signal.demand:
                         signals_with_demand += 1
                 
-                if stopped_resting_signals == len(self.signals) and signals_with_demand:
-                    if self._stopped_with_demand_stopwatch.elapsed > self._max_revert_time:
+                if self.cycle_count >= 1:
+                    if stopped_resting_signals == len(self.signals) and signals_with_demand:
+                        if self._stopped_with_demand_stopwatch.elapsed > self._max_revert_time:
+                            self._stopped_with_demand_stopwatch.reset()
+                            if __debug__:
+                                breakpoint()
+                            else:
+                                raise RuntimeError('phase service deadlock')
+                    else:
                         self._stopped_with_demand_stopwatch.reset()
-                        if __debug__:
-                            breakpoint()
-                        else:
-                            raise RuntimeError('phase service deadlock')
-                else:
-                    self._stopped_with_demand_stopwatch.reset()
                 
                 await asyncio.sleep(POLL_RATE)
         except asyncio.CancelledError:
@@ -1413,7 +1440,6 @@ class IntersectionService:
     
     async def service(self):
         logger.debug('max revert time is {}', self._max_revert_time)
-        
         self.try_change_barrier(next(self._barrier_sequence))
         
         try:
@@ -1455,14 +1481,10 @@ class IntersectionService:
                             if self.active_barrier is None:
                                 break
                 
-                if self.cycle_stopwatch.elapsed < 1.0:
-                    raise RuntimeError('cycle completed too quickly')
-                else:
-                    self.cycle_stopwatch.reset()
-                    self.signals_serviced.clear()
-                    self.signals_recycled.clear()
-                    self._cycle_count += 1
-                    logger.debug('cycle #{}', self._cycle_count)
+                self.signals_serviced.clear()
+                self.signals_recycled.clear()
+                self._cycle_count += 1
+                logger.debug('cycle #{}', self._cycle_count)
         except asyncio.CancelledError:
             pass
 

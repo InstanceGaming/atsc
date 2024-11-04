@@ -217,6 +217,9 @@ class AsyncTimer(AsyncStopwatch):
         self._goal = goal
     
     def start(self) -> asyncio.Task:
+        if self._task is not None:
+            self._task.cancel()
+        
         self._task = asyncio.create_task(self.wait())
         self.started.send(self)
         return self._task
@@ -224,7 +227,7 @@ class AsyncTimer(AsyncStopwatch):
     async def wait(self):
         self.reset()
         while True:
-            if not self.frozen and self.goal > POLL_RATE:
+            if not self.frozen:
                 if self.elapsed > self.goal:
                     self.reached_goal.send(self)
                     if self.repeat:

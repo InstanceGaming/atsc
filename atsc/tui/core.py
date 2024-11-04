@@ -215,6 +215,7 @@ class TUI(App[int]):
                     f'signal{signal_metadata.id}',
                     signal_metadata.id,
                     signal_metadata.type,
+                    signal_metadata.fya_available,
                     field_outputs
                 )
             })

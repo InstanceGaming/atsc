@@ -11,15 +11,15 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import threading
 import loguru
 import asyncio
+import threading
 from atsc.common import cli
 from grpclib.server import Server
 from atsc.common.utils import setup_logger, asyncio_loop_patch
-from atsc.controller.constants import POLL_RATE
 from atsc.controller.core import Controller
 from atsc.common.constants import ExitCode
+from atsc.controller.constants import POLL_RATE
 
 
 logger = loguru.logger

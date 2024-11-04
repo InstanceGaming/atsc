@@ -1,3 +1,0 @@
-<component name="DependencyValidationManager">
-  <scope name="Compiled Python Protobufs" pattern="file[atsc]:atsc/rpc/*/*_pb*.py" />
-</component>

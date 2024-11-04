@@ -15,6 +15,8 @@ from enum import Enum, IntEnum, IntFlag, auto
 
 
 POLL_RATE = 0.1
+FYA_MINIMUM_PEDESTRIAN_STOP_TIME = 1.0
+FYA_MINIMUM_TIME = 2.0
 
 
 class FieldOutputState(IntEnum):
@@ -46,14 +48,26 @@ class SignalState(IntEnum):
     LS_FLASH            = 6
 
 
-FYA_SIGNAL_ACTIVATION_STATES = [SignalState.GO]
-FYA_SIGNAL_DEACTIVATION_STATES = [SignalState.CAUTION, SignalState.STOP]
-
-
 class ExtendMode(IntEnum):
+    """
+    Determines conditions for when extend interval is skipped.
+    """
+    
     OFF                 = 0
+    """
+    Never skip extension interval.
+    """
+    
     MINIMUM_SKIP        = 1
+    """
+    Skip extension when there has been no presence for longer than the
+    extension time before the extension interval has begun, or MAXIMUM_SKIP.
+    """
+    
     MAXIMUM_SKIP        = 2
+    """
+    Skip extension only when past maximum service time.
+    """
 
 
 class RecallMode(IntEnum):

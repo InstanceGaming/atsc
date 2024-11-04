@@ -83,18 +83,20 @@ class ApproachSimulator(Identifiable):
         return random_range_biased(start, end, bias, rng=self.rng)
     
     def get_idle_time(self, first: bool = False):
-        min_idle = 0 if first else 1
         match self.signal.type:
             case SignalType.VEHICLE:
                 if self.is_arterial:
-                    bias = 0.1 if self.is_thru else 0.9
-                    return self.random_range_biased(min_idle, 60, bias)
+                    if first:
+                        return self.rng.randrange(0, 15)
+                    else:
+                        bias = 0.1 if self.is_thru else 0.9
+                        return self.random_range_biased(0, 60, bias)
                 else:
                     bias = 0.5 if self.is_thru else 0.9
-                    return self.random_range_biased(min_idle, 300, bias)
+                    return self.random_range_biased(0, 300, bias)
             case SignalType.PEDESTRIAN:
                 bias = 0.5 if self.is_arterial else 0.9
-                return self.random_range_biased(min_idle, 3600, bias)
+                return self.random_range_biased(0, 3600, bias)
             case _:
                 raise NotImplementedError()
     
@@ -103,8 +105,6 @@ class ApproachSimulator(Identifiable):
             case SignalType.VEHICLE:
                 if self.signal.state in (SignalState.GO, SignalState.EXTEND):
                     return self.rng.randrange(1, 3)
-                elif self.signal.state == SignalState.FYA:
-                    return self.random_range_biased(1, 150, 0.1)
                 else:
                     if after_idle:
                         return self.random_range_biased(2, 15, 0.1)
@@ -123,26 +123,20 @@ class ApproachSimulator(Identifiable):
             while True:
                 if self._enabled:
                     self.state = ApproachState.IDLE
-                    self.timer.set(self.get_idle_time(self.cycle_count == 0))
+                    idle_time = self.get_idle_time(first=self.cycle_count == 0)
+                    self.timer.set(idle_time)
                     await self.timer.wait()
                     
                     if self._enabled:
                         platoon = True
                         after_idle = True
                         while platoon:
-                            permissive = round(self.rng.random()) if self.is_thru else False
                             self.state = ApproachState.PRESENCE
-                            self.timer.set(self.get_presence_time(after_idle))
                             self.signal.presence = True
+                            self.timer.set(self.get_presence_time(after_idle))
                             await self.timer.wait()
                             
                             if self.signal.type == SignalType.VEHICLE:
-                                while not self.signal.active:
-                                    if permissive:
-                                        await asyncio.sleep(self.random_range_biased(3, 15, 0.5))
-                                    else:
-                                        await asyncio.sleep(POLL_RATE)
-                                
                                 self.signal.presence = False
                                 
                                 self.state = ApproachState.GAP

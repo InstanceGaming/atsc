@@ -148,6 +148,7 @@ class SignalWidget(Widget):
                  id,
                  signal_id: int,
                  signal_type: SignalType,
+                 fya_available: bool,
                  field_outputs: List[FieldOutputWidget]):
         super().__init__(id=id)
         self.signal_id = signal_id
@@ -164,7 +165,10 @@ class SignalWidget(Widget):
                         case 1:
                             style = FieldOutputStyle.CAUTION
                         case 2:
-                            style = FieldOutputStyle.GO
+                            if fya_available and len(field_outputs) == 3:
+                                style = FieldOutputStyle.CAUTION
+                            else:
+                                style = FieldOutputStyle.GO
                         case 3:
                             style = FieldOutputStyle.CAUTION
                 case SignalType.PEDESTRIAN:

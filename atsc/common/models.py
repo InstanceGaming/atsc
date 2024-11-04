@@ -130,7 +130,11 @@ class AsyncDaemon(ABC):
                 return result
             
             if len(self.tasks) and self.running.is_set():
-                await asyncio.gather(*self.tasks)
+                try:
+                    await asyncio.gather(*self.tasks)
+                except Exception:
+                    self.shutdown()
+                    raise
             
             result = await self.after_run()
             

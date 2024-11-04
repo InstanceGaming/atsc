@@ -47,7 +47,9 @@ from atsc.controller.primitives import ref, refs
 from atsc.controller.simulation import IntersectionSimulator
 
 
-def vehicle_signal_field_mapping(stop_field_id: int, fya_output: Optional[int] = None):
+def vehicle_signal_field_mapping(stop_field_id: int,
+                                 fya_output: Optional[int] = None,
+                                 fya_force_service: bool = True):
     rv = {
         SignalState.LS_FLASH: ref(FieldOutput, stop_field_id),
         SignalState.STOP    : ref(FieldOutput, stop_field_id),
@@ -56,9 +58,15 @@ def vehicle_signal_field_mapping(stop_field_id: int, fya_output: Optional[int] =
         SignalState.GO      : ref(FieldOutput, stop_field_id + 2)
     }
     if fya_output:
-        rv.update({
-            SignalState.FYA : ref(FieldOutput, fya_output)
-        })
+        if fya_force_service:
+            rv.update({
+                SignalState.FYA: ref(FieldOutput, fya_output)
+            })
+        else:
+            del rv[SignalState.GO]
+            rv.update({
+                SignalState.FYA: ref(FieldOutput, stop_field_id + 2)
+            })
     return rv
 
 
@@ -111,7 +119,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
-            SignalState.GO      : IntervalTiming(5.0, 20.0)
+            SignalState.GO      : IntervalTiming(7.5, 26.0)
         }
         self.interval_timing_vehicle_fya = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
@@ -137,9 +145,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.FYA     : IntervalConfig(flashing=True, rest=True)
         }
         self.interval_config_ped1 = {
-            SignalState.STOP    : IntervalConfig(rest=True),
-            SignalState.CAUTION : IntervalConfig(flashing=True),
-            SignalState.GO      : IntervalConfig(rest=True)
+            SignalState.STOP   : IntervalConfig(rest=True),
+            SignalState.CAUTION: IntervalConfig(flashing=True),
+            SignalState.GO     : IntervalConfig(rest=True)
         }
         self.interval_config_ped2 = {
             SignalState.STOP   : IntervalConfig(rest=True),
@@ -152,7 +160,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 501,
                 self.interval_timing_vehicle_fya,
                 self.interval_config_vehicle,
-                vehicle_signal_field_mapping(101, fya_output=126),
+                vehicle_signal_field_mapping(101,
+                                             fya_output=126,
+                                             fya_force_service=False),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
@@ -199,7 +209,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 505,
                 self.interval_timing_vehicle_fya,
                 self.interval_config_vehicle,
-                vehicle_signal_field_mapping(113, fya_output=132),
+                vehicle_signal_field_mapping(113,
+                                             fya_output=132,
+                                             fya_force_service=False),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
@@ -329,7 +341,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         
         for approach in self.simulator.approaches:
             self.add_task(approach.run(), name=f'ApproachSimulator{approach.id}.run()')
-
+        
         self.add_task(self.test_rpc_calls(), name='test_rpc_calls()')
         self.add_task(self.cycler.service(), name='IntersectionService.service()')
         self.add_task(self.cycler.poll(), name='IntersectionService.poll()')
@@ -361,7 +373,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         field_output_metadata = []
         for field_output in self.field_outputs:
             field_output_metadata.append(rpc_FieldOutputMetadata(field_output.id))
-
+        
         signal_metadata = []
         for signal in self.signals:
             signal_metadata.append(rpc_SignalMetadata(
@@ -369,7 +381,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 field_output_ids=[fo.id for fo in signal.field_outputs],
                 type=signal.type,
                 movement=signal.movement,
-                initial_state=signal.initial_state
+                initial_state=signal.initial_state,
+                fya_available=signal.fya_available
             ))
         
         return controller.ControllerMetadataReply(
@@ -557,7 +570,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             rpc_phases.append(phase.rpc_model())
         
         return controller.ControllerPhasesReply(rpc_phases)
-
+    
     async def set_phase_demand(
         self,
         request: controller.ControllerPhaseDemandRequest
@@ -572,7 +585,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 success = True
                 break
         return controller.ControllerChangeVariableResult(success, changed)
-
+    
     async def get_state_stream(
         self,
         request: controller.ControllerGetStateStreamRequest

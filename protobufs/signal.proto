@@ -47,6 +47,7 @@ message SignalMetadata {
   SignalType type = 3;
   TrafficMovement movement = 4;
   SignalState initial_state = 5;
+  bool fya_available = 6;
 }
 
 message Signal {
