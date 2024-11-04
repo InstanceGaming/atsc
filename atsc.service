@@ -2,7 +2,7 @@
 Description=Actuated Traffic Signal Controller (ATSC)
 
 [Service]
-Type=forking
+Type=simple
 
 WorkingDirectory=%h/atsc-async/
 ExecStart=/bin/sh %h/atsc-async/start.sh
