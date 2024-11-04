@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="fya force service, presence lockout animation">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="fya logic fixes, presence lockout deadlock fix">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/start-debug.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start-debug.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/stop.sh" beforeDir="false" afterPath="$PROJECT_DIR$/stop.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -213,14 +210,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00019" summary="grpc, refactoring, scripts, simulation, signal logic">
-      <option name="closed" value="true" />
-      <created>1727542557089</created>
-      <option name="number" value="00019" />
-      <option name="presentableId" value="LOCAL-00019" />
-      <option name="project" value="LOCAL" />
-      <updated>1727542557089</updated>
     </task>
     <task id="LOCAL-00020" summary="logic and timing adjustments">
       <option name="closed" value="true" />
@@ -606,7 +595,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730574691123</updated>
     </task>
-    <option name="localTasksCounter" value="68" />
+    <task id="LOCAL-00068" summary="fya logic fixes, presence lockout deadlock fix">
+      <option name="closed" value="true" />
+      <created>1730678346604</created>
+      <option name="number" value="00068" />
+      <option name="presentableId" value="LOCAL-00068" />
+      <option name="project" value="LOCAL" />
+      <updated>1730678346604</updated>
+    </task>
+    <option name="localTasksCounter" value="69" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -633,7 +630,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="rpc address, tui timeout" />
     <MESSAGE value="rpc all interfaces binding" />
     <MESSAGE value="restore tui poll rate" />
     <MESSAGE value="service poll rates" />
@@ -658,6 +654,7 @@
     <MESSAGE value="shutdown hang fix, start-debug.sh" />
     <MESSAGE value="rpc thread cancel event" />
     <MESSAGE value="fya force service, presence lockout animation" />
-    <option name="LAST_COMMIT_MESSAGE" value="fya force service, presence lockout animation" />
+    <MESSAGE value="fya logic fixes, presence lockout deadlock fix" />
+    <option name="LAST_COMMIT_MESSAGE" value="fya logic fixes, presence lockout deadlock fix" />
   </component>
 </project>
