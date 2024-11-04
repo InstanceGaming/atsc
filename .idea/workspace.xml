@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="stop.sh ignore screen return code">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="correct systemd service unit type">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/stop.sh" beforeDir="false" afterPath="$PROJECT_DIR$/stop.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc.service" beforeDir="false" afterPath="$PROJECT_DIR$/atsc.service" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -210,14 +210,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00021" summary="extension signal state, rpc signal endpoint">
-      <option name="closed" value="true" />
-      <created>1727639390742</created>
-      <option name="number" value="00021" />
-      <option name="presentableId" value="LOCAL-00021" />
-      <option name="project" value="LOCAL" />
-      <updated>1727639390742</updated>
     </task>
     <task id="LOCAL-00022" summary="textual tui setup">
       <option name="closed" value="true" />
@@ -603,7 +595,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730678802415</updated>
     </task>
-    <option name="localTasksCounter" value="70" />
+    <task id="LOCAL-00070" summary="correct systemd service unit type">
+      <option name="closed" value="true" />
+      <created>1730678904014</created>
+      <option name="number" value="00070" />
+      <option name="presentableId" value="LOCAL-00070" />
+      <option name="project" value="LOCAL" />
+      <updated>1730678904014</updated>
+    </task>
+    <option name="localTasksCounter" value="71" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -630,7 +630,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="restore tui poll rate" />
     <MESSAGE value="service poll rates" />
     <MESSAGE value="cycle recycled, timer and flasher logic, revert time logic" />
     <MESSAGE value="rpc sim toggle, scripts" />
@@ -655,6 +654,7 @@
     <MESSAGE value="fya force service, presence lockout animation" />
     <MESSAGE value="fya logic fixes, presence lockout deadlock fix" />
     <MESSAGE value="stop.sh ignore screen return code" />
-    <option name="LAST_COMMIT_MESSAGE" value="stop.sh ignore screen return code" />
+    <MESSAGE value="correct systemd service unit type" />
+    <option name="LAST_COMMIT_MESSAGE" value="correct systemd service unit type" />
   </component>
 </project>
