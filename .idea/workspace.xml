@@ -4,16 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="organizing, rpc poll rate, field bus task cancel handling">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="field bus refactoring, timing adjustments">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/constants.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/jigs/busfuzz.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/jigs/busfuzz.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/services/atsc-fieldbus.service" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/atsc-fieldbus.service" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/services/start-fieldbus.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/start-fieldbus.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/services/atsc-controller.service" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/atsc-controller.service" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -215,14 +208,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00025" summary="signal timing logic, tui style">
-      <option name="closed" value="true" />
-      <created>1727843479975</created>
-      <option name="number" value="00025" />
-      <option name="presentableId" value="LOCAL-00025" />
-      <option name="project" value="LOCAL" />
-      <updated>1727843479975</updated>
     </task>
     <task id="LOCAL-00026" summary="tui controller topbar and styling">
       <option name="closed" value="true" />
@@ -608,7 +593,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730773609198</updated>
     </task>
-    <option name="localTasksCounter" value="74" />
+    <task id="LOCAL-00074" summary="field bus refactoring, timing adjustments">
+      <option name="closed" value="true" />
+      <created>1730788346899</created>
+      <option name="number" value="00074" />
+      <option name="presentableId" value="LOCAL-00074" />
+      <option name="project" value="LOCAL" />
+      <updated>1730788346899</updated>
+    </task>
+    <option name="localTasksCounter" value="75" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -635,7 +628,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="signal service tasks pulled up to cycler" />
     <MESSAGE value="signal recycling, field output bug fix" />
     <MESSAGE value="phase and signal recycle logic, rpc presence, presence timer" />
     <MESSAGE value="fya draft" />
@@ -660,6 +652,7 @@
     <MESSAGE value="correct systemd service unit restart config" />
     <MESSAGE value="more fya logic, signal demand logic refactor" />
     <MESSAGE value="organizing, rpc poll rate, field bus task cancel handling" />
-    <option name="LAST_COMMIT_MESSAGE" value="organizing, rpc poll rate, field bus task cancel handling" />
+    <MESSAGE value="field bus refactoring, timing adjustments" />
+    <option name="LAST_COMMIT_MESSAGE" value="field bus refactoring, timing adjustments" />
   </component>
 </project>
