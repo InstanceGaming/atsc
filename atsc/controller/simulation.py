@@ -89,11 +89,11 @@ class ApproachSimulator(Identifiable):
                     if first:
                         return self.rng.randrange(0, 15)
                     else:
-                        bias = 0.1 if self.is_thru else 0.9
+                        bias = 0.1 if self.is_thru else 0.6
                         return self.random_range_biased(0, 60, bias)
                 else:
                     bias = 0.5 if self.is_thru else 0.9
-                    return self.random_range_biased(0, 300, bias)
+                    return self.random_range_biased(0, 120, bias)
             case SignalType.PEDESTRIAN:
                 bias = 0.5 if self.is_arterial else 0.9
                 return self.random_range_biased(0, 3600, bias)
@@ -111,7 +111,7 @@ class ApproachSimulator(Identifiable):
                     else:
                         return self.random_range_biased(1, 5, 0.1)
             case SignalType.PEDESTRIAN:
-                return 0.2
+                return self.rng.random() + POLL_RATE
             case _:
                 raise NotImplementedError()
     

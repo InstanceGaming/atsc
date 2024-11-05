@@ -1107,7 +1107,7 @@ class IntersectionService:
         self.signals_serviced: List[Signal] = []
         self.signals_recycled: List[Signal] = []
         
-        self.cycle_barriers: List[Barrier] = []
+        self.cycle_barriers: List[Barrier] = [self.barriers[0]]
         
         self._mode = PhaseCyclerMode.PAUSE
         self._cycle_count: int = 0
@@ -1236,22 +1236,20 @@ class IntersectionService:
         return selected_phases
     
     def try_change_barrier(self, b: Barrier):
-        if len(self.cycle_barriers) == len(self.barriers):
-            del self.cycle_barriers[0]
+        if self.cycle_barriers:
+            if len(self.cycle_barriers) == len(self.barriers):
+                del self.cycle_barriers[0]
+            
             last_barrier = self.cycle_barriers[-1]
-        else:
-            last_barrier = None
-        
-        self.cycle_barriers.append(b)
-        
-        if last_barrier is not None:
+            self.cycle_barriers.append(b)
+            
             logger.debug('crossed to {} from {}',
                          b.get_tag(),
                          last_barrier.get_tag())
+            return True
         else:
             logger.debug('{} active', b.get_tag())
-        
-        return last_barrier is not None
+            return False
     
     async def _try_idle(self):
         if not self.waiting_phases:
@@ -1477,6 +1475,8 @@ class IntersectionService:
                             else:
                                 if self.try_change_barrier(next(self._barrier_sequence)):
                                     break
+                                else:
+                                    breakpoint()
                             
                             if self.active_barrier is None:
                                 break

@@ -15,8 +15,11 @@ import loguru
 import asyncio
 from atsc.common import cli
 from grpclib.client import Channel
+
+from atsc.common.cli import arg_poll_rate_type
 from atsc.common.utils import setup_logger, asyncio_loop_patch
-from atsc.fieldbus.core import FieldBus
+from atsc.controller.constants import POLL_RATE
+from atsc.fieldbus.core import ControllerFieldBus
 from atsc.rpc.controller import ControllerStub
 from atsc.common.constants import ExitCode
 from atsc.fieldbus.constants import BUS_BAUD_RATE, BUS_BAUD_RATES
@@ -41,11 +44,16 @@ async def run():
                          type=arg_baud_type,
                          default=BUS_BAUD_RATE,
                          dest='baud_rate')
+    root_ap.add_argument('-r', '--poll-rate',
+                         type=arg_poll_rate_type,
+                         default=POLL_RATE,
+                         dest='poll_rate')
     root_ap.add_argument(type=str, dest='serial_port')
-    extra_cla = vars(root_ap.parse_args())
     
+    extra_cla = vars(root_ap.parse_args())
     serial_port = extra_cla['serial_port']
     baud_rate = extra_cla['baud_rate']
+    poll_rate = extra_cla['poll_rate']
     
     setup_logger_result = setup_logger(cla.log_levels_notation,
                                        log_file=cla.log_path)
@@ -56,7 +64,13 @@ async def run():
     channel = Channel(host=cla.rpc_address, port=cla.rpc_port)
     try:
         controller = ControllerStub(channel)
-        field_bus = FieldBus(controller, serial_port, baud_rate, pid_file=cla.pid_path)
+        field_bus = ControllerFieldBus(
+            controller,
+            poll_rate,
+            serial_port,
+            baud_rate,
+            pid_file = cla.pid_path
+        )
         result = await field_bus.run()
         return result
     finally:

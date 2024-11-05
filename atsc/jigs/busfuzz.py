@@ -17,11 +17,9 @@ import asyncio
 import argparse
 from atsc import fieldbus
 from typing import Optional
-from asyncio import AbstractEventLoop, get_event_loop
 from jacob.logging import setup_logger
 from jacob.filesystem import fix_path
 from atsc.common.models import AsyncDaemon
-from atsc.common.structs import Context
 from atsc.fieldbus.frames import InputStateFrame
 from atsc.common.constants import CUSTOM_LOG_LEVELS, ExitCode
 from atsc.fieldbus.constants import DeviceAddress
@@ -33,26 +31,17 @@ logger = loguru.logger
 class BusFuzzer(AsyncDaemon):
     
     def __init__(self,
-                 context: Context,
                  shutdown_timeout: float = 5.0,
-                 pid_file: Optional[str] = None,
-                 loop: AbstractEventLoop = get_event_loop()):
+                 pid_file: Optional[str] = None):
         AsyncDaemon.__init__(self,
-                             context,
                              shutdown_timeout,
-                             pid_file=pid_file,
-                             loop=loop)
+                             pid_file=pid_file)
         self.rng = random.Random()
         self.max_delay = 10
         
-        self.fieldbus = fieldbus.FieldBus(context, 'COM5', 115200, loop=loop)
-        
-        self.routines.extend((
-            self.fieldbus.receive(),
-            self.fieldbus.transmit(),
-            self.fuzz(),
-            self.frame_handler()
-        ))
+        self.fieldbus = fieldbus.FieldBus('COM5', 115200)
+        self.add_task(self.fuzz())
+        self.add_task(self.frame_handler())
     
     async def frame_handler(self):
         while True:
@@ -78,7 +67,7 @@ class BusFuzzer(AsyncDaemon):
             pass
     
     def shutdown(self):
-        self.fieldbus.close()
+        self.fieldbus.shutdown()
         super().shutdown()
 
 

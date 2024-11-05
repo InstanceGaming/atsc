@@ -14,6 +14,7 @@
 import loguru
 from pathlib import Path
 from atsc.common import cli
+from atsc.common.cli import arg_poll_rate_type
 from atsc.tui.core import TUI
 from atsc.common.utils import setup_logger, get_program_dir, asyncio_loop_patch
 from atsc.tui.constants import DEFAULT_APP_STYLESHEET_PATH
@@ -35,9 +36,14 @@ def create_app():
                          type=Path,
                          default=default_stylesheet_path,
                          dest='stylesheet_path')
+    root_ap.add_argument('-r', '--poll-rate',
+                         type=arg_poll_rate_type,
+                         default=0.5,
+                         dest='poll_rate')
     
     extra_cla = vars(root_ap.parse_args())
     stylesheet_path = extra_cla['stylesheet_path']
+    poll_rate = extra_cla['poll_rate']
     
     setup_logger_result = setup_logger(cla.log_levels_notation,
                                        log_file=cla.log_path)
@@ -48,6 +54,7 @@ def create_app():
     return TUI(rpc_address=cla.rpc_address,
                rpc_port=cla.rpc_port,
                stylesheet_path=stylesheet_path,
+               poll_rate=poll_rate,
                dev_mode=__debug__)
 
 

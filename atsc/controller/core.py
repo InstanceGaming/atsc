@@ -21,7 +21,7 @@ from atsc.rpc import controller
 from atsc.rpc import controller as rpc_controller
 from atsc.rpc.signal import SignalMetadata as rpc_SignalMetadata
 from atsc.common.models import AsyncDaemon
-from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT
+from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT, FLOAT_PRECISION_TIME
 from atsc.rpc.field_output import FieldOutputMetadata as rpc_FieldOutputMetadata
 from atsc.controller.models import (
     Ring,
@@ -160,9 +160,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 501,
                 self.interval_timing_vehicle_fya,
                 self.interval_config_vehicle,
-                vehicle_signal_field_mapping(101,
-                                             fya_output=126,
-                                             fya_force_service=False),
+                vehicle_signal_field_mapping(101, fya_output=126),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
@@ -209,9 +207,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 505,
                 self.interval_timing_vehicle_fya,
                 self.interval_config_vehicle,
-                vehicle_signal_field_mapping(113,
-                                             fya_output=132,
-                                             fya_force_service=False),
+                vehicle_signal_field_mapping(113, fya_output=132),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PROTECTED_TURN,
                 extend_mode=ExtendMode.MINIMUM_SKIP,
@@ -590,6 +586,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self,
         request: controller.ControllerGetStateStreamRequest
     ):
+        poll_rate = round(max(POLL_RATE, request.poll_rate or 0.0), FLOAT_PRECISION_TIME)
         while self.running.is_set():
             runtime_info = self._get_runtime_info() if request.runtime_info else None
             
@@ -608,4 +605,4 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 field_outputs=field_outputs,
                 signals=signals
             )
-            await asyncio.sleep(POLL_RATE)
+            await asyncio.sleep(poll_rate)

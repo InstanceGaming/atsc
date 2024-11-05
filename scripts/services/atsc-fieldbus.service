@@ -1,0 +1,19 @@
+[Unit]
+Description=Actuated Traffic Signal Controller (ATSC) Field Bus
+After=atsc-controller.service
+
+[Service]
+Type=forking
+
+WorkingDirectory=%h/atsc-async/
+ExecStart=/bin/sh %h/atsc-async/scripts/services/start-fieldbus.sh
+ExecStop=/bin/sh %h/atsc-async/scripts/services/stop-fieldbus.sh
+
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+MemoryMax=64M
+CPUQuota=50%
+
+[Install]
+WantedBy=default.target

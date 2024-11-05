@@ -20,6 +20,8 @@ from textual.app import App, ComposeResult
 from grpclib.client import Channel
 from textual.widget import MountError
 from textual.worker import Worker
+
+from atsc.controller.constants import POLL_RATE
 from atsc.tui.panels import ControllerPanel
 from textual.widgets import Footer, Header
 from atsc.tui.widgets import (
@@ -52,7 +54,7 @@ from atsc.tui.containers import MainContentSwitcher
 from atsc.common.constants import (
     RPC_CALL_TIMEOUT,
     RPC_CALL_DEADLINE_POLL,
-    ExitCode
+    ExitCode, FLOAT_PRECISION_TIME
 )
 
 
@@ -70,6 +72,7 @@ class TUI(App[int]):
                  rpc_address: str,
                  rpc_port: int,
                  stylesheet_path: Path,
+                 poll_rate: float,
                  dev_mode: bool = False):
         super().__init__(css_path=stylesheet_path,
                          watch_css=dev_mode)
@@ -89,6 +92,7 @@ class TUI(App[int]):
         
         self.switcher = MainContentSwitcher()
         self.poll_worker: Worker | None = None
+        self.poll_rate = round(max(POLL_RATE, poll_rate), FLOAT_PRECISION_TIME)
     
     def compose(self) -> ComposeResult:
         yield Header(icon='')
@@ -158,6 +162,7 @@ class TUI(App[int]):
         if self.rpc_connected:
             try:
                 request = ControllerGetStateStreamRequest(
+                    poll_rate=self.poll_rate,
                     runtime_info=True,
                     field_outputs=True,
                     signals=True

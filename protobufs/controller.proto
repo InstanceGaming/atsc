@@ -136,9 +136,11 @@ message ControllerFYAEnabledRequest {
 }
 
 message ControllerGetStateStreamRequest {
-  bool runtime_info = 1;
-  bool field_outputs = 2;
-  bool signals = 3;
+  float poll_rate = 1;
+
+  bool runtime_info = 10;
+  bool field_outputs = 11;
+  bool signals = 12;
 }
 message ControllerGetStateStreamResponse {
   ControllerRuntimeInfoReply runtime_info = 1;

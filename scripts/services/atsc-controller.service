@@ -5,8 +5,8 @@ Description=Actuated Traffic Signal Controller (ATSC)
 Type=forking
 
 WorkingDirectory=%h/atsc-async/
-ExecStart=/bin/sh %h/atsc-async/start.sh
-ExecStop=/bin/sh %h/atsc-async/stop.sh
+ExecStart=/bin/sh %h/atsc-async/scripts/services/start-controller.sh
+ExecStop=/bin/sh %h/atsc-async/scripts/services/stop-controller.sh
 
 TimeoutStartSec=30
 TimeoutStopSec=30

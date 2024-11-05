@@ -37,6 +37,13 @@ def arg_context_value_type(v: str) -> float:
     return value
 
 
+def arg_poll_rate_type(v: str) -> float:
+    value = float(v)
+    if 0.05 > value > 60.0:
+        raise ValueError('poll rate out of range (0.05-60.0)')
+    return value
+
+
 def parse_common_cla(description: str,
                      is_daemon: bool,
                      partial=False):
