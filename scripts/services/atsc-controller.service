@@ -8,8 +8,8 @@ WorkingDirectory=/home/atsc/atsc-async
 ExecStart=/bin/sh /home/atsc/atsc-async/scripts/services/start-controller.sh
 ExecStop=/bin/sh /home/atsc/atsc-async/scripts/services/stop-controller.sh
 
-TimeoutStartSec=30
-TimeoutStopSec=30
+TimeoutSec=30
+SuccessExitStatus=1
 
 MemoryMax=64M
 CPUQuota=50%

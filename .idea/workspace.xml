@@ -4,9 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="field bus refactoring, timing adjustments">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="abs atsc-controller.service paths">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/services/atsc-controller.service" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/atsc-controller.service" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/services/atsc-fieldbus.service" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/atsc-fieldbus.service" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -208,14 +210,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00026" summary="tui controller topbar and styling">
-      <option name="closed" value="true" />
-      <created>1727848471377</created>
-      <option name="number" value="00026" />
-      <option name="presentableId" value="LOCAL-00026" />
-      <option name="project" value="LOCAL" />
-      <updated>1727848471377</updated>
     </task>
     <task id="LOCAL-00027" summary="rpc endpoints, bug fixes, refactoring, tui layout">
       <option name="closed" value="true" />
@@ -601,7 +595,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730788346899</updated>
     </task>
-    <option name="localTasksCounter" value="75" />
+    <task id="LOCAL-00075" summary="abs atsc-controller.service paths">
+      <option name="closed" value="true" />
+      <created>1730788815445</created>
+      <option name="number" value="00075" />
+      <option name="presentableId" value="LOCAL-00075" />
+      <option name="project" value="LOCAL" />
+      <updated>1730788815445</updated>
+    </task>
+    <option name="localTasksCounter" value="76" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -628,7 +630,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="signal recycling, field output bug fix" />
     <MESSAGE value="phase and signal recycle logic, rpc presence, presence timer" />
     <MESSAGE value="fya draft" />
     <MESSAGE value="pyproject.toml fix, service config" />
@@ -653,6 +654,7 @@
     <MESSAGE value="more fya logic, signal demand logic refactor" />
     <MESSAGE value="organizing, rpc poll rate, field bus task cancel handling" />
     <MESSAGE value="field bus refactoring, timing adjustments" />
-    <option name="LAST_COMMIT_MESSAGE" value="field bus refactoring, timing adjustments" />
+    <MESSAGE value="abs atsc-controller.service paths" />
+    <option name="LAST_COMMIT_MESSAGE" value="abs atsc-controller.service paths" />
   </component>
 </project>

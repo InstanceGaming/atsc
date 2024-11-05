@@ -363,7 +363,8 @@ class Signal(Identifiable):
                 else:
                     if go_time.minimum:
                         duration += go_time.minimum
-                    extend_time = self.timings[SignalState.EXTEND]
+                    
+                    extend_time = self.timings.get(SignalState.EXTEND)
                     if extend_time and extend_time.minimum:
                         duration += extend_time.minimum
         

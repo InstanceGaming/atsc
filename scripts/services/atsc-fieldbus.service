@@ -9,8 +9,8 @@ WorkingDirectory=/home/atsc/atsc-async
 ExecStart=/bin/sh /home/atsc/atsc-async/scripts/services/start-fieldbus.sh
 ExecStop=/bin/sh /home/atsc/atsc-async/scripts/services/stop-fieldbus.sh
 
-TimeoutStartSec=30
-TimeoutStopSec=30
+TimeoutSec=30
+SuccessExitStatus=1
 
 MemoryMax=64M
 CPUQuota=50%
