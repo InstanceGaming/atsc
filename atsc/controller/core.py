@@ -111,32 +111,32 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
-            SignalState.EXTEND  : IntervalTiming(5.0),
+            SignalState.EXTEND  : IntervalTiming(3.0),
             SignalState.GO      : IntervalTiming(10.0, 55.0)
         }
         self.interval_timing_vehicle2 = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
-            SignalState.EXTEND  : IntervalTiming(2.5),
-            SignalState.GO      : IntervalTiming(7.5, 26.0)
+            SignalState.EXTEND  : IntervalTiming(2.0),
+            SignalState.GO      : IntervalTiming(5.0, 25.0)
         }
         self.interval_timing_vehicle_fya = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
             SignalState.EXTEND  : IntervalTiming(2.5),
-            SignalState.GO      : IntervalTiming(5.0, 15.0)
+            SignalState.GO      : IntervalTiming(5.0, 25.0)
         }
         self.interval_timing_ped1 = {
             SignalState.STOP   : IntervalTiming(0.0),
-            SignalState.CAUTION: IntervalTiming(14.0),
-            SignalState.GO     : IntervalTiming(5.0, 5.0)
+            SignalState.CAUTION: IntervalTiming(10.0),
+            SignalState.GO     : IntervalTiming(5.0)
         }
         self.interval_timing_ped2 = {
             SignalState.STOP   : IntervalTiming(0.0),
-            SignalState.CAUTION: IntervalTiming(10.0),
-            SignalState.GO     : IntervalTiming(5.0, 5.0)
+            SignalState.CAUTION: IntervalTiming(14.0),
+            SignalState.GO     : IntervalTiming(5.0)
         }
         self.interval_config_vehicle = {
             SignalState.LS_FLASH: IntervalConfig(flashing=True, rest=True),

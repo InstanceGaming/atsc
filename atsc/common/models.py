@@ -135,6 +135,8 @@ class AsyncDaemon(ABC):
                 except Exception:
                     self.shutdown()
                     raise
+                except asyncio.CancelledError:
+                    pass
             
             result = await self.after_run()
             

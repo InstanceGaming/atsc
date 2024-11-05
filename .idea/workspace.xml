@@ -4,52 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="more fya logic, signal demand logic refactor">
-      <change afterPath="$PROJECT_DIR$/scripts/rpc/signal-demand.bat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/rpc/signal-presence.bat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/rpc/sim-disable.bat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/rpc/sim-enable.bat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/rpc/time-freeze.bat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/rpc/time-unfreeze.bat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/services/atsc-fieldbus.service" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/services/start-fieldbus.sh" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/services/stop-fieldbus.sh" afterDir="false" />
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="organizing, rpc poll rate, field bus task cancel handling">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc.service" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/atsc-controller.service" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/constants.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/fieldbus/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/jigs/busfuzz.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/jigs/busfuzz.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/controller/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/compile-pb.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/compile-pb.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controller.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/controller.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/protobufs/controller.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/controller.proto" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-cycle-mode.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/cycle-mode.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-fya-disabled.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/fya-disabled.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-fya-enabled.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/fya-enabled.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-get-metadata.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/get-metadata.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-phase-demand.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/phase-demand.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-signal-demand.bat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-signal-presence.bat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-sim-disable.bat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-sim-enable.bat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-time-freeze.bat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc-time-unfreeze.bat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/sbclient.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/tools/sbclient.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/sbserver.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/tools/sbserver.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/serialbridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/tools/serialbridge.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/seeds.md" beforeDir="false" afterPath="$PROJECT_DIR$/seeds.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/start-debug.sh" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/start-controller.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/stop.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/stop-controller.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tui.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/tui.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/services/atsc-fieldbus.service" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/atsc-fieldbus.service" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/services/start-fieldbus.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/start-fieldbus.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -102,6 +66,7 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
+    "Python.Busfuzz.executor": "Debug",
     "Python.Controller.executor": "Debug",
     "Python.Field Bus.executor": "Debug",
     "Python.TUI.executor": "Debug",
@@ -130,7 +95,7 @@
       <recent name="F:\Projects\Code\Python\atsc\atsc\controller" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Controller">
+  <component name="RunManager" selected="Python.Field Bus">
     <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
@@ -192,7 +157,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.fieldbus.main" />
-      <option name="PARAMETERS" value="-L bus_tx,warning;stderr=error COM4" />
+      <option name="PARAMETERS" value="-L bus_tx,warning;stderr=error --truncate-field-outputs 36 COM4" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="true" />
@@ -250,14 +215,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00024" summary="rpc endpoints, tui colored text">
-      <option name="closed" value="true" />
-      <created>1727765208660</created>
-      <option name="number" value="00024" />
-      <option name="presentableId" value="LOCAL-00024" />
-      <option name="project" value="LOCAL" />
-      <updated>1727765208660</updated>
     </task>
     <task id="LOCAL-00025" summary="signal timing logic, tui style">
       <option name="closed" value="true" />
@@ -643,7 +600,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730703834950</updated>
     </task>
-    <option name="localTasksCounter" value="73" />
+    <task id="LOCAL-00073" summary="organizing, rpc poll rate, field bus task cancel handling">
+      <option name="closed" value="true" />
+      <created>1730773609198</created>
+      <option name="number" value="00073" />
+      <option name="presentableId" value="LOCAL-00073" />
+      <option name="project" value="LOCAL" />
+      <updated>1730773609198</updated>
+    </task>
+    <option name="localTasksCounter" value="74" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -670,7 +635,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="rpc sim toggle, scripts" />
     <MESSAGE value="signal service tasks pulled up to cycler" />
     <MESSAGE value="signal recycling, field output bug fix" />
     <MESSAGE value="phase and signal recycle logic, rpc presence, presence timer" />
@@ -695,6 +659,7 @@
     <MESSAGE value="correct systemd service unit type" />
     <MESSAGE value="correct systemd service unit restart config" />
     <MESSAGE value="more fya logic, signal demand logic refactor" />
-    <option name="LAST_COMMIT_MESSAGE" value="more fya logic, signal demand logic refactor" />
+    <MESSAGE value="organizing, rpc poll rate, field bus task cancel handling" />
+    <option name="LAST_COMMIT_MESSAGE" value="organizing, rpc poll rate, field bus task cancel handling" />
   </component>
 </project>

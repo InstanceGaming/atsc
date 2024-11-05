@@ -15,40 +15,36 @@ import loguru
 import random
 import asyncio
 import argparse
-from atsc import fieldbus
 from typing import Optional
 from jacob.logging import setup_logger
 from jacob.filesystem import fix_path
-from atsc.common.models import AsyncDaemon
+from atsc.common.utils import asyncio_loop_patch
+from atsc.fieldbus import FieldBus
 from atsc.fieldbus.frames import InputStateFrame
 from atsc.common.constants import CUSTOM_LOG_LEVELS, ExitCode
 from atsc.fieldbus.constants import DeviceAddress
+from atsc.fieldbus.models import DecodedBusFrame
 
 
 logger = loguru.logger
 
 
-class BusFuzzer(AsyncDaemon):
+class BusFuzzer(FieldBus):
     
     def __init__(self,
+                 serial_port: str,
+                 baud: int,
                  shutdown_timeout: float = 5.0,
                  pid_file: Optional[str] = None):
-        AsyncDaemon.__init__(self,
-                             shutdown_timeout,
-                             pid_file=pid_file)
+        super().__init__(serial_port,
+                         baud,
+                         shutdown_timeout,
+                         pid_file=pid_file)
         self.rng = random.Random()
         self.max_delay = 10
         
-        self.fieldbus = fieldbus.FieldBus('COM5', 115200)
         self.add_task(self.fuzz())
-        self.add_task(self.frame_handler())
-    
-    async def frame_handler(self):
-        while True:
-            async with self.fieldbus.frames_unread:
-                await self.fieldbus.frames_unread.wait()
-                for frame in self.fieldbus.process_frames():
-                    logger.bus('handled frame type {}', frame.type)
+        self.received_frame.connect(self.frame_handler, sender=self)
     
     async def fuzz(self):
         try:
@@ -59,15 +55,17 @@ class BusFuzzer(AsyncDaemon):
                         bytefield[i] = self.rng.getrandbits(8)
                 
                 frame = InputStateFrame(DeviceAddress.CONTROLLER, bytefield)
-                self.fieldbus.enqueue_frame(frame)
+                await self.transmit_now(frame)
                 
                 delay = self.rng.randrange(0, self.max_delay)
                 await asyncio.sleep(delay)
         except KeyboardInterrupt:
             pass
     
+    def frame_handler(self, _, decoded_frame: DecodedBusFrame):
+        logger.bus('handled frame type {}', decoded_frame.type)
+        
     def shutdown(self):
-        self.fieldbus.shutdown()
         super().shutdown()
 
 
@@ -87,7 +85,7 @@ def get_cli_args():
     return vars(root.parse_args())
 
 
-def run():
+async def run():
     cla = get_cli_args()
     
     log_file = fix_path(cla.get('log_file'))
@@ -99,7 +97,11 @@ def run():
     except ValueError as e:
         print(f'Malformed logging level specification "{levels_notation}":', e)
         return ExitCode.LOG_LEVEL_PARSE_FAIL
+    
+    field_bus = BusFuzzer('COM5', 115200)
+    result = await field_bus.run()
+    return result
 
 
-if __name__ == '__main__':
-    run()
+asyncio_loop_patch()
+exit(asyncio.get_event_loop().run_until_complete(run()))

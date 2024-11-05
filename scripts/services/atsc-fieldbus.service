@@ -5,9 +5,9 @@ After=atsc-controller.service
 [Service]
 Type=forking
 
-WorkingDirectory=%h/atsc-async/
-ExecStart=/bin/sh %h/atsc-async/scripts/services/start-fieldbus.sh
-ExecStop=/bin/sh %h/atsc-async/scripts/services/stop-fieldbus.sh
+WorkingDirectory=/home/atsc/atsc-async
+ExecStart=/bin/sh /home/atsc/atsc-async/scripts/services/start-fieldbus.sh
+ExecStop=/bin/sh /home/atsc/atsc-async/scripts/services/stop-fieldbus.sh
 
 TimeoutStartSec=30
 TimeoutStopSec=30

@@ -11,14 +11,16 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import blinker
 import serial
 import asyncio
 
 from atsc.controller.constants import POLL_RATE
+from atsc.controller.primitives import AsyncStopwatch
 from atsc.fieldbus.constants import *
 from grpc import RpcError
 from loguru import logger
-from typing import List, Iterator, Optional
+from typing import List, Optional
 from atsc.rpc import controller
 from aioserial import AioSerial
 from jacob.text import format_binary_literal
@@ -42,21 +44,21 @@ class FieldBus(AsyncDaemon):
     @property
     def hdlc(self):
         return self._hdlc
-    
-    @property
-    def received_frames_count(self):
-        return len(self._receive_queue)
-    
+        
     def __init__(self,
                  serial_port: str,
                  baud: int,
                  shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
-                 pid_file: Optional[str] = None):
+                 pid_file: Optional[str] = None,
+                 truncate_field_outputs: Optional[int] = None):
         AsyncDaemon.__init__(self,
                              shutdown_timeout=shutdown_timeout,
                              pid_file=pid_file)
         self._port = serial_port
         self._baud = baud
+        self._truncate_field_outputs = truncate_field_outputs
+        
+        self.received_frame = blinker.Signal()
         
         try:
             self._serial = AioSerial(port=self._port,
@@ -75,13 +77,10 @@ class FieldBus(AsyncDaemon):
                                  HDLC_CRC_XOR_OUT,
                                  byte_order=BUS_BYTE_ORDER)
         
-        self.frames_unread = asyncio.Condition()
-        
         self.add_task(self.transmit())
         self.add_task(self.receive())
         
         self._transmit_queue: List[GenericFrame] = []
-        self._receive_queue: List[DecodedBusFrame] = []
         self._counters = Counter({
             'tx_bytes': 0,
             'tx_frames': 0,
@@ -100,38 +99,41 @@ class FieldBus(AsyncDaemon):
     def enqueue_frame(self, f: GenericFrame):
         self._transmit_queue.append(f)
     
+    async def transmit_now(self, f: GenericFrame):
+        try:
+            payload = f.build(self._hdlc)
+            
+            transmit_task = asyncio.create_task(self._serial.write_async(payload))
+            await asyncio.wait_for(transmit_task, timeout=POLL_RATE)
+            
+            self._counters['tx_bytes'] += len(payload)
+            self._counters['tx_frames'] += 1
+            
+            logger.bus('sent frame type {} to {} ({}B)',
+                       f.type.name,
+                       f.address,
+                       len(payload))
+            logger.bus_tx(format_binary_literal(payload[:32]))
+        except (serial.SerialTimeoutException, TimeoutError):
+            pass
+        except serial.SerialException as e:
+            raise FieldBusError(f'serial bus error while transmitting: {str(e)}')
+    
     async def transmit(self):
         try:
             while True:
                 if not self._serial.is_open or not self._transmit_queue:
-                    await asyncio.sleep(BUS_TRANSMIT_POLL_RATE)
+                    await asyncio.sleep(POLL_RATE)
                 
                 frames_to_send = len(self._transmit_queue)
                 frames_sent = 0
-                try:
-                    for f in self._transmit_queue:
-                        payload = f.build(self._hdlc)
-                        
-                        transmit_task = asyncio.create_task(self._serial.write_async(payload))
-                        await asyncio.wait_for(transmit_task, timeout=BUS_WRITE_TIMEOUT)
-                        
-                        self._counters['tx_bytes'] += len(payload)
-                        self._counters['tx_frames'] += 1
-                        frames_sent += 1
-                        
-                        logger.bus('sent frame type {} to {} ({}B)',
-                                   f.type.name,
-                                   f.address,
-                                   len(payload))
-                        logger.bus_tx(format_binary_literal(payload[:32]))
-                except (serial.SerialTimeoutException, TimeoutError):
-                    pass
-                except serial.SerialException as e:
-                    raise FieldBusError(f'serial bus error: {str(e)}')
                 
+                for f in self._transmit_queue:
+                    await self.transmit_now(f)
+                    frames_sent += 1
                 self._transmit_queue.clear()
                 
-                if frames_sent != frames_to_send:
+                if frames_sent < frames_to_send:
                     logger.warning('{} frames discarded without transmit',
                                    frames_to_send - frames_sent)
         except asyncio.CancelledError:
@@ -144,51 +146,47 @@ class FieldBus(AsyncDaemon):
         
         try:
             while True:
-                if not self._serial.is_open:
-                    await asyncio.sleep(BUS_RECEIVE_POLL_RATE)
-                
-                async with self.frames_unread:
-                    try:
-                        byte = await self._serial.read_async()
-                        if ord(byte) == HDLC_FLAG:
-                            adjacent_flags += 1
-                            if adjacent_flags > 1 or inside_frame:
-                                frame, error = self._hdlc.decode(drydock)
-                                
-                                if error is not None:
-                                    logger.bus('framing error {}', error.name)
-                                else:
-                                    self._counters['rx_bytes'] += len(drydock)
-                                    decoded_frame = self.decode_frame(frame)
-                                    self._receive_queue.append(decoded_frame)
-                                    self.frames_unread.notify()
-                                
-                                inside_frame = False
-                                drydock.clear()
-                                adjacent_flags = 0
+                try:
+                    if not self._serial.is_open:
+                        await asyncio.sleep(POLL_RATE)
+                    
+                    byte = await self._serial.read_async()
+                    if ord(byte) == HDLC_FLAG:
+                        adjacent_flags += 1
+                        if adjacent_flags > 1 or inside_frame:
+                            frame, error = self._hdlc.decode(drydock)
+                            
+                            if error is not None:
+                                logger.bus('framing error {}', error.name)
                             else:
-                                inside_frame = True
-                        else:
-                            drydock.extend(byte)
+                                self._counters['rx_bytes'] += len(drydock)
+                                decoded_frame = self.decode_frame(frame)
+                                self.received_frame.send(self, decoded_frame=decoded_frame)
+                            
+                            inside_frame = False
+                            drydock.clear()
                             adjacent_flags = 0
-                    except serial.SerialTimeoutException:
-                        pass
-                    except serial.SerialException as e:
-                        raise FieldBusError(f'serial bus error: {str(e)}')
-                
-                await asyncio.sleep(BUS_RECEIVE_POLL_RATE)
+                        else:
+                            inside_frame = True
+                    else:
+                        drydock.extend(byte)
+                        adjacent_flags = 0
+                except serial.SerialTimeoutException:
+                    await asyncio.sleep(POLL_RATE)
+                except serial.SerialException as e:
+                    raise FieldBusError(f'serial bus error: {str(e)}')
         except asyncio.CancelledError:
             pass
     
     def decode_frame(self, frame: Frame):
         length = len(frame.data)
-        addr = frame.data[0]
-        try:
-            da = DeviceAddress(addr)
-        except ValueError:
-            da = DeviceAddress.UNKNOWN
-        
         if length >= 3:
+            addr = frame.data[0]
+            try:
+                da = DeviceAddress(addr)
+            except ValueError:
+                da = DeviceAddress.UNKNOWN
+            
             control = frame.data[1]
             type_number = frame.data[2]
             try:
@@ -199,7 +197,7 @@ class FieldBus(AsyncDaemon):
             payload = frame.data[3:]
             
             logger.bus(f'received frame type {ft.name} from {da} ({length}B)')
-            logger.bus_rx(format_binary_literal(frame.data[:32]))
+            logger.bus_rx(format_binary_literal(frame.data))
             
             self._counters['rx_frames'] += 1
             
@@ -209,11 +207,6 @@ class FieldBus(AsyncDaemon):
                                    payload,
                                    frame.crc,
                                    length)
-    
-    def process_frames(self) -> Iterator[DecodedBusFrame]:
-        for frame in iter(self._receive_queue):
-            yield frame
-        self._receive_queue.clear()
 
 
 class ControllerFieldBus(FieldBus):
@@ -224,29 +217,48 @@ class ControllerFieldBus(FieldBus):
                  serial_port: str,
                  baud: int,
                  shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
-                 pid_file: Optional[str] = None):
+                 pid_file: Optional[str] = None,
+                 truncate_field_outputs: Optional[int] = None):
         super().__init__(serial_port=serial_port,
                          baud=baud,
                          shutdown_timeout=shutdown_timeout,
-                         pid_file=pid_file)
+                         pid_file=pid_file,
+                         truncate_field_outputs=truncate_field_outputs)
         self.controller = controller_rpc
         self.poll_rate = round(max(POLL_RATE, poll_rate), FLOAT_PRECISION_TIME)
+        self.response_stopwatch = AsyncStopwatch()
+        
         self.add_task(self.poll_controller())
+        self.received_frame.connect(self.frame_handler, sender=self)
 
     async def poll_controller(self):
         try:
-            request = controller.ControllerGetStateStreamRequest(
-                poll_rate=self.poll_rate,
-                field_outputs=True
-            )
-            async for response in self.controller.get_state_stream(
-                request,
-                timeout=RPC_CALL_TIMEOUT,
-                deadline=utils.deadline_from_timeout(RPC_CALL_DEADLINE_POLL)
-            ):
-                frame = OutputStateFrame(DeviceAddress.TFIB1, response.field_outputs, True)
-                self.enqueue_frame(frame)
-        except (RpcError, TimeoutError, StreamTerminatedError) as e:
-            logger.error('rpc error: {}', str(e))
+            try:
+                request = controller.ControllerGetStateStreamRequest(
+                    poll_rate=self.poll_rate,
+                    field_outputs=True
+                )
+                async for response in self.controller.get_state_stream(
+                    request,
+                    timeout=RPC_CALL_TIMEOUT,
+                    deadline=utils.deadline_from_timeout(RPC_CALL_DEADLINE_POLL)
+                ):
+                    logger.verbose('{:01.3f}s since last controller state message',
+                                   self.response_stopwatch.elapsed)
+                    self.response_stopwatch.reset()
+                    
+                    if self._truncate_field_outputs:
+                        field_outputs = response.field_outputs[:self._truncate_field_outputs]
+                    else:
+                        field_outputs = response.field_outputs
+                    
+                    frame = OutputStateFrame(DeviceAddress.TFIB1, field_outputs, True)
+                    
+                    await self.transmit_now(frame)
+            except (RpcError, TimeoutError, StreamTerminatedError) as e:
+                logger.error('rpc error: {}', str(e))
         except asyncio.CancelledError:
             pass
+    
+    def frame_handler(self, _, decoded_frame: DecodedBusFrame):
+        logger.bus('handled frame type {}', decoded_frame.type)

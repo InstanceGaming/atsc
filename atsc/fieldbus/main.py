@@ -35,6 +35,14 @@ def arg_baud_type(v: str) -> int:
     return baud
 
 
+def arg_field_output_count_type(v: str) -> int:
+    count = int(v)
+    if count < 1:
+        raise ValueError('one field output required')
+    return count
+
+
+
 async def run():
     cla, root_ap = cli.parse_common_cla('ATSC field bus server.',
                                         True,
@@ -48,12 +56,16 @@ async def run():
                          type=arg_poll_rate_type,
                          default=POLL_RATE,
                          dest='poll_rate')
+    root_ap.add_argument('--truncate-field-outputs',
+                         type=arg_field_output_count_type,
+                         dest='truncate_field_outputs')
     root_ap.add_argument(type=str, dest='serial_port')
     
     extra_cla = vars(root_ap.parse_args())
     serial_port = extra_cla['serial_port']
     baud_rate = extra_cla['baud_rate']
     poll_rate = extra_cla['poll_rate']
+    truncate_field_outputs = extra_cla['truncate_field_outputs']
     
     setup_logger_result = setup_logger(cla.log_levels_notation,
                                        log_file=cla.log_path)
@@ -69,7 +81,8 @@ async def run():
             poll_rate,
             serial_port,
             baud_rate,
-            pid_file = cla.pid_path
+            pid_file=cla.pid_path,
+            truncate_field_outputs=truncate_field_outputs
         )
         result = await field_bus.run()
         return result
