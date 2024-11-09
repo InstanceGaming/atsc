@@ -264,7 +264,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=120.0
+                presence_lockout_delay=120.0,
+                fya_ped_service_delay=30.0
             ),
             Signal(
                 510,
@@ -275,7 +276,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=120.0
+                presence_lockout_delay=120.0,
+                fya_ped_service_delay=30.0
             ),
             Signal(
                 511,
@@ -286,7 +288,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=120.0
+                presence_lockout_delay=120.0,
+                fya_ped_service_delay=30.0
             ),
             Signal(
                 512,
@@ -297,7 +300,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 latch=True,
                 type=SignalType.PEDESTRIAN,
                 service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=120.0
+                presence_lockout_delay=120.0,
+                fya_ped_service_delay=30.0
             )
         ]
         self.phases = [

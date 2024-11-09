@@ -87,9 +87,10 @@ class ServiceReason(IntEnum):
     DEMAND              = 1
     WITH_VEHICLE        = 2
     WITH_ANY            = 4
-    ALL_FYA             = 8
-    FYA_FORCE_SERVICE   = 16
-    FYA                 = 32
+    ALL_FYA             = 10
+    FYA_FORCE_SERVICE   = 11
+    FYA                 = 12
+    REMOTE_FYA          = 13
 
 
 class ServiceModifiers(IntFlag):
