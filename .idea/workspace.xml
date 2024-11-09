@@ -4,11 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="abs atsc-controller.service paths">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="remaining time bug fix, service unit edits">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/services/atsc-controller.service" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/atsc-controller.service" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/services/atsc-fieldbus.service" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/atsc-fieldbus.service" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,22 +60,22 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
-    "Python.Busfuzz.executor": "Debug",
-    "Python.Controller.executor": "Debug",
-    "Python.Field Bus.executor": "Debug",
-    "Python.TUI.executor": "Debug",
-    "Python.models.executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "F:/Projects/Code/Python/atsc/scripts/services",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
-    "settings.editor.splitter.proportion": "0.25"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
+    &quot;Python.Busfuzz.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.models.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc/scripts/services&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\scripts\services" />
@@ -90,7 +92,7 @@
       <recent name="F:\Projects\Code\Python\atsc\atsc\controller" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Field Bus">
+  <component name="RunManager" selected="Python.Controller">
     <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
@@ -113,7 +115,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Controller" type="PythonConfigurationType" factoryName="Python">
+    <configuration name="Controller (Sim)" type="PythonConfigurationType" factoryName="Python">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -129,6 +131,29 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.controller.main" />
       <option name="PARAMETERS" value="--presence-simulation --simulation-seed 5082513061818297227" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="true" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Controller" type="PythonConfigurationType" factoryName="Python">
+      <module name="atsc" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Poetry (atsc)" />
+      <option name="WORKING_DIRECTORY" value="F:\Projects\Code\Python\atsc" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="atsc.controller.main" />
+      <option name="PARAMETERS" value="--init-demand" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
       <option name="MODULE_MODE" value="true" />
@@ -186,6 +211,7 @@
     <list>
       <item itemvalue="Python.Busfuzz" />
       <item itemvalue="Python.Controller" />
+      <item itemvalue="Python.Controller (Sim)" />
       <item itemvalue="Python.Field Bus" />
       <item itemvalue="Python.TUI" />
     </list>
@@ -210,14 +236,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00027" summary="rpc endpoints, bug fixes, refactoring, tui layout">
-      <option name="closed" value="true" />
-      <created>1727858945388</created>
-      <option name="number" value="00027" />
-      <option name="presentableId" value="LOCAL-00027" />
-      <option name="project" value="LOCAL" />
-      <updated>1727858945388</updated>
     </task>
     <task id="LOCAL-00028" summary="tui styling">
       <option name="closed" value="true" />
@@ -603,7 +621,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730788815445</updated>
     </task>
-    <option name="localTasksCounter" value="76" />
+    <task id="LOCAL-00076" summary="remaining time bug fix, service unit edits">
+      <option name="closed" value="true" />
+      <created>1730789253075</created>
+      <option name="number" value="00076" />
+      <option name="presentableId" value="LOCAL-00076" />
+      <option name="project" value="LOCAL" />
+      <updated>1730789253075</updated>
+    </task>
+    <option name="localTasksCounter" value="77" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -630,7 +656,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="phase and signal recycle logic, rpc presence, presence timer" />
     <MESSAGE value="fya draft" />
     <MESSAGE value="pyproject.toml fix, service config" />
     <MESSAGE value="fya and timer logic fixes, rpc fya toggle" />
@@ -655,6 +680,7 @@
     <MESSAGE value="organizing, rpc poll rate, field bus task cancel handling" />
     <MESSAGE value="field bus refactoring, timing adjustments" />
     <MESSAGE value="abs atsc-controller.service paths" />
-    <option name="LAST_COMMIT_MESSAGE" value="abs atsc-controller.service paths" />
+    <MESSAGE value="remaining time bug fix, service unit edits" />
+    <option name="LAST_COMMIT_MESSAGE" value="remaining time bug fix, service unit edits" />
   </component>
 </project>

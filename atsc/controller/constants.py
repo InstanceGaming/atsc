@@ -77,13 +77,19 @@ class RecallMode(IntEnum):
 
 
 class ServiceConditions(IntFlag):
-    UNSET               = 0
-    WITH_DEMAND         = 1
+    DEMAND              = 1
     WITH_VEHICLE        = 2
     WITH_ANY            = 4
-    LEADING_ONLY        = 8
-    LAGGING_ONLY        = 16
-    NEVER               = 32
+
+
+class ServiceReason(IntEnum):
+    NOT_READY           = 0
+    DEMAND              = 1
+    WITH_VEHICLE        = 2
+    WITH_ANY            = 4
+    ALL_FYA             = 8
+    FYA_FORCE_SERVICE   = 16
+    FYA                 = 32
 
 
 class ServiceModifiers(IntFlag):

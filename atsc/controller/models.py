@@ -39,7 +39,7 @@ from atsc.controller.constants import (
     TrafficMovement,
     FieldOutputState,
     ServiceModifiers,
-    ServiceConditions
+    ServiceConditions, ServiceReason
 )
 from jacob.datetime.formatting import format_ms
 from atsc.controller.primitives import (
@@ -135,7 +135,7 @@ class Signal(Identifiable):
     @dataclass(slots=True, frozen=True)
     class ServiceStatus:
         service: bool
-        condition: ServiceConditions
+        reason: ServiceReason
         lagging_signal: Optional['Signal'] = None
     
     @classmethod
@@ -215,13 +215,23 @@ class Signal(Identifiable):
     
     @property
     def latch(self):
-        return self._latch
+        return self._latch or self._latch_once
     
     @latch.setter
     def latch(self, value):
         if value != self._latch:
             logger.verbose('{} latch = {}', self.get_tag(), value)
             self._latch = bool(value)
+    
+    @property
+    def latch_once(self):
+        return self._latch_once
+    
+    @latch_once.setter
+    def latch_once(self, value):
+        if value != self._latch_once:
+            logger.verbose('{} latch once = {}', self.get_tag(), value)
+            self._latch_once = bool(value)
     
     @property
     def presence(self):
@@ -403,7 +413,7 @@ class Signal(Identifiable):
                  type: SignalType = SignalType.GENERIC,
                  movement: TrafficMovement = TrafficMovement.THRU,
                  extend_mode: ExtendMode = ExtendMode.OFF,
-                 service_conditions: ServiceConditions = ServiceConditions.WITH_DEMAND,
+                 service_conditions: ServiceConditions = ServiceConditions.DEMAND,
                  service_modifiers: ServiceModifiers = ServiceModifiers.UNSET,
                  initial_state: SignalState = SignalState.STOP,
                  fya_enabled: bool = False,
@@ -424,6 +434,7 @@ class Signal(Identifiable):
         self._recycle = recycle
         self._demand = demand
         self._latch = latch
+        self._latch_once = False
         self._presence = False
         self._presence_lockout_delay = presence_lockout_delay
         self._presence_lockout = False
@@ -432,6 +443,7 @@ class Signal(Identifiable):
         self._revert_time = revert_time
         self._fya_task = None
         self._fya_force_service_delay = fya_force_service_delay
+        self._fya_force_service = False
         
         self.timings = timings
         self.configs: Dict[SignalState, IntervalConfig] = defaultdict(IntervalConfig)
@@ -445,7 +457,6 @@ class Signal(Identifiable):
         self.fya_enabled = fya_enabled
         self.fya_concurrent_phase = fya_concurrent_phase
         self.fya_guard_phase = fya_guard_phase
-        self._fya_force_service = False
         
         self.leading_signals: List['Signal'] = []
         
@@ -507,8 +518,23 @@ class Signal(Identifiable):
     
     def get_service_status(self,
                            group: Optional[List['Signal']] = None) -> ServiceStatus:
-        with_demand = self.service_conditions & ServiceConditions.WITH_DEMAND
-        service = self.safe and not with_demand or self.demand
+        ready = self.safe and self.revert_clear
+        if not ready:
+            return self.ServiceStatus(False, ServiceReason.NOT_READY)
+        
+        requires_demand = self.service_conditions & ServiceConditions.DEMAND
+        demand = self.demand or not requires_demand
+        
+        if demand:
+            if self.fya_available:
+                if group and all([s.fya_available for s in group]):
+                    return self.ServiceStatus(True,
+                                              ServiceReason.ALL_FYA)
+                elif self.fya_force_service:
+                    return self.ServiceStatus(True,
+                                              ServiceReason.FYA_FORCE_SERVICE)
+                else:
+                    return self.ServiceStatus(False, ServiceReason.FYA)
         
         if group:
             with_vehicle = self.service_conditions & ServiceConditions.WITH_VEHICLE
@@ -519,27 +545,21 @@ class Signal(Identifiable):
                     continue
                 
                 check_signal = with_any
-                condition = ServiceConditions.WITH_ANY
+                condition = ServiceReason.WITH_ANY
                 
                 if with_vehicle and signal.type == SignalType.VEHICLE:
                     if signal.recycle == self.recycle or not signal.conflicting_demand:
-                        condition = ServiceConditions.WITH_VEHICLE
+                        condition = ServiceReason.WITH_VEHICLE
                         check_signal = True
                 
                 if check_signal:
                     signal_status = signal.get_service_status()
                     if signal.active or signal_status.service:
-                        service = True
-                        return self.ServiceStatus(service,
+                        return self.ServiceStatus(True,
                                                   condition,
                                                   lagging_signal=signal)
         
-        if service:
-            if not self.fya_available or not self.fya_force_service:
-                if not self.revert_clear:
-                    service = False
-        
-        return self.ServiceStatus(service, ServiceConditions.WITH_DEMAND)
+        return self.ServiceStatus(demand, ServiceReason.DEMAND)
     
     def _can_extend(self):
         if self.extend_mode != ExtendMode.OFF:
@@ -620,9 +640,7 @@ class Signal(Identifiable):
                 logger.debug('stop interval took {}', format_ms(delta))
         
         self.presence_lockout = False
-        
-        if self.presence:
-            self.demand = True
+        self.demand = self.presence
         
         self.recall()
     
@@ -630,7 +648,8 @@ class Signal(Identifiable):
         assert self.state == SignalState.STOP
         self.fya_concurrent_phase.state_changed.connect(self._on_fya_concurrent_phase_state_changed)
         self._change_state(SignalState.FYA)
-        self.demand = False
+        if not self.latch:
+            self.demand = False
         if self.presence:
             self.fya_presence_timer.start()
     
@@ -646,7 +665,7 @@ class Signal(Identifiable):
                 
                 self._fya_task = asyncio.create_task(self._fya_terminate())
             else:
-                if not self.has_go_state:
+                if not self.has_go_state and not self.latch:
                     self.demand = False
                 
                 self.fya_force_service = False
@@ -709,6 +728,7 @@ class Signal(Identifiable):
             lagging_signal.leading_signals.remove(self)
         
         self._active = False
+        self.latch_once = False
     
     def on_service_timeout(self, _):
         if not self.resting:
@@ -825,6 +845,24 @@ class Phase(Identifiable):
     def demand(self, value):
         for signal in self.signals:
             signal.demand = bool(value)
+    
+    @property
+    def latch(self):
+        return any([s.latch for s in self.signals])
+    
+    @latch.setter
+    def latch(self, value):
+        for signal in self.signals:
+            signal.latch = value
+    
+    @property
+    def latch_once(self):
+        return any([s.latch_once for s in self.signals])
+    
+    @latch_once.setter
+    def latch_once(self, value):
+        for signal in self.signals:
+            signal.latch_once = value
     
     @property
     def conflicting_demand(self):
@@ -995,6 +1033,10 @@ class Barrier(Identifiable):
         return [p for p in self.phases if p.demand and not p.active_signals]
     
     @property
+    def fya_phases(self):
+        return [p for p in self.phases if p.fya_available]
+    
+    @property
     def signals(self):
         return list(chain(*[p.signals for p in self.phases]))
     
@@ -1065,6 +1107,10 @@ class IntersectionService:
             return self.barriers
         else:
             return [b for b in self.barriers if b != active_barrier]
+        
+    @property
+    def waiting_barriers(self):
+        return [b.waiting_phases for b in self.inactive_barriers]
     
     @property
     def signals(self) -> List[Signal]:
@@ -1108,7 +1154,7 @@ class IntersectionService:
         self.signals_serviced: List[Signal] = []
         self.signals_recycled: List[Signal] = []
         
-        self.cycle_barriers: List[Barrier] = [self.barriers[0]]
+        self.cycle_barriers: List[Barrier] = []
         
         self._mode = PhaseCyclerMode.PAUSE
         self._cycle_count: int = 0
@@ -1207,7 +1253,7 @@ class IntersectionService:
         if phase in self.phases_serviced and phase not in self.phases_recycled:
             if phase.recycle or any([s.demand and s.fya_force_service for s in phase.signals]):
                 if self.active_barrier:
-                    if any([b.waiting_phases for b in self.inactive_barriers]):
+                    if self.waiting_barriers:
                         return False
                 
                 for signal in phase.signals:
@@ -1228,28 +1274,30 @@ class IntersectionService:
             
             common_phases = ring.intersection(self.active_barrier)
             new_phases = sorted(common_phases - set(self.phases_serviced))
+            new_phases_demand = [p for p in new_phases if p.demand]
             
-            for phase in new_phases:
-                if phase.demand and phase.has_go_state:
+            for phase in new_phases_demand:
+                if phase.has_go_state:
                     selected_phases.append(phase)
                     break
         
+        waiting_barriers = self.waiting_barriers
+        all_fya = all([p.fya_available for p in selected_phases])
+        
+        for i in range(len(selected_phases)):
+            phase = selected_phases[i]
+            if not all_fya and phase.fya_available and waiting_barriers:
+                del selected_phases[i]
+        
         return selected_phases
     
-    def try_change_barrier(self, b: Barrier):
-        if self.cycle_barriers:
-            if len(self.cycle_barriers) == len(self.barriers):
-                del self.cycle_barriers[0]
-            
-            last_barrier = self.cycle_barriers[-1]
-            self.cycle_barriers.append(b)
-            
-            logger.debug('crossed to {} from {}',
-                         b.get_tag(),
-                         last_barrier.get_tag())
+    def change_barrier(self, b: Barrier):
+        self.cycle_barriers.append(b)
+        logger.debug('{} active', b.get_tag())
+        if len(self.cycle_barriers) > len(self.barriers):
+            del self.cycle_barriers[0]
             return True
         else:
-            logger.debug('{} active', b.get_tag())
             return False
     
     async def _try_idle(self):
@@ -1290,8 +1338,8 @@ class IntersectionService:
             while not all(s.safe for s in self.signals):
                 await asyncio.sleep(POLL_RATE)
     
-    async def _wait_for_all_revert_clear(self):
-        while all([s.active or not s.revert_clear for s in self.signals]):
+    async def _wait_for_all_safe(self):
+        while any([not s.safe for s in self.signals]):
             await asyncio.sleep(POLL_RATE)
     
     async def poll(self):
@@ -1321,13 +1369,24 @@ class IntersectionService:
                                                 await signal.fya()
                 
                 for phase in self.phases:
-                    if phase.fya_available and not phase.has_go_state:
+                    barrier = self.get_barrier_by_phase(phase)
+                    
+                    if phase.fya_available:
+                        if barrier and all([fp.demand for fp in barrier.fya_phases]):
+                            for fya_phase in barrier.fya_phases:
+                                if not fya_phase.latch:
+                                    fya_phase.latch_once = True
+                            continue
+                        elif len(phase.active_signals) and phase.has_go_state:
+                            continue
+                        
                         for signal in phase.fya_signals:
                             other_signal: Signal
                             for other_signal in signal.fya_concurrent_phase.signals:
                                 if other_signal.type == SignalType.VEHICLE:
-                                    other_signal.demand = other_signal.demand or phase.demand
-                                    other_signal.presence = other_signal.presence or phase.presence
+                                    other_signal.demand = other_signal.demand or signal.demand
+                                    if not signal.has_go_state:
+                                        other_signal.presence = other_signal.presence or signal.presence
                     
                     if phase.fya_active:
                         continue
@@ -1336,8 +1395,6 @@ class IntersectionService:
                         for signal in phase.default_signals:
                             if not signal.demand and not signal.active:
                                 signal.demand = True
-                        
-                        barrier = self.get_barrier_by_phase(phase)
                         
                         if barrier:
                             for barrier_phase in barrier.phases:
@@ -1439,7 +1496,7 @@ class IntersectionService:
     
     async def service(self):
         logger.debug('max revert time is {}', self._max_revert_time)
-        self.try_change_barrier(next(self._barrier_sequence))
+        self.change_barrier(next(self._barrier_sequence))
         
         try:
             while True:
@@ -1449,7 +1506,7 @@ class IntersectionService:
                     phase.recall()
                 
                 await self._try_idle()
-                await self._wait_for_all_revert_clear()
+                await self._wait_for_all_safe()
                 
                 match self.mode:
                     case PhaseCyclerMode.SEQUENTIAL:
@@ -1474,10 +1531,8 @@ class IntersectionService:
                                     )
                                 await self._wait_for_signals()
                             else:
-                                if self.try_change_barrier(next(self._barrier_sequence)):
+                                if self.change_barrier(next(self._barrier_sequence)):
                                     break
-                                else:
-                                    breakpoint()
                             
                             if self.active_barrier is None:
                                 break

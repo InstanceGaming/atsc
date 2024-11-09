@@ -16,8 +16,10 @@ import time
 import signal
 import asyncio
 from abc import ABC
+from io import TextIOWrapper
+
 from loguru import logger
-from typing import List, TextIO, Optional, Coroutine
+from typing import List, Optional, Coroutine
 from pathlib import Path
 from datetime import datetime
 from atsc.common import utils
@@ -90,7 +92,7 @@ class AsyncDaemon(ABC):
     
     async def unlock_pid(self):
         if self.pid_file is not None:
-            assert isinstance(self.pid_file, TextIO)
+            assert isinstance(self.pid_file, TextIOWrapper)
             
             pid_path = os.path.realpath(self.pid_file.name)
             if not self.pid_file.closed:
