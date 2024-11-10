@@ -48,11 +48,11 @@ async def rpc_server(host: str,
         logger.debug('closing RPC server')
         try:
             server.close()
+            await server.wait_closed()
+            logger.debug('RPC server closed')
         except RuntimeError:
             # server may not be started (i.e. failed to bind)
             pass
-        await server.wait_closed()
-        logger.debug('RPC server closed')
 
 
 def _rpc_server_shim(host: str,

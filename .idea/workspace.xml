@@ -4,13 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="pid file removal fix, fya serve logic">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="fya ped service timeout">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/seeds.md" beforeDir="false" afterPath="$PROJECT_DIR$/seeds.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,7 +91,7 @@
       <recent name="F:\Projects\Code\Python\atsc\atsc\controller" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Busfuzz">
+  <component name="RunManager" selected="Python.Controller (Sim)">
     <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
@@ -154,7 +152,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.controller.main" />
-      <option name="PARAMETERS" value="" />
+      <option name="PARAMETERS" value="--init-demand" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
       <option name="MODULE_MODE" value="true" />
@@ -237,14 +235,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00029" summary="service time maximum threshold fix">
-      <option name="closed" value="true" />
-      <created>1728106724441</created>
-      <option name="number" value="00029" />
-      <option name="presentableId" value="LOCAL-00029" />
-      <option name="project" value="LOCAL" />
-      <updated>1728106724441</updated>
     </task>
     <task id="LOCAL-00030" summary="service conditions, service modifiers">
       <option name="closed" value="true" />
@@ -630,7 +620,15 @@
       <option name="project" value="LOCAL" />
       <updated>1731184110513</updated>
     </task>
-    <option name="localTasksCounter" value="78" />
+    <task id="LOCAL-00078" summary="fya ped service timeout">
+      <option name="closed" value="true" />
+      <created>1731194775190</created>
+      <option name="number" value="00078" />
+      <option name="presentableId" value="LOCAL-00078" />
+      <option name="project" value="LOCAL" />
+      <updated>1731194775190</updated>
+    </task>
+    <option name="localTasksCounter" value="79" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -657,7 +655,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="pyproject.toml fix, service config" />
     <MESSAGE value="fya and timer logic fixes, rpc fya toggle" />
     <MESSAGE value="conflict fix" />
     <MESSAGE value="all revert wait, cli args, refactoring" />
@@ -682,6 +679,7 @@
     <MESSAGE value="abs atsc-controller.service paths" />
     <MESSAGE value="remaining time bug fix, service unit edits" />
     <MESSAGE value="pid file removal fix, fya serve logic" />
-    <option name="LAST_COMMIT_MESSAGE" value="pid file removal fix, fya serve logic" />
+    <MESSAGE value="fya ped service timeout" />
+    <option name="LAST_COMMIT_MESSAGE" value="fya ped service timeout" />
   </component>
 </project>

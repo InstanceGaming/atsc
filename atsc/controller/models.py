@@ -647,21 +647,18 @@ class Signal(Identifiable):
     
     def _can_extend(self):
         if self.extend_mode != ExtendMode.OFF:
-            extend_time = self.timings.get(SignalState.EXTEND, 0.0)
-            if extend_time and extend_time.minimum:
-                proceed = False
+            extend_time = self.timings.get(SignalState.EXTEND)
+            if extend_time is not None and extend_time.minimum:
+                proceed = True
                 
                 if self.extend_mode == ExtendMode.MINIMUM_SKIP:
                     proceed = self.presence_stopwatch.elapsed < extend_time.minimum
                 
                 if proceed:
-                    go_time = self.timings.get(SignalState.GO, 0.0)
-                    if go_time and go_time.maximum:
+                    go_time = self.timings.get(SignalState.GO)
+                    if go_time is not None and go_time.maximum:
                         proceed = self.service_timer.elapsed < go_time.maximum
-                
-                if self.presence:
-                    proceed = True
-                
+                        
                 if proceed:
                     if self.recall_state != RecallMode.MAXIMUM:
                         return True
@@ -1417,10 +1414,11 @@ class IntersectionService:
                     selected_phases.append(phase)
                     break
         
-        if self.waiting_barriers and not all([p.fya_available for p in selected_phases]):
-            skip_phases = [p for p in selected_phases if p.fya_available]
-            for skip_phase in skip_phases:
-                selected_phases.remove(skip_phase)
+        if len(selected_phases):
+            if self.waiting_barriers and not all([p.fya_available for p in selected_phases]):
+                skip_phases = [p for p in selected_phases if p.fya_available]
+                for skip_phase in skip_phases:
+                    selected_phases.remove(skip_phase)
         
         return selected_phases
     
@@ -1478,48 +1476,46 @@ class IntersectionService:
     async def poll(self):
         try:
             while True:
-                for signal in self.signals:
-                    if signal.active:
-                        if self.active_barrier:
-                            if signal not in self.active_barrier.signals:
-                                raise Conflict(f'{signal.get_tag()} not in {self.active_barrier.get_tag()}')
-                    else:
-                        if signal.fya_concurrent_phase is not None:
-                            signal.fya_enabled = self.fya_enabled
-                            if signal.fya_enabled and signal.state != SignalState.FYA and signal.revert_clear:
-                                if signal.fya_concurrent_phase.state in (SignalState.GO, SignalState.EXTEND):
-                                    for ps in signal.fya_concurrent_phase.pedestrian_signals:
-                                        if ps.active:
-                                            break
-                                        
-                                        if ps.interval_timer.elapsed < FYA_MINIMUM_PEDESTRIAN_STOP_TIME:
-                                            break
-                                    else:
-                                        if signal.state == SignalState.STOP:
-                                            interval_remaining = signal.fya_concurrent_phase.get_interval_time_remaining()
-                                            if interval_remaining > FYA_MINIMUM_TIME:
-                                                await signal.fya()
-                
                 for phase in self.phases:
                     barrier = self.get_barrier_by_phase(phase)
                     
-                    if phase.fya_available:
-                        if barrier and all([fp.demand for fp in barrier.fya_phases]):
-                            for fya_phase in barrier.fya_phases:
-                                if not fya_phase.latch:
-                                    fya_phase.latch_once = True
-                            continue
-                        elif len(phase.active_signals) and phase.has_go_state:
-                            continue
+                    for signal in phase.signals:
+                        signal.fya_enabled = self.fya_enabled
                         
-                        for fya_signal in phase.fya_signals:
-                            for vehicle_signal in fya_signal.fya_concurrent_phase.vehicle_signals:
-                                vehicle_signal.demand = vehicle_signal.demand or fya_signal.demand
-                                if not fya_signal.has_go_state:
-                                    vehicle_signal.presence = vehicle_signal.presence or fya_signal.presence
-                    
-                    if phase.fya_active:
-                        continue
+                        if signal.active:
+                            if self.active_barrier:
+                                if signal not in self.active_barrier.signals:
+                                    raise Conflict(f'{signal.get_tag()} not in {self.active_barrier.get_tag()}')
+                        else:
+                            if signal.fya_available:
+                                if not signal.fya_active:
+                                    if signal.revert_clear:
+                                        if signal.fya_concurrent_phase.state in (SignalState.GO, SignalState.EXTEND):
+                                            for ps in signal.fya_concurrent_phase.pedestrian_signals:
+                                                if ps.active:
+                                                    break
+                                                
+                                                if ps.interval_timer.elapsed < FYA_MINIMUM_PEDESTRIAN_STOP_TIME:
+                                                    break
+                                            else:
+                                                if signal.state == SignalState.STOP:
+                                                    interval_remaining = signal.fya_concurrent_phase.get_interval_time_remaining()
+                                                    if interval_remaining > FYA_MINIMUM_TIME:
+                                                        await signal.fya()
+                                    
+                                    for vehicle_signal in signal.fya_concurrent_phase.vehicle_signals:
+                                        if not signal.has_go_state:
+                                            vehicle_signal.presence = vehicle_signal.presence or signal.presence
+                                        
+                                        if self.active_barrier and self.active_barrier != barrier:
+                                            if signal.demand:
+                                                if barrier and all([fp.demand for fp in barrier.fya_phases]):
+                                                    for fya_phase in barrier.fya_phases:
+                                                        fya_phase.latch_once = True
+                                                    break
+                                                else:
+                                                    vehicle_signal.demand = True
+                                                    signal.demand = False
                     
                     if phase.demand:
                         for signal in phase.default_signals:

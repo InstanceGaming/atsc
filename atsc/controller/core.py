@@ -111,14 +111,14 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
-            SignalState.EXTEND  : IntervalTiming(3.0),
-            SignalState.GO      : IntervalTiming(10.0, 55.0)
+            SignalState.EXTEND  : IntervalTiming(10.0),
+            SignalState.GO      : IntervalTiming(5.0, 55.0)
         }
         self.interval_timing_vehicle2 = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
             SignalState.STOP    : IntervalTiming(1.0),
             SignalState.CAUTION : IntervalTiming(4.0),
-            SignalState.EXTEND  : IntervalTiming(2.0),
+            SignalState.EXTEND  : IntervalTiming(3.0),
             SignalState.GO      : IntervalTiming(5.0, 25.0)
         }
         self.interval_timing_vehicle_fya = {
@@ -205,7 +205,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(110),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP,
+                extend_mode=ExtendMode.MINIMUM_SKIP,
                 presence_lockout_delay=120.0
             ),
             Signal(
@@ -252,7 +252,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(122),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP,
+                extend_mode=ExtendMode.MINIMUM_SKIP,
                 presence_lockout_delay=120.0
             ),
             Signal(
