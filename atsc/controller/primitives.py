@@ -179,7 +179,7 @@ class AsyncTimer(AsyncStopwatch):
     
     @property
     def running(self):
-        return self._task is not None
+        return self._running
     
     @property
     def goal(self):
@@ -198,11 +198,10 @@ class AsyncTimer(AsyncStopwatch):
                  repeat: bool = False,
                  paused: bool = False):
         super().__init__(paused=paused)
-        self.started = blinker.Signal()
         self.reached_goal = blinker.Signal()
-        self.canceled = blinker.Signal()
         self.repeat = repeat
         
+        self._running = False
         self._goal = None
         self._task: Optional[asyncio.Task] = None
         
@@ -212,36 +211,38 @@ class AsyncTimer(AsyncStopwatch):
         if goal is not None:
             self.set(goal)
     
-    def set(self, goal: float):
-        self.reset()
+    def set(self, goal: float, reset=True):
+        if reset:
+            self.reset()
         self._goal = goal
     
     def start(self) -> asyncio.Task:
-        if self._task is not None:
-            self._task.cancel()
-        
+        assert self._task.cancelled() if self._task is not None else True
         self._task = asyncio.create_task(self.wait())
-        self.started.send(self)
         return self._task
     
     async def wait(self):
+        self._running = True
+        self.resume()
         self.reset()
-        while True:
-            if not self.frozen:
-                if self.elapsed > self.goal:
+        while self.running:
+            if (not self.frozen and
+                self.goal is None or
+                self.elapsed > self.goal):
                     self.reached_goal.send(self)
                     if self.repeat:
                         self.reset()
                     else:
                         break
             await asyncio.sleep(POLL_RATE)
+        self._running = False
     
     def cancel(self):
+        self._running = False
+
         if self._task is not None:
             self._task.cancel()
-            self.reset()
-            self.canceled.send(self)
             self._task = None
-    
+        
     def __repr__(self):
         return f'<Timer {self.goal=:03.2f} {self.elapsed=:03.2f} {self.frozen=}>'

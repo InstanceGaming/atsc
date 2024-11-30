@@ -11,12 +11,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import blinker
 import serial
 import asyncio
-
-from atsc.controller.constants import POLL_RATE
-from atsc.controller.primitives import AsyncStopwatch
+import blinker
 from atsc.fieldbus.constants import *
 from grpc import RpcError
 from loguru import logger
@@ -34,9 +31,12 @@ from atsc.fieldbus.frames import GenericFrame, OutputStateFrame
 from atsc.fieldbus.models import DecodedBusFrame
 from atsc.common.constants import (
     RPC_CALL_TIMEOUT,
+    FLOAT_PRECISION_TIME,
     RPC_CALL_DEADLINE_POLL,
-    DAEMON_SHUTDOWN_TIMEOUT, FLOAT_PRECISION_TIME
+    DAEMON_SHUTDOWN_TIMEOUT
 )
+from atsc.controller.constants import POLL_RATE
+from atsc.controller.primitives import AsyncStopwatch
 
 
 class FieldBus(AsyncDaemon):

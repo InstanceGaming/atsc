@@ -83,7 +83,7 @@ class ServiceConditions(IntFlag):
 
 
 class ServiceReason(IntEnum):
-    NOT_READY           = 0
+    NOT_SAFE           = 0
     DEMAND              = 1
     WITH_VEHICLE        = 2
     WITH_ANY            = 4

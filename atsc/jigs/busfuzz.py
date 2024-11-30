@@ -16,14 +16,14 @@ import random
 import asyncio
 import argparse
 from typing import Optional
+from atsc.fieldbus import FieldBus
 from jacob.logging import setup_logger
 from jacob.filesystem import fix_path
 from atsc.common.utils import asyncio_loop_patch
-from atsc.fieldbus import FieldBus
 from atsc.fieldbus.frames import InputStateFrame
+from atsc.fieldbus.models import DecodedBusFrame
 from atsc.common.constants import CUSTOM_LOG_LEVELS, ExitCode
 from atsc.fieldbus.constants import DeviceAddress
-from atsc.fieldbus.models import DecodedBusFrame
 
 
 logger = loguru.logger

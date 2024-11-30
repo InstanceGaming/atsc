@@ -15,14 +15,13 @@ import loguru
 import asyncio
 from atsc.common import cli
 from grpclib.client import Channel
-
 from atsc.common.cli import arg_poll_rate_type
 from atsc.common.utils import setup_logger, asyncio_loop_patch
-from atsc.controller.constants import POLL_RATE
 from atsc.fieldbus.core import ControllerFieldBus
 from atsc.rpc.controller import ControllerStub
 from atsc.common.constants import ExitCode
 from atsc.fieldbus.constants import BUS_BAUD_RATE, BUS_BAUD_RATES
+from atsc.controller.constants import POLL_RATE
 
 
 logger = loguru.logger

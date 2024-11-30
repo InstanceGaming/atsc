@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from typing import Optional
 from rich.text import Text
 from atsc.common.constants import FLOAT_PRECISION_TIME
 
@@ -30,15 +31,18 @@ def text_or_dash(condition: bool, txt: str, txt_style: str):
     return boolean_text(condition, txt, txt_style, '-', 'bright_black')
 
 
-def get_time_text(v: float, force_style=None):
-    rounded = round(v, FLOAT_PRECISION_TIME)
-    text = Text(format(rounded, '.1f'))
-    if v < 0.0:
-        color = 'red'
+def get_time_text(v: Optional[float], force_style=None):
+    if v is None:
+        return Text('-', 'bright black')
     else:
-        color = 'white'
-    text.stylize(force_style or color)
-    return text
+        rounded = round(v, FLOAT_PRECISION_TIME)
+        text = Text(format(rounded, '.1f'))
+        if v < 0.0:
+            color = 'red'
+        else:
+            color = 'white'
+        text.stylize(force_style or color)
+        return text
 
 
 def combine_texts_new_line(*texts) -> Text:

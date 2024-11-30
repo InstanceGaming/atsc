@@ -14,8 +14,8 @@
 import loguru
 from pathlib import Path
 from atsc.common import cli
-from atsc.common.cli import arg_poll_rate_type
 from atsc.tui.core import TUI
+from atsc.common.cli import arg_poll_rate_type
 from atsc.common.utils import setup_logger, get_program_dir, asyncio_loop_patch
 from atsc.tui.constants import DEFAULT_APP_STYLESHEET_PATH
 from atsc.common.constants import ExitCode

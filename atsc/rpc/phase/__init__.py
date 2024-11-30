@@ -3,12 +3,10 @@
 # plugin: python-betterproto
 # This file has been @generated
 
-from dataclasses import dataclass
-from typing import List
-
 import betterproto
-
 from .. import signal as _signal__
+from typing import List
+from dataclasses import dataclass
 
 
 @dataclass(eq=False, repr=False)

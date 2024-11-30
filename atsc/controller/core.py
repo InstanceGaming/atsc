@@ -21,7 +21,7 @@ from atsc.rpc import controller
 from atsc.rpc import controller as rpc_controller
 from atsc.rpc.signal import SignalMetadata as rpc_SignalMetadata
 from atsc.common.models import AsyncDaemon
-from atsc.common.constants import DAEMON_SHUTDOWN_TIMEOUT, FLOAT_PRECISION_TIME
+from atsc.common.constants import FLOAT_PRECISION_TIME, DAEMON_SHUTDOWN_TIMEOUT
 from atsc.rpc.field_output import FieldOutputMetadata as rpc_FieldOutputMetadata
 from atsc.controller.models import (
     Ring,
@@ -205,7 +205,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(110),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MINIMUM_SKIP,
+                extend_mode=ExtendMode.MAXIMUM_SKIP,
                 presence_lockout_delay=120.0
             ),
             Signal(
@@ -252,7 +252,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 vehicle_signal_field_mapping(122),
                 type=SignalType.VEHICLE,
                 movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MINIMUM_SKIP,
+                extend_mode=ExtendMode.MAXIMUM_SKIP,
                 presence_lockout_delay=120.0
             ),
             Signal(

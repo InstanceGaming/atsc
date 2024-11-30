@@ -3,10 +3,9 @@
 # plugin: python-betterproto
 # This file has been @generated
 
-from dataclasses import dataclass
-from typing import List
-
 import betterproto
+from typing import List
+from dataclasses import dataclass
 
 
 class SignalState(betterproto.Enum):
@@ -52,4 +51,8 @@ class Signal(betterproto.Message):
     interval_time: float = betterproto.float_field(20)
     service_time: float = betterproto.float_field(21)
     presence_time: float = betterproto.float_field(22)
+    demand_time: float = betterproto.float_field(23)
+    runtime_remaining: float = betterproto.float_field(24)
+    runtime_maximum: float = betterproto.float_field(25)
+    service_maximum: float = betterproto.float_field(26)
     state: "SignalState" = betterproto.enum_field(30)

@@ -20,8 +20,6 @@ from textual.app import App, ComposeResult
 from grpclib.client import Channel
 from textual.widget import MountError
 from textual.worker import Worker
-
-from atsc.controller.constants import POLL_RATE
 from atsc.tui.panels import ControllerPanel
 from textual.widgets import Footer, Header
 from atsc.tui.widgets import (
@@ -53,9 +51,11 @@ from atsc.tui.components import Banner
 from atsc.tui.containers import MainContentSwitcher
 from atsc.common.constants import (
     RPC_CALL_TIMEOUT,
+    FLOAT_PRECISION_TIME,
     RPC_CALL_DEADLINE_POLL,
-    ExitCode, FLOAT_PRECISION_TIME
+    ExitCode
 )
+from atsc.controller.constants import POLL_RATE
 
 
 class TUI(App[int]):
@@ -195,7 +195,11 @@ class TUI(App[int]):
             signal.state.state = data.state.name
             signal.interval_time.elapsed = data.interval_time
             signal.service_time.elapsed = data.service_time
+            signal.service_maximum.elapsed = data.service_maximum
+            signal.runtime_remaining.elapsed = data.runtime_remaining
+            signal.runtime_maximum.elapsed = data.runtime_maximum
             signal.demand.demand = data.demand
+            signal.demand_time.elapsed = data.demand_time
             signal.presence.presence = data.presence
             signal.presence.lockout = data.presence_lockout
             signal.presence_time.elapsed = data.presence_time

@@ -96,7 +96,7 @@ class SignalStateWidget(Widget):
 
 class SignalTimeWidget(Widget):
     
-    elapsed = reactive(0.0)
+    elapsed = reactive(None)
     
     def render(self) -> RenderResult:
         return get_time_text(self.elapsed)
@@ -187,13 +187,21 @@ class SignalWidget(Widget):
         self.demand = SignalDemandWidget()
         self.presence = SignalPresenceWidget()
         self.presence_time = SignalTimeWidget()
+        self.demand_time = SignalTimeWidget()
+        self.runtime_remaining = SignalTimeWidget()
+        self.runtime_maximum = SignalTimeWidget()
+        self.service_maximum = SignalTimeWidget()
     
     def compose(self) -> ComposeResult:
         yield self.title
         yield self.state
         yield self.interval_time
         yield self.service_time
+        yield self.service_maximum
+        yield self.runtime_remaining
+        yield self.runtime_maximum
         yield self.demand
+        yield self.demand_time
         yield self.presence
         yield self.presence_time
         
