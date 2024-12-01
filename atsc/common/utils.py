@@ -18,7 +18,7 @@ from asyncio import Event
 from pathlib import Path
 from jacob.logging import setup_logger as jacob_setup_logger
 from grpclib.metadata import Deadline
-from atsc.common.constants import CUSTOM_LOG_LEVELS, ExitCode
+from atsc.common.constants import ExitCode
 from jacob.datetime.timing import millis
 
 
@@ -50,9 +50,7 @@ def get_program_dir() -> Path:
 
 def setup_logger(levels_notation, log_file: Optional[Path] = None):
     try:
-        loguru.logger = jacob_setup_logger(levels_notation,
-                                           custom_levels=CUSTOM_LOG_LEVELS,
-                                           log_file=log_file)
+        loguru.logger = jacob_setup_logger(levels_notation, log_file=log_file)
         loguru.logger.info('log levels = {}', levels_notation)
         if log_file:
             loguru.logger.info('logging to file at "{}"', log_file)

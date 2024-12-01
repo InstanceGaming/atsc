@@ -14,12 +14,12 @@
 from pathlib import Path
 from argparse import ArgumentParser
 from jacob.filesystem import fix_path
+from jacob.logging import RECOMMENDED_LEVELS_DEBUG
+
 from atsc.common.structs import CommonCommandLineArguments
 from atsc.common.constants import (
     RPC_PORT,
-    RPC_ADDRESS,
-    DEBUG_LEVELS,
-    DEFAULT_LEVELS
+    RPC_ADDRESS
 )
 
 
@@ -49,15 +49,10 @@ def parse_common_cla(description: str,
                      partial=False):
     root = ArgumentParser(description=description)
     
-    if __debug__:
-        log_levels = DEBUG_LEVELS
-    else:
-        log_levels = DEFAULT_LEVELS
-    
     root.add_argument('-L', '--levels',
                       type=str,
                       dest='log_levels',
-                      default=log_levels,
+                      default=RECOMMENDED_LEVELS_DEBUG,
                       help='Define logging levels.')
     root.add_argument('-l', '--log',
                       type=Path,

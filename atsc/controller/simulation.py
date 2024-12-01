@@ -76,7 +76,7 @@ class ApproachSimulator(Identifiable):
         self.rng = rng
         self.signal = signal
         self.state = ApproachState.IDLE
-        self.timer = AsyncTimer()
+        self.timer = AsyncTimer(f'Simulator{self.id}',)
         self.cycle_count = 0
     
     def random_range_biased(self, start: int, end: int, bias: float):

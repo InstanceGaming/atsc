@@ -74,6 +74,7 @@ class FieldOutput(Identifiable):
         self._bit = False
         self._fpm = fpm
         self._flash_timer = AsyncTimer(
+            f'FieldOutputFlasher{self.id}',
             goal=self.flash_delay,
             goal_handler=self._on_flash_timer_reached_goal,
             repeat=True
@@ -358,7 +359,7 @@ class Signal(Identifiable):
                 
                 if self.leading_signals:
                     resting = resting or any([ls.active for ls in self.leading_signals])
-                
+        
         return resting
     
     @property
@@ -429,6 +430,16 @@ class Signal(Identifiable):
         self._recycle = bool(value)
     
     @property
+    def synchronizing(self):
+        return self._synchronizing
+    
+    @synchronizing.setter
+    def synchronizing(self, value):
+        if value != self._synchronizing:
+            logger.verbose('{} synchronizing = {}', self.get_tag(), value)
+        self._synchronizing = bool(value)
+    
+    @property
     def service_maximum(self):
         go_timing = self.timings.get(SignalState.GO)
         
@@ -496,7 +507,7 @@ class Signal(Identifiable):
                 for state in reversed(SignalState):
                     if cutoff_state is not None and state <= cutoff_state:
                         continue
-                        
+                    
                     if state < self.state:
                         if state == SignalState.EXTEND and not self._can_extend():
                             continue
@@ -564,6 +575,7 @@ class Signal(Identifiable):
         self._fya_guard_phase = fya_guard_phase
         self._fya_extension = False
         self._remote_fya_signal: Optional['Signal'] = None
+        self._synchronizing = False
         
         self.timings = timings
         self.configs: Dict[SignalState, IntervalConfig] = defaultdict(IntervalConfig)
@@ -577,24 +589,28 @@ class Signal(Identifiable):
         self.leading_signals: List['Signal'] = []
         
         self.state_changed = blinker.Signal()
-        self.interval_timer = AsyncTimer()
-        self.service_timer = AsyncTimer(goal_handler=self.on_service_timeout,
+        self.interval_timer = AsyncTimer(f'SignalInterval{self.id}', )
+        self.service_timer = AsyncTimer(f'SignalService{self.id}',
+                                        goal_handler=self.on_service_timeout,
                                         paused=True)
         
         self.demand_stopwatch = AsyncStopwatch()
         self.demand_edge = EdgeTrigger()
         self.demand_changed = blinker.Signal()
         self.demand_changed.connect(self.on_demand_changed, sender=self)
-        self.fya_demand_timer = AsyncTimer(goal=self.fya_ped_service_delay,
+        self.fya_demand_timer = AsyncTimer(f'SignalFYADemand{self.id}',
+                                           goal=self.fya_ped_service_delay,
                                            goal_handler=self.on_demand_timeout)
         
         self.presence_stopwatch = AsyncStopwatch()
-        self.presence_timer = AsyncTimer(goal=self.presence_lockout_delay,
+        self.presence_timer = AsyncTimer(f'SignalPresence{self.id}',
+                                         goal=self.presence_lockout_delay,
                                          goal_handler=self.on_presence_timeout)
         self.presence_edge = EdgeTrigger()
         self.presence_changed = blinker.Signal()
         self.presence_changed.connect(self.on_presence_changed, sender=self)
-        self.fya_presence_timer = AsyncTimer(goal=self.fya_force_service_delay,
+        self.fya_presence_timer = AsyncTimer(f'SignalFYAPresence{self.id}',
+                                             goal=self.fya_force_service_delay,
                                              goal_handler=self.on_fya_force_service,
                                              repeat=True)
         
@@ -604,7 +620,8 @@ class Signal(Identifiable):
         self.fya_concurrent_phase_changed = blinker.Signal()
         self.fya_concurrent_phase_changed.connect(self.on_fya_concurrent_phase_changed,
                                                   sender=self)
-        self.fya_extension_timer = AsyncTimer(goal=FYA_MINIMUM_TIME)
+        self.fya_extension_timer = AsyncTimer(f'SignalFYAExtension{self.id}',
+                                              goal=FYA_MINIMUM_TIME)
         
         self.initial_state = initial_state
         self._change_state(self.initial_state, force=True)
@@ -718,7 +735,7 @@ class Signal(Identifiable):
                     go_time = self.timings.get(SignalState.GO)
                     if go_time is not None and go_time.maximum:
                         proceed = self.service_timer.elapsed < go_time.maximum
-                        
+                
                 if proceed:
                     if self.recall_state != RecallMode.MAXIMUM:
                         return True
@@ -765,7 +782,9 @@ class Signal(Identifiable):
                 marker = millis()
                 await self.interval_timer.wait()
                 delta = millis() - marker
-                logger.debug('caution interval took {}', format_ms(delta))
+                logger.debug('{} caution interval took {}',
+                             self.get_tag(),
+                             format_ms(delta))
     
     async def _stop_interval(self):
         self.service_timer.pause()
@@ -782,7 +801,9 @@ class Signal(Identifiable):
                 marker = millis()
                 await self.interval_timer.wait()
                 delta = millis() - marker
-                logger.debug('stop interval took {}', format_ms(delta))
+                logger.debug('{} stop interval took {}',
+                             self.get_tag(),
+                             format_ms(delta))
         
         self.presence_lockout = False
         self.demand = self.presence
@@ -797,6 +818,46 @@ class Signal(Identifiable):
             self.demand = False
         if self.presence:
             self.fya_presence_timer.start()
+    
+    def _should_sync(self, other_signal: 'Signal'):
+        if (not other_signal.synchronizing and
+            not other_signal.fya_available and
+            other_signal.state <= SignalState.EXTEND):
+            if other_signal.runtime_remaining(
+                cutoff_state=SignalState.CAUTION
+            ) > self.runtime_remaining(
+                cutoff_state=SignalState.CAUTION
+            ):
+                return True
+        return False
+    
+    async def _synchronize_with_group(self, group: List['Signal']):
+        for signal in group:
+            if signal.id == self.id:
+                continue
+            
+            if self._should_sync(signal):
+                logger.debug('{} waiting on {}', self.get_tag(), signal.get_tag())
+                original_state = signal.state
+                
+                self.synchronizing = True
+                while self.synchronizing:
+                    if not self._should_sync(signal):
+                        break
+                        
+                    if signal.state != original_state:
+                        break
+                    
+                    await asyncio.sleep(POLL_RATE)
+                
+                if signal.state != original_state:
+                    self.interval_timer.cancel()
+                
+                self.synchronizing = False
+                logger.debug('{} synchronized with {}',
+                             self.get_tag(),
+                             signal.get_tag())
+                break
     
     async def serve(self, group: Optional[List['Signal']] = None):
         assert not self.active and self.has_go_state
@@ -829,7 +890,9 @@ class Signal(Identifiable):
                 marker = millis()
                 await self.interval_timer.wait()
                 delta = millis() - marker
-                logger.debug('go interval took {}', format_ms(delta))
+                logger.debug('{} go interval took {}',
+                             self.get_tag(),
+                             format_ms(delta))
                 
                 await self._wait_rest()
             
@@ -843,6 +906,9 @@ class Signal(Identifiable):
             if self.fya_extension:
                 await self.fya_extension_timer.wait()
             
+            if len(group):
+                await self._synchronize_with_group(group)
+            
             await self._caution_interval()
             await self._stop_interval()
         
@@ -854,12 +920,13 @@ class Signal(Identifiable):
         self.fya_extension = False
     
     def on_service_timeout(self, _):
+        self.service_timeout = True
+        self.synchronizing = False
+        
         if self.state in (SignalState.GO, SignalState.EXTEND):
-            self.service_timeout = True
-
             if self.interval_timer.running:
                 self.interval_timer.cancel()
-        
+    
     def on_demand_changed(self, _, edge_type: EdgeType):
         self.demand_stopwatch.reset()
         
@@ -1150,7 +1217,7 @@ class Phase(Identifiable):
                                                barrier_group=barrier_group)
             if status.service:
                 yield signal
-        
+    
     def get_interval_time_remaining(self, state: Optional[SignalState] = None):
         return max([s.get_interval_time_remaining(state=state) for s in self.signals])
     
@@ -1471,7 +1538,7 @@ class IntersectionService:
                 if phase.has_go_state:
                     selected.update({phase: []})
                     break
-                
+        
         if len(selected):
             if self.waiting_barriers and not all([p.fya_available for p in selected.keys()]):
                 for skip_phase in [p for p in selected.keys() if p.fya_available]:
@@ -1491,7 +1558,7 @@ class IntersectionService:
                 
                 if not len(selected[phase]):
                     empty_phases.append(phase)
-                
+            
             for empty_phase in empty_phases:
                 logger.verbose('selection disqualified {} (empty)', empty_phase.get_tag())
                 del selected[empty_phase]
@@ -1660,7 +1727,7 @@ class IntersectionService:
                                         if status.service:
                                             signals.append(signal)
                         self.enqueue_signals(signals)
-                        
+                
                 if self.active_barrier and 0 < len(self.active_phases) < len(self.rings):
                     if set(self.active_phases + self.waiting_phases).issubset(self.active_barrier.phases):
                         active_resting = any([p.resting for p in self.active_phases])
@@ -1702,10 +1769,7 @@ class IntersectionService:
                     if stopped_resting_signals == len(self.signals) and signals_with_demand:
                         if self._stopped_with_demand_stopwatch.elapsed > self._max_revert_time:
                             self._stopped_with_demand_stopwatch.reset()
-                            if __debug__:
-                                breakpoint()
-                            else:
-                                raise RuntimeError('phase service deadlock')
+                            raise RuntimeError('phase service deadlock')
                     else:
                         self._stopped_with_demand_stopwatch.reset()
                 

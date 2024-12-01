@@ -4,20 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="fya logic fixes">
-      <change afterPath="$PROJECT_DIR$/tests/controller/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/controller/signals.py" afterDir="false" />
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="signal time estimation logic, refactoring">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/constants.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/rpc/signal/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/rpc/signal/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/widgets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/protobufs/signal.proto" beforeDir="false" afterPath="$PROJECT_DIR$/protobufs/signal.proto" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/hdlc.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/controller/hdlc.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/poetry.lock" beforeDir="false" afterPath="$PROJECT_DIR$/poetry.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -100,7 +96,7 @@
       <recent name="F:\Projects\Code\Python\atsc\scripts\services\controller" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Controller">
+  <component name="RunManager" selected="Python.Controller (Sim)">
     <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
@@ -218,8 +214,8 @@
     </configuration>
     <list>
       <item itemvalue="Python.Busfuzz" />
-      <item itemvalue="Python.Controller (Sim)" />
       <item itemvalue="Python.Controller" />
+      <item itemvalue="Python.Controller (Sim)" />
       <item itemvalue="Python.Field Bus" />
       <item itemvalue="Python.TUI" />
     </list>
@@ -244,14 +240,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00031" summary="tui field outputs, rpc metadata, comments">
-      <option name="closed" value="true" />
-      <created>1728193774367</created>
-      <option name="number" value="00031" />
-      <option name="presentableId" value="LOCAL-00031" />
-      <option name="project" value="LOCAL" />
-      <updated>1728193774367</updated>
     </task>
     <task id="LOCAL-00032" summary="traffic movement enum">
       <option name="closed" value="true" />
@@ -637,7 +625,15 @@
       <option name="project" value="LOCAL" />
       <updated>1731270341951</updated>
     </task>
-    <option name="localTasksCounter" value="80" />
+    <task id="LOCAL-00080" summary="signal time estimation logic, refactoring">
+      <option name="closed" value="true" />
+      <created>1732992156570</created>
+      <option name="number" value="00080" />
+      <option name="presentableId" value="LOCAL-00080" />
+      <option name="project" value="LOCAL" />
+      <updated>1732992156570</updated>
+    </task>
+    <option name="localTasksCounter" value="81" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -664,7 +660,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="conflict fix" />
     <MESSAGE value="all revert wait, cli args, refactoring" />
     <MESSAGE value="no serve detection" />
     <MESSAGE value="rpc controller state streaming" />
@@ -689,6 +684,7 @@
     <MESSAGE value="pid file removal fix, fya serve logic" />
     <MESSAGE value="fya ped service timeout" />
     <MESSAGE value="fya logic fixes" />
-    <option name="LAST_COMMIT_MESSAGE" value="fya logic fixes" />
+    <MESSAGE value="signal time estimation logic, refactoring" />
+    <option name="LAST_COMMIT_MESSAGE" value="signal time estimation logic, refactoring" />
   </component>
 </project>

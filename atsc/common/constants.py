@@ -13,11 +13,13 @@
 #  limitations under the License.
 import os
 from enum import Enum, IntEnum, auto
-from jacob.logging import CustomLevel
 
 
 RPC_ADDRESS = 'localhost'
 RPC_PORT = 7833
+FLOAT_PRECISION_TIME = 1
+DAEMON_SHUTDOWN_TIMEOUT = 5.0
+
 
 if os.getenv('LOOSEN_RPC_WATCHDOG'):
     RPC_CALL_DEADLINE_POLL = None
@@ -25,26 +27,6 @@ if os.getenv('LOOSEN_RPC_WATCHDOG'):
 else:
     RPC_CALL_DEADLINE_POLL = 1.0
     RPC_CALL_TIMEOUT = 1.0
-
-FLOAT_PRECISION_TIME = 1
-DAEMON_SHUTDOWN_TIMEOUT = 5.0
-DEFAULT_LEVELS = 'info,warning;stderr=error;file=info,error'
-DEBUG_LEVELS = 'verbose,warning;stderr=error;file=debug,error'
-
-
-CUSTOM_LOG_LEVELS = {
-    CustomLevel(10, 'bus_tx'),
-    CustomLevel(11, 'bus_rx'),
-    CustomLevel(12, 'bus'),
-    CustomLevel(20, 'net'),
-    CustomLevel(25, 'fields'),
-    CustomLevel(35, 'verbose'),
-    CustomLevel(40, 'debug'),
-    CustomLevel(50, 'info'),
-    CustomLevel(90, 'warning'),
-    CustomLevel(100, 'error'),
-    CustomLevel(200, 'critical')
-}
 
 
 class ExitCode(IntEnum):

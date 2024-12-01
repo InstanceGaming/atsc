@@ -18,13 +18,13 @@ uvloop = [
     { version = "0.21.0", platform = "darwin" }
 ]
 asyncio = "3.4.3"
-blinker = "1.8.2"
+blinker = "1.9.0"
 grpclib = "0.4.7"
-protobuf = "5.28.2"
+protobuf = "5.29.0"
 betterproto = "2.0.0b7"
-pydantic = "2.9.2"
+pydantic = "2.10.2"
 loguru = "0.7.2"
-jacob = { git = "https://github.com/InstanceGaming/jacob.git", rev = "a13bd470" }
+jacob = { git = "https://github.com/InstanceGaming/jacob.git", rev = "8505c3f4" }
 
 [tool.poetry.group.fieldbus]
 optional = true

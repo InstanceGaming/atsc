@@ -193,11 +193,13 @@ class AsyncTimer(AsyncStopwatch):
         return -(self.goal - self.elapsed)
     
     def __init__(self,
+                 name: str,
                  goal: Optional[float] = None,
                  goal_handler: Coroutine | Callable | None = None,
                  repeat: bool = False,
                  paused: bool = False):
         super().__init__(paused=paused)
+        self.name = name
         self.reached_goal = blinker.Signal()
         self.repeat = repeat
         
@@ -217,11 +219,15 @@ class AsyncTimer(AsyncStopwatch):
         self._goal = goal
     
     def start(self) -> asyncio.Task:
-        assert self._task.cancelled() if self._task is not None else True
+        if self._task is not None:
+            self._task.cancel()
         self._task = asyncio.create_task(self.wait())
         return self._task
     
     async def wait(self):
+        if self._running:
+            self.cancel()
+        
         self._running = True
         self.resume()
         self.reset()
@@ -235,7 +241,8 @@ class AsyncTimer(AsyncStopwatch):
                     else:
                         break
             await asyncio.sleep(POLL_RATE)
-        self._running = False
+        
+        self.cancel()
     
     def cancel(self):
         self._running = False
