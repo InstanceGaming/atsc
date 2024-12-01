@@ -373,6 +373,10 @@ class Signal(Identifiable):
             self._extend_mode = value
     
     @property
+    def extend_sync_signals(self):
+        return self._extend_sync_signals
+    
+    @property
     def recall_mode(self):
         return self._recall_mode
     
@@ -428,16 +432,6 @@ class Signal(Identifiable):
         if value != self._recycle:
             logger.verbose('{} recycle = {}', self.get_tag(), value)
         self._recycle = bool(value)
-    
-    @property
-    def synchronizing(self):
-        return self._synchronizing
-    
-    @synchronizing.setter
-    def synchronizing(self, value):
-        if value != self._synchronizing:
-            logger.verbose('{} synchronizing = {}', self.get_tag(), value)
-        self._synchronizing = bool(value)
     
     @property
     def service_maximum(self):
@@ -553,6 +547,7 @@ class Signal(Identifiable):
         self._state = SignalState.STOP
         self._conflicting_demand = False
         self._extend_mode = extend_mode
+        self._extend_sync_signals = []
         self._recall_mode = recall
         self._recall_state = RecallMode.OFF
         self._recycle = recycle
@@ -575,7 +570,6 @@ class Signal(Identifiable):
         self._fya_guard_phase = fya_guard_phase
         self._fya_extension = False
         self._remote_fya_signal: Optional['Signal'] = None
-        self._synchronizing = False
         
         self.timings = timings
         self.configs: Dict[SignalState, IntervalConfig] = defaultdict(IntervalConfig)
@@ -613,7 +607,7 @@ class Signal(Identifiable):
                                              goal=self.fya_force_service_delay,
                                              goal_handler=self.on_fya_force_service,
                                              repeat=True)
-        
+                
         self.fya_enabled_edge = EdgeTrigger()
         self.fya_enabled_changed = blinker.Signal()
         self.fya_enabled_changed.connect(self.on_fya_enabled_changed, sender=self)
@@ -623,8 +617,18 @@ class Signal(Identifiable):
         self.fya_extension_timer = AsyncTimer(f'SignalFYAExtension{self.id}',
                                               goal=FYA_MINIMUM_TIME)
         
+        self.extend_reset = blinker.Signal()
+        self.extend_reset.connect(self.on_extend_reset)
+        
         self.initial_state = initial_state
         self._change_state(self.initial_state, force=True)
+    
+    def add_extend_sync_signal(self, signal: 'Signal'):
+        assert signal.id != self.id
+        assert signal not in self.extend_sync_signals
+        
+        signal.extend_reset.connect(self.on_sync_signal_extend_reset)
+        self.extend_sync_signals.append(signal)
     
     def recall(self):
         match self.recall_mode:
@@ -819,46 +823,6 @@ class Signal(Identifiable):
         if self.presence:
             self.fya_presence_timer.start()
     
-    def _should_sync(self, other_signal: 'Signal'):
-        if (not other_signal.synchronizing and
-            not other_signal.fya_available and
-            other_signal.state <= SignalState.EXTEND):
-            if other_signal.runtime_remaining(
-                cutoff_state=SignalState.CAUTION
-            ) > self.runtime_remaining(
-                cutoff_state=SignalState.CAUTION
-            ):
-                return True
-        return False
-    
-    async def _synchronize_with_group(self, group: List['Signal']):
-        for signal in group:
-            if signal.id == self.id:
-                continue
-            
-            if self._should_sync(signal):
-                logger.debug('{} waiting on {}', self.get_tag(), signal.get_tag())
-                original_state = signal.state
-                
-                self.synchronizing = True
-                while self.synchronizing:
-                    if not self._should_sync(signal):
-                        break
-                        
-                    if signal.state != original_state:
-                        break
-                    
-                    await asyncio.sleep(POLL_RATE)
-                
-                if signal.state != original_state:
-                    self.interval_timer.cancel()
-                
-                self.synchronizing = False
-                logger.debug('{} synchronized with {}',
-                             self.get_tag(),
-                             signal.get_tag())
-                break
-    
     async def serve(self, group: Optional[List['Signal']] = None):
         assert not self.active and self.has_go_state
         
@@ -906,9 +870,6 @@ class Signal(Identifiable):
             if self.fya_extension:
                 await self.fya_extension_timer.wait()
             
-            if len(group):
-                await self._synchronize_with_group(group)
-            
             await self._caution_interval()
             await self._stop_interval()
         
@@ -921,7 +882,6 @@ class Signal(Identifiable):
     
     def on_service_timeout(self, _):
         self.service_timeout = True
-        self.synchronizing = False
         
         if self.state in (SignalState.GO, SignalState.EXTEND):
             if self.interval_timer.running:
@@ -945,6 +905,14 @@ class Signal(Identifiable):
                                  self.remote_fya_signal.get_tag())
                     self.remote_fya_signal.terminate_fya()
     
+    def on_sync_signal_extend_reset(self, signal: 'Signal'):
+        assert signal.id != self.id
+        self.on_extend_reset(self)
+    
+    def on_extend_reset(self, _):
+        if self.state == SignalState.EXTEND:
+            self.interval_timer.reset()
+    
     def on_presence_changed(self, _, edge_type: EdgeType):
         self.presence_stopwatch.reset()
         
@@ -953,7 +921,7 @@ class Signal(Identifiable):
                 self.presence_timer.start()
                 
                 if self.state == SignalState.EXTEND:
-                    self.interval_timer.reset()
+                    self.extend_reset.send(self)
                 elif self.fya_active:
                     self.fya_presence_timer.start()
                 elif self.state in (SignalState.CAUTION, SignalState.STOP):

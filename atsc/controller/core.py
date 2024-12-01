@@ -304,6 +304,11 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 fya_ped_service_delay=30.0
             )
         ]
+        ref(Signal, 502).add_extend_sync_signal(ref(Signal, 506))
+        ref(Signal, 504).add_extend_sync_signal(ref(Signal, 508))
+        ref(Signal, 506).add_extend_sync_signal(ref(Signal, 502))
+        ref(Signal, 508).add_extend_sync_signal(ref(Signal, 504))
+        
         self.phases = [
             Phase(601, refs(Signal, 501), recycle=False),
             Phase(602, refs(Signal, 502, 509), default_signals=refs(Signal, 502)),
