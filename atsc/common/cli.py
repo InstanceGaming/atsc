@@ -49,12 +49,12 @@ def parse_common_cla(description: str,
                      partial=False):
     root = ArgumentParser(description=description)
     
-    root.add_argument('-L', '--levels',
+    root.add_argument('-l', '--levels',
                       type=str,
                       dest='log_levels',
                       default=RECOMMENDED_LEVELS_DEBUG,
                       help='Define logging levels.')
-    root.add_argument('-l', '--log',
+    root.add_argument('-L', '--log',
                       type=Path,
                       dest='log_path',
                       default=None,
