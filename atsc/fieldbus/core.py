@@ -44,7 +44,7 @@ class FieldBus(AsyncDaemon):
     @property
     def hdlc(self):
         return self._hdlc
-        
+    
     def __init__(self,
                  serial_port: str,
                  baud: int,
@@ -64,7 +64,7 @@ class FieldBus(AsyncDaemon):
             self._serial = AioSerial(port=self._port,
                                      baudrate=self._baud,
                                      loop=self.loop)
-            logger.bus('serial bus rpc_connected ({})', self._format_param_text())
+            logger.info('serial bus connected ({})', self._format_param_text())
         except ValueError as e:
             raise FieldBusError('invalid settings configured for serial bus '
                                 f'({self._format_param_text()}): {str(e)}')
@@ -82,9 +82,9 @@ class FieldBus(AsyncDaemon):
         
         self._transmit_queue: List[GenericFrame] = []
         self._counters = Counter({
-            'tx_bytes': 0,
+            'tx_bytes' : 0,
             'tx_frames': 0,
-            'rx_bytes': 0,
+            'rx_bytes' : 0,
             'rx_frames': 0
         })
     
@@ -109,11 +109,11 @@ class FieldBus(AsyncDaemon):
             self._counters['tx_bytes'] += len(payload)
             self._counters['tx_frames'] += 1
             
-            logger.bus('sent frame type {} to {} ({}B)',
-                       f.type.name,
-                       f.address,
-                       len(payload))
-            logger.bus_tx(format_binary_literal(payload[:32]))
+            logger.verbose('sent frame type {} to {} ({}B)',
+                           f.type.name,
+                           f.address,
+                           len(payload))
+            logger.trace(format_binary_literal(payload[:32]))
         except (serial.SerialTimeoutException, TimeoutError):
             pass
         except serial.SerialException as e:
@@ -134,8 +134,8 @@ class FieldBus(AsyncDaemon):
                 self._transmit_queue.clear()
                 
                 if frames_sent < frames_to_send:
-                    logger.warning('{} frames discarded without transmit',
-                                   frames_to_send - frames_sent)
+                    logger.debug('{} frames discarded without transmit',
+                                 frames_to_send - frames_sent)
         except asyncio.CancelledError:
             pass
     
@@ -157,7 +157,7 @@ class FieldBus(AsyncDaemon):
                             frame, error = self._hdlc.decode(drydock)
                             
                             if error is not None:
-                                logger.bus('framing error {}', error.name)
+                                logger.debug('framing error {}', error.name)
                             else:
                                 self._counters['rx_bytes'] += len(drydock)
                                 decoded_frame = self.decode_frame(frame)
@@ -196,8 +196,8 @@ class FieldBus(AsyncDaemon):
             
             payload = frame.data[3:]
             
-            logger.bus(f'received frame type {ft.name} from {da} ({length}B)')
-            logger.bus_rx(format_binary_literal(frame.data))
+            logger.verbose(f'received frame type {ft.name} from {da} ({length}B)')
+            logger.trace(format_binary_literal(frame.data))
             
             self._counters['rx_frames'] += 1
             
@@ -230,7 +230,7 @@ class ControllerFieldBus(FieldBus):
         
         self.add_task(self.poll_controller())
         self.received_frame.connect(self.frame_handler, sender=self)
-
+    
     async def poll_controller(self):
         try:
             try:
@@ -261,4 +261,4 @@ class ControllerFieldBus(FieldBus):
             pass
     
     def frame_handler(self, _, decoded_frame: DecodedBusFrame):
-        logger.bus('handled frame type {}', decoded_frame.type)
+        logger.verbose('handled frame type {}', decoded_frame.type)

@@ -4,10 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="AsyncTimer bug fix, signal serve sync">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="kinda broke">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -95,7 +99,7 @@
       <recent name="F:\Projects\Code\Python\atsc\scripts\services\controller" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Controller">
+  <component name="RunManager" selected="Python.Field Bus">
     <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
@@ -133,7 +137,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.controller.main" />
-      <option name="PARAMETERS" value="--init-demand --presence-simulation --simulation-seed 323427290011541575" />
+      <option name="PARAMETERS" value="--init-demand --presence-simulation" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
       <option name="MODULE_MODE" value="true" />
@@ -180,7 +184,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.fieldbus.main" />
-      <option name="PARAMETERS" value="-l bus_tx,warning;stderr=error --truncate-field-outputs 36 COM4" />
+      <option name="PARAMETERS" value="--truncate-field-outputs 36 COM4" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="true" />
@@ -240,14 +244,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00033" summary="phase and signal serve logic">
-      <option name="closed" value="true" />
-      <created>1728241752507</created>
-      <option name="number" value="00033" />
-      <option name="presentableId" value="LOCAL-00033" />
-      <option name="project" value="LOCAL" />
-      <updated>1728241752507</updated>
     </task>
     <task id="LOCAL-00034" summary="conflicting demand logic fix">
       <option name="closed" value="true" />
@@ -633,7 +629,15 @@
       <option name="project" value="LOCAL" />
       <updated>1733028049270</updated>
     </task>
-    <option name="localTasksCounter" value="82" />
+    <task id="LOCAL-00082" summary="kinda broke">
+      <option name="closed" value="true" />
+      <created>1733388905317</created>
+      <option name="number" value="00082" />
+      <option name="presentableId" value="LOCAL-00082" />
+      <option name="project" value="LOCAL" />
+      <updated>1733388905317</updated>
+    </task>
+    <option name="localTasksCounter" value="83" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -660,7 +664,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="no serve detection" />
     <MESSAGE value="rpc controller state streaming" />
     <MESSAGE value="fieldbus rpc streaming" />
     <MESSAGE value="tick duration compensation, presence lockout" />
@@ -685,6 +688,7 @@
     <MESSAGE value="fya logic fixes" />
     <MESSAGE value="signal time estimation logic, refactoring" />
     <MESSAGE value="AsyncTimer bug fix, signal serve sync" />
-    <option name="LAST_COMMIT_MESSAGE" value="AsyncTimer bug fix, signal serve sync" />
+    <MESSAGE value="kinda broke" />
+    <option name="LAST_COMMIT_MESSAGE" value="kinda broke" />
   </component>
 </project>

@@ -41,7 +41,6 @@ def arg_field_output_count_type(v: str) -> int:
     return count
 
 
-
 async def run():
     cla, root_ap = cli.parse_common_cla('ATSC field bus server.',
                                         True,

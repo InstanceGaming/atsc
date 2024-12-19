@@ -149,12 +149,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.STOP    : IntervalConfig(rest=True),
             SignalState.GO      : IntervalConfig(rest=True)
         }
-        self.interval_config_ped1 = {
-            SignalState.STOP   : IntervalConfig(rest=True),
-            SignalState.CAUTION: IntervalConfig(flashing=True),
-            SignalState.GO     : IntervalConfig(rest=True)
-        }
-        self.interval_config_ped2 = {
+        self.interval_config_ped = {
             SignalState.STOP   : IntervalConfig(rest=True),
             SignalState.CAUTION: IntervalConfig(flashing=True)
         }
@@ -258,7 +253,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 509,
                 self.interval_timing_ped1,
-                self.interval_config_ped1,
+                self.interval_config_ped,
                 ped_signal_field_mapping(125),
                 recycle=True,
                 latch=True,
@@ -270,7 +265,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 510,
                 self.interval_timing_ped2,
-                self.interval_config_ped2,
+                self.interval_config_ped,
                 ped_signal_field_mapping(128),
                 recycle=True,
                 latch=True,
@@ -282,7 +277,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 511,
                 self.interval_timing_ped1,
-                self.interval_config_ped1,
+                self.interval_config_ped,
                 ped_signal_field_mapping(131),
                 recycle=True,
                 latch=True,
@@ -294,7 +289,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             Signal(
                 512,
                 self.interval_timing_ped2,
-                self.interval_config_ped2,
+                self.interval_config_ped,
                 ped_signal_field_mapping(134),
                 recycle=True,
                 latch=True,
@@ -462,7 +457,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         if simulation != self.presence_simulation:
             self._presence_simulation = simulation
             
-            logger.debug('presence simulation = {}', self.presence_simulation)
+            logger.info('presence simulation = {}', self.presence_simulation)
             
             if self.presence_simulation:
                 self.presence_simulation_enabled.send(self)

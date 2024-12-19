@@ -13,14 +13,10 @@
 #  limitations under the License.
 from pathlib import Path
 from argparse import ArgumentParser
-from jacob.filesystem import fix_path
 from jacob.logging import RECOMMENDED_LEVELS_DEBUG
-
+from jacob.filesystem import fix_path
 from atsc.common.structs import CommonCommandLineArguments
-from atsc.common.constants import (
-    RPC_PORT,
-    RPC_ADDRESS
-)
+from atsc.common.constants import RPC_PORT, RPC_ADDRESS
 
 
 def arg_port_number_type(v: str) -> int:

@@ -13,9 +13,9 @@
 #  limitations under the License.
 import asyncio
 import blinker
-from asyncio import InvalidStateError
 from loguru import logger
 from typing import Set, Dict, List, Optional
+from asyncio import InvalidStateError
 from itertools import chain
 from collections import defaultdict
 from dataclasses import dataclass
@@ -820,66 +820,79 @@ class Signal(Identifiable):
         if not self.latch:
             self.demand = False
     
+    async def _go_extend(self):
+        go_timing = self.timings.get(SignalState.GO)
+        
+        if not go_timing:
+            return
+        
+        self.service_timeout = False
+        self.demand = False
+        self.fya_force_service = False
+        
+        go_minimum = go_timing.minimum
+        if go_minimum:
+            self._change_state(SignalState.GO)
+            
+            go_maximum = go_timing.maximum
+            if go_maximum:
+                self.service_timer.set(go_maximum)
+                self.service_timer.start()
+            
+            self.interval_timer.set(go_minimum)
+            
+            marker = millis()
+            await self.interval_timer.wait()
+            delta = millis() - marker
+            logger.debug('{} go interval took {}',
+                         self.get_tag(),
+                         format_ms(delta))
+            
+            await self._wait_rest()
+        
+        if self._can_extend():
+            extend_minimum = self.timings[SignalState.EXTEND].minimum
+            self._change_state(SignalState.EXTEND)
+            self.interval_timer.set(extend_minimum)
+            
+            await self.interval_timer.wait()
+            await self._wait_rest()
+        
+        if self.fya_extension:
+            await self.fya_extension_timer.wait()
+    
     async def serve(self, group: Optional[List['Signal']] = None):
         if not self.safe and not self.fya_force_service:
             raise RuntimeError(f'{self.get_tag()} not safe to serve')
         
         if not self.has_go_state:
             raise RuntimeError(f'{self.get_tag()} does not have go state to serve')
-        
-        lagging_signals = []
-        if self.service_modifiers & ServiceModifiers.BEFORE_VEHICLE:
-            for signal in group:
-                if (signal.type == SignalType.VEHICLE and
-                    not signal.movement & TrafficMovement.PROTECTED_TURN):
-                    signal.leading_signals.append(self)
-                    lagging_signals.append(signal)
-        
+
         go_timing = self.timings.get(SignalState.GO)
         if go_timing:
-            go_minimum = go_timing.minimum
-            if go_minimum:
-                self._active = True
-                self.service_timeout = False
-                self.demand = False
-                self.fya_force_service = False
-                self._change_state(SignalState.GO)
-                
-                go_maximum = go_timing.maximum
-                if go_maximum:
-                    self.service_timer.set(go_maximum)
-                    self.service_timer.start()
-                
-                self.interval_timer.set(go_minimum)
-                
-                marker = millis()
-                await self.interval_timer.wait()
-                delta = millis() - marker
-                logger.debug('{} go interval took {}',
-                             self.get_tag(),
-                             format_ms(delta))
-                
-                await self._wait_rest()
+            lagging_signals = []
+            if self.service_modifiers & ServiceModifiers.BEFORE_VEHICLE:
+                for signal in group:
+                    if (signal.type == SignalType.VEHICLE and
+                        not signal.movement & TrafficMovement.PROTECTED_TURN):
+                        signal.leading_signals.append(self)
+                        lagging_signals.append(signal)
             
-            if self._can_extend():
-                extend_minimum = self.timings[SignalState.EXTEND].minimum
-                self._change_state(SignalState.EXTEND)
-                self.interval_timer.set(extend_minimum)
-                await self.interval_timer.wait()
-                await self._wait_rest()
+            self._active = True
             
-            if self.fya_extension:
-                await self.fya_extension_timer.wait()
+            await self._go_extend()
+            while not self.conflicting_demand:
+                await self._go_extend()
             
             await self._caution_interval()
             await self._stop_interval()
         
-        for lagging_signal in lagging_signals:
-            lagging_signal.leading_signals.remove(self)
-        
-        self._active = False
-        self.latch_once = False
-        self.fya_extension = False
+            for lagging_signal in lagging_signals:
+                lagging_signal.leading_signals.remove(self)
+            
+            self._active = False
+            self.latch_once = False
+            self.fya_extension = False
     
     def on_service_timeout(self, _):
         self.service_timeout = True
@@ -913,6 +926,7 @@ class Signal(Identifiable):
     def on_extend_reset(self, _):
         if self.state == SignalState.EXTEND:
             self.interval_timer.reset()
+            #self.interval_timer.pause()
     
     def on_presence_changed(self, _, edge_type: EdgeType):
         self.presence_stopwatch.reset()
@@ -929,6 +943,7 @@ class Signal(Identifiable):
                     self.demand = True
             case EdgeType.FALLING:
                 self.presence_timer.cancel()
+                #self.interval_timer.resume()
                 
                 if self.fya_active:
                     self.fya_presence_timer.cancel()
@@ -985,7 +1000,7 @@ class Signal(Identifiable):
                             self.demand = True
                     else:
                         logger.debug('{} cannot force FYA service as guard phase '
-                                     '{} is not in a allowed state or resting',
+                                     '{} is not resting or in a disallowed state',
                                      self.get_tag(),
                                      self.fya_guard_phase.get_tag())
                 else:
@@ -1589,10 +1604,10 @@ class IntersectionService:
                 except (TypeError, InvalidStateError):
                     pass
             
-            self._signal_tasks.clear()
-            
             while not all(s.safe for s in self.signals):
                 await asyncio.sleep(POLL_RATE)
+            
+            self._signal_tasks.clear()
     
     async def _wait_for_all_safe(self):
         while any([not s.safe for s in self.signals]):
@@ -1662,7 +1677,7 @@ class IntersectionService:
                     
                     if phase.demand:
                         for signal in phase.default_signals:
-                            if not signal.demand and not signal.active:
+                            if not signal.active:
                                 signal.demand = True
                         
                         if barrier:
@@ -1711,10 +1726,10 @@ class IntersectionService:
                                             signals.append(signal)
                         self.serve_signals(signals)
                     
-                    selected = self.select_phases()
-                    if selected:
-                        signals = list(chain(*selected.values()))
-                        self.serve_signals(signals)
+                    # selected = self.select_phases()
+                    # if selected:
+                    #     signals = list(chain(*selected.values()))
+                    #     self.serve_signals(signals)
                 
                 for ring in self.rings:
                     if len(ring.active_phases) > 1:

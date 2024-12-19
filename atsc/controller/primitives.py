@@ -127,10 +127,15 @@ class AsyncStopwatch:
     @property
     def elapsed(self):
         if self.paused:
-            return self._pause_placeholder_elapsed
+            rv = self._pause_placeholder_elapsed
         else:
-            return max(0.0, time.monotonic() - self._pause_duration) - self.marker
-        
+            rv = max(0.0,
+                     max(0.0,
+                         time.monotonic() - self._pause_duration) - self.marker)
+        if rv < 0.0:
+            raise ValueError()
+        return rv
+    
     def __init__(self, paused: bool = False):
         self.freeze_time.connect(self._on_freeze)
         self.unfreeze_time.connect(self._on_unfreeze)
@@ -151,13 +156,13 @@ class AsyncStopwatch:
     
     def pause(self):
         if not self.paused:
-            self._pause_marker = time.monotonic()
-            self._pause_placeholder_elapsed = self._pause_marker - self._marker
             self._paused = True
+            self._pause_marker = time.monotonic()
+            self._pause_placeholder_elapsed = max(0.0, self._pause_marker - self._marker)
     
     def resume(self):
         if self.paused and not self.frozen:
-            self._pause_duration = time.monotonic() - self._pause_marker
+            self._pause_duration = max(0.0, time.monotonic() - self._pause_marker)
             self._pause_placeholder_elapsed = None
             self._paused = False
     

@@ -62,10 +62,10 @@ class AsyncDaemon(ABC):
     async def signal_handler(self, sig, _):
         match sig:
             case signal.SIGTERM | signal.SIGINT:
-                logger.info('signal {} received', sig)
+                logger.debug('OS signal #{} received', sig)
                 self.shutdown()
             case unhandled_signal:
-                logger.warning('unhandled signal {} received', unhandled_signal)
+                logger.debug('OS signal #{} received (ignoring)', unhandled_signal)
     
     async def lock_pid(self):
         pid = os.getpid()
@@ -173,13 +173,11 @@ class AsyncDaemon(ABC):
                 break
         
         self.shutdown_complete.set()
-        logger.info('shutdown complete ({})',
-                    format_ms(self.shutdown_begin.elapsed))
+        logger.debug('shutdown complete ({})',
+                     format_ms(self.shutdown_begin.elapsed))
     
     def shutdown(self):
         if not self.shutdown_begin.is_set():
-            logger.info('shutdown begin')
-            
             self.shutdown_begin.set()
             self.running.clear()
             
