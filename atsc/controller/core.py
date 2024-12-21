@@ -600,12 +600,12 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             runtime_info = self._get_runtime_info() if request.runtime_info else None
             
             if request.field_outputs:
-                field_outputs = list(self._get_field_outputs())
+                field_outputs = sorted(self._get_field_outputs(), key=lambda f: f.id)
             else:
                 field_outputs = None
             
             if request.signals:
-                signals = list(self._get_signals())
+                signals = sorted(self._get_signals(), key=lambda s: s.id)
             else:
                 signals = None
             

@@ -1759,6 +1759,9 @@ class IntersectionService:
         logger.debug('max revert time is {}', self._max_revert_time)
         self.change_barrier(next(self._barrier_sequence))
         
+        logger.debug('waiting for 10 seconds...')
+        await asyncio.sleep(10.0)
+        
         try:
             while True:
                 await self._try_pause()

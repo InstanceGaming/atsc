@@ -11,7 +11,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import os
 from enum import Enum, IntEnum, auto
 
 
@@ -19,14 +18,8 @@ RPC_ADDRESS = 'localhost'
 RPC_PORT = 7833
 FLOAT_PRECISION_TIME = 1
 DAEMON_SHUTDOWN_TIMEOUT = 5.0
-
-
-if os.getenv('LOOSEN_RPC_WATCHDOG'):
-    RPC_CALL_DEADLINE_POLL = None
-    RPC_CALL_TIMEOUT = None
-else:
-    RPC_CALL_DEADLINE_POLL = 1.0
-    RPC_CALL_TIMEOUT = 1.0
+RPC_CALL_DEADLINE_POLL = None
+RPC_CALL_TIMEOUT = None
 
 
 class ExitCode(IntEnum):

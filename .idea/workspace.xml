@@ -4,11 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="dependency fixes, fieldbus error handling fixes">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="rpc watchdog changes, control startup delay">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -172,7 +171,6 @@
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
-        <env name="LOOSEN_RPC_WATCHDOG" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
       <option name="SDK_NAME" value="Poetry (atsc)" />
@@ -196,7 +194,6 @@
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
-        <env name="LOOSEN_RPC_WATCHDOG" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
       <option name="SDK_NAME" value="Poetry (atsc)" />
@@ -241,22 +238,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00036" summary="remove phase from cycled list within barrier">
-      <option name="closed" value="true" />
-      <created>1728256281696</created>
-      <option name="number" value="00036" />
-      <option name="presentableId" value="LOCAL-00036" />
-      <option name="project" value="LOCAL" />
-      <updated>1728256281696</updated>
-    </task>
-    <task id="LOCAL-00037" summary="remove phase from cycled list fix">
-      <option name="closed" value="true" />
-      <created>1728258492681</created>
-      <option name="number" value="00037" />
-      <option name="presentableId" value="LOCAL-00037" />
-      <option name="project" value="LOCAL" />
-      <updated>1728258492681</updated>
     </task>
     <task id="LOCAL-00038" summary="add rpc stubs">
       <option name="closed" value="true" />
@@ -634,7 +615,23 @@
       <option name="project" value="LOCAL" />
       <updated>1734816728336</updated>
     </task>
-    <option name="localTasksCounter" value="85" />
+    <task id="LOCAL-00085" summary="rpc error handling additions">
+      <option name="closed" value="true" />
+      <created>1734817514244</created>
+      <option name="number" value="00085" />
+      <option name="presentableId" value="LOCAL-00085" />
+      <option name="project" value="LOCAL" />
+      <updated>1734817514244</updated>
+    </task>
+    <task id="LOCAL-00086" summary="rpc watchdog changes, control startup delay">
+      <option name="closed" value="true" />
+      <created>1734817895166</created>
+      <option name="number" value="00086" />
+      <option name="presentableId" value="LOCAL-00086" />
+      <option name="project" value="LOCAL" />
+      <updated>1734817895167</updated>
+    </task>
+    <option name="localTasksCounter" value="87" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -661,8 +658,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="tick duration compensation, presence lockout" />
-    <MESSAGE value="async tick, 3.10 compat, refactoring" />
     <MESSAGE value="overhaul task-based approach" />
     <MESSAGE value="winloop" />
     <MESSAGE value="poetry, uvloop/winloop, time logging, refactoring" />
@@ -686,6 +681,8 @@
     <MESSAGE value="kinda broke" />
     <MESSAGE value="fieldbus logging updated, signal service logic,  refactoring" />
     <MESSAGE value="dependency fixes, fieldbus error handling fixes" />
-    <option name="LAST_COMMIT_MESSAGE" value="dependency fixes, fieldbus error handling fixes" />
+    <MESSAGE value="rpc error handling additions" />
+    <MESSAGE value="rpc watchdog changes, control startup delay" />
+    <option name="LAST_COMMIT_MESSAGE" value="rpc watchdog changes, control startup delay" />
   </component>
 </project>
