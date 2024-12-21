@@ -235,30 +235,32 @@ class ControllerFieldBus(FieldBus):
     
     async def poll_controller(self):
         try:
-            try:
-                request = controller.ControllerGetStateStreamRequest(
-                    poll_rate=self.poll_rate,
-                    field_outputs=True
-                )
-                async for response in self.controller.get_state_stream(
-                    request,
-                    timeout=RPC_CALL_TIMEOUT,
-                    deadline=utils.deadline_from_timeout(RPC_CALL_DEADLINE_POLL)
-                ):
-                    logger.verbose('{:01.3f}s since last controller state message',
-                                   self.response_stopwatch.elapsed)
-                    self.response_stopwatch.reset()
-                    
-                    if self._truncate_field_outputs:
-                        field_outputs = response.field_outputs[:self._truncate_field_outputs]
-                    else:
-                        field_outputs = response.field_outputs
-                    
-                    frame = OutputStateFrame(DeviceAddress.TFIB1, field_outputs, True)
-                    
-                    await self.transmit_now(frame)
-            except (RpcError, TimeoutError, StreamTerminatedError) as e:
-                logger.error('rpc error: {}', str(e))
+            request = controller.ControllerGetStateStreamRequest(
+                poll_rate=self.poll_rate,
+                field_outputs=True
+            )
+            async for response in self.controller.get_state_stream(
+                request,
+                timeout=RPC_CALL_TIMEOUT,
+                deadline=utils.deadline_from_timeout(RPC_CALL_DEADLINE_POLL)
+            ):
+                logger.verbose('{:01.3f}s since last controller state message',
+                               self.response_stopwatch.elapsed)
+                self.response_stopwatch.reset()
+                
+                if self._truncate_field_outputs:
+                    field_outputs = response.field_outputs[:self._truncate_field_outputs]
+                else:
+                    field_outputs = response.field_outputs
+                
+                frame = OutputStateFrame(DeviceAddress.TFIB1, field_outputs, True)
+                
+                await self.transmit_now(frame)
+        except (RpcError,
+                TimeoutError,
+                StreamTerminatedError,
+                OSError) as e:
+            logger.error('rpc error: {}', str(e))
         except asyncio.CancelledError:
             pass
     

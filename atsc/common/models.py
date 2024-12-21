@@ -166,8 +166,9 @@ class AsyncDaemon(ABC):
         while True:
             incomplete = [t for t in self.tasks if not t.done()]
             if incomplete:
-                logger.debug('waiting for {} tasks to return', len(incomplete))
-                logger.verbose('pending tasks: {}', ', '.join([t.get_name() for t in incomplete]))
+                logger.debug('waiting for {} tasks to return ({})',
+                             len(incomplete),
+                             ', '.join([t.get_name() for t in incomplete]))
                 await asyncio.sleep(1.0)
             else:
                 break

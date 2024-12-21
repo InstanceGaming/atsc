@@ -115,7 +115,10 @@ class TUI(App[int]):
                 ControllerMetadataRequest()
             )
             self.post_message(RpcConnectionSuccess(metadata))
-        except (TimeoutError, RpcError, ConnectionError) as e:
+        except (TimeoutError,
+                RpcError,
+                ConnectionError,
+                OSError) as e:
             self.post_message(RpcConnectionFailed(e))
         finally:
             self.post_message(RpcConnectionAfter())
@@ -143,7 +146,7 @@ class TUI(App[int]):
             self.channel = Channel(host=self.rpc_address, port=self.rpc_port)
             self.controller = ControllerStub(self.channel)
             self.run_worker(self.rpc_connect(), exclusive=True)
-        except RpcError as e:
+        except (RpcError, OSError) as e:
             self.post_message(RpcConnectionFailed(e))
     
     async def on_rpc_connection_before(self, _):
@@ -175,7 +178,10 @@ class TUI(App[int]):
                     self.post_message(RpcControllerPoll(response.runtime_info,
                                                         response.field_outputs,
                                                         response.signals))
-            except (RpcError, TimeoutError, StreamTerminatedError) as e:
+            except (RpcError,
+                    TimeoutError,
+                    StreamTerminatedError,
+                    OSError) as e:
                 self.post_message(RpcConnectionLost(e))
     
     async def on_rpc_controller_poll(self, message: RpcControllerPoll):

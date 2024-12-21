@@ -4,14 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="fieldbus logging updated, signal service logic,  refactoring">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="dependency fixes, fieldbus error handling fixes">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/poetry.lock" beforeDir="false" afterPath="$PROJECT_DIR$/poetry.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/services/start-controller.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/start-controller.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/services/start-fieldbus.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/services/start-fieldbus.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -99,7 +96,7 @@
       <recent name="F:\Projects\Code\Python\atsc\scripts\services\controller" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Field Bus">
+  <component name="RunManager" selected="Python.Controller">
     <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
@@ -244,14 +241,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00035" summary="sim logic, remove phase from cycled list">
-      <option name="closed" value="true" />
-      <created>1728253995598</created>
-      <option name="number" value="00035" />
-      <option name="presentableId" value="LOCAL-00035" />
-      <option name="project" value="LOCAL" />
-      <updated>1728253995598</updated>
     </task>
     <task id="LOCAL-00036" summary="remove phase from cycled list within barrier">
       <option name="closed" value="true" />
@@ -637,7 +626,15 @@
       <option name="project" value="LOCAL" />
       <updated>1734580382939</updated>
     </task>
-    <option name="localTasksCounter" value="84" />
+    <task id="LOCAL-00084" summary="dependency fixes, fieldbus error handling fixes">
+      <option name="closed" value="true" />
+      <created>1734816728335</created>
+      <option name="number" value="00084" />
+      <option name="presentableId" value="LOCAL-00084" />
+      <option name="project" value="LOCAL" />
+      <updated>1734816728336</updated>
+    </task>
+    <option name="localTasksCounter" value="85" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -664,7 +661,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fieldbus rpc streaming" />
     <MESSAGE value="tick duration compensation, presence lockout" />
     <MESSAGE value="async tick, 3.10 compat, refactoring" />
     <MESSAGE value="overhaul task-based approach" />
@@ -689,6 +685,7 @@
     <MESSAGE value="AsyncTimer bug fix, signal serve sync" />
     <MESSAGE value="kinda broke" />
     <MESSAGE value="fieldbus logging updated, signal service logic,  refactoring" />
-    <option name="LAST_COMMIT_MESSAGE" value="fieldbus logging updated, signal service logic,  refactoring" />
+    <MESSAGE value="dependency fixes, fieldbus error handling fixes" />
+    <option name="LAST_COMMIT_MESSAGE" value="dependency fixes, fieldbus error handling fixes" />
   </component>
 </project>
