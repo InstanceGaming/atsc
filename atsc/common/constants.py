@@ -25,8 +25,8 @@ if os.getenv('LOOSEN_RPC_WATCHDOG'):
     RPC_CALL_DEADLINE_POLL = None
     RPC_CALL_TIMEOUT = None
 else:
-    RPC_CALL_DEADLINE_POLL = 1.0
-    RPC_CALL_TIMEOUT = 1.0
+    RPC_CALL_DEADLINE_POLL = 10.0
+    RPC_CALL_TIMEOUT = 10.0
 
 
 class ExitCode(IntEnum):
