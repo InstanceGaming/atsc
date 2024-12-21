@@ -70,6 +70,8 @@ class FieldBus(AsyncDaemon):
                                 f'({self._format_param_text()}): {str(e)}')
         except serial.SerialException as e:
             raise FieldBusError(f'serial bus error: {str(e)}')
+        except PermissionError:
+            raise FieldBusError(f'insufficient permission for serial device {self._port}')
         
         self._hdlc = HDLCContext(HDLC_CRC_POLY,
                                  HDLC_CRC_INIT,

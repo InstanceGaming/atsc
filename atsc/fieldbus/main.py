@@ -17,6 +17,7 @@ from atsc.common import cli
 from grpclib.client import Channel
 from atsc.common.cli import arg_poll_rate_type
 from atsc.common.utils import setup_logger, asyncio_loop_patch
+from atsc.fieldbus import FieldBusError
 from atsc.fieldbus.core import ControllerFieldBus
 from atsc.rpc.controller import ControllerStub
 from atsc.common.constants import ExitCode
@@ -71,21 +72,27 @@ async def run():
     if setup_logger_result != ExitCode.OK:
         return setup_logger_result
     
-    channel = Channel(host=cla.rpc_address, port=cla.rpc_port)
-    try:
-        controller = ControllerStub(channel)
-        field_bus = ControllerFieldBus(
-            controller,
-            poll_rate,
-            serial_port,
-            baud_rate,
-            pid_file=cla.pid_path,
-            truncate_field_outputs=truncate_field_outputs
-        )
-        result = await field_bus.run()
-        return result
-    finally:
-        channel.close()
+    if truncate_field_outputs is not None:
+        logger.info('truncating field outputs to {}', truncate_field_outputs)
+    
+    with logger.catch():
+        channel = Channel(host=cla.rpc_address, port=cla.rpc_port)
+        try:
+            controller = ControllerStub(channel)
+            field_bus = ControllerFieldBus(
+                controller,
+                poll_rate,
+                serial_port,
+                baud_rate,
+                pid_file=cla.pid_path,
+                truncate_field_outputs=truncate_field_outputs
+            )
+            result = await field_bus.run()
+            return result
+        except FieldBusError as e:
+            logger.error(str(e))
+        finally:
+            channel.close()
 
 
 asyncio_loop_patch()

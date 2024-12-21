@@ -20,8 +20,9 @@ uvloop = [
 asyncio = "3.4.3"
 blinker = "1.9.0"
 grpclib = "0.4.7"
+grpcio-tools = "1.66.1"
+betterproto = { version = "2.0.0b7", extras = ["compiler"] }
 protobuf = "5.29.0"
-betterproto = "2.0.0b7"
 pydantic = "2.10.2"
 loguru = "0.7.2"
 jacob = { git = "https://github.com/InstanceGaming/jacob.git", rev = "8505c3f4" }
@@ -44,8 +45,6 @@ textual = "0.79.1"
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-grpcio-tools = "1.66.1"
-betterproto = { version = "2.0.0b7", extras = ["compiler"] }
 textual-dev = "1.6.1"
 
 [tool.poetry.scripts]
