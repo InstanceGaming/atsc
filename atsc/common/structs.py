@@ -23,3 +23,4 @@ class CommonCommandLineArguments:
     rpc_port: int
     log_path: Optional[Path] = None
     pid_path: Optional[Path] = None
+    asyncio_debug: bool = False

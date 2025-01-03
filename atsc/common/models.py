@@ -34,10 +34,12 @@ class AsyncDaemon(ABC):
         return seconds() - self.started_at_monotonic
     
     def __init__(self,
+                 loop: asyncio.AbstractEventLoop,
                  shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
                  pid_file: Optional[str] = None,
-                 loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()):
+                 name: str = 'AsyncDaemon'):
         super().__init__()
+        self.name = name
         self.loop = loop
         self.pid_file = pid_file
         
@@ -107,7 +109,7 @@ class AsyncDaemon(ABC):
         return ExitCode.OK
     
     def add_task(self, coro: Coroutine, name: Optional[str] = None) -> asyncio.Task:
-        task = asyncio.create_task(coro, name=name)
+        task = self.loop.create_task(coro, name=name)
         self.tasks.append(task)
         return task
     
@@ -186,6 +188,6 @@ class AsyncDaemon(ABC):
             for task in self.tasks:
                 task.cancel()
             
-            self.shutdown_task = asyncio.create_task(self._shutdown_wait())
+            self.shutdown_task = self.loop.create_task(self._shutdown_wait())
         else:
             logger.warning('shutdown already pending')

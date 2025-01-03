@@ -93,17 +93,17 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         return self._presence_simulation
     
     def __init__(self,
+                 loop: AbstractEventLoop,
                  shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
                  pid_file: Optional[str] = None,
-                 loop: AbstractEventLoop = get_event_loop(),
                  time_freeze: bool = False,
                  presence_simulation: bool = False,
                  simulation_seed: Optional[int] = None,
                  init_demand: bool = False):
         AsyncDaemon.__init__(self,
+                             loop,
                              shutdown_timeout=shutdown_timeout,
-                             pid_file=pid_file,
-                             loop=loop)
+                             pid_file=pid_file)
         self._time_freeze = False
         self._presence_simulation = False
         

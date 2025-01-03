@@ -46,12 +46,14 @@ class FieldBus(AsyncDaemon):
         return self._hdlc
     
     def __init__(self,
+                 loop: asyncio.AbstractEventLoop,
                  serial_port: str,
                  baud: int,
                  shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
                  pid_file: Optional[str] = None,
                  truncate_field_outputs: Optional[int] = None):
         AsyncDaemon.__init__(self,
+                             loop,
                              shutdown_timeout=shutdown_timeout,
                              pid_file=pid_file)
         self._port = serial_port
@@ -214,6 +216,7 @@ class FieldBus(AsyncDaemon):
 class ControllerFieldBus(FieldBus):
     
     def __init__(self,
+                 loop: asyncio.AbstractEventLoop,
                  controller_rpc: controller.ControllerStub,
                  poll_rate: float,
                  serial_port: str,
@@ -221,7 +224,8 @@ class ControllerFieldBus(FieldBus):
                  shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
                  pid_file: Optional[str] = None,
                  truncate_field_outputs: Optional[int] = None):
-        super().__init__(serial_port=serial_port,
+        super().__init__(loop,
+                         serial_port=serial_port,
                          baud=baud,
                          shutdown_timeout=shutdown_timeout,
                          pid_file=pid_file,

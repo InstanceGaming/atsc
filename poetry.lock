@@ -403,6 +403,17 @@ files = [
 ]
 
 [[package]]
+name = "bottle"
+version = "0.13.2"
+description = "Fast and simple WSGI-framework for small web-applications."
+optional = false
+python-versions = "*"
+files = [
+    {file = "bottle-0.13.2-py2.py3-none-any.whl", hash = "sha256:27569ab8d1332fbba3e400b3baab2227ab4efb4882ff147af05a7c00ed73409c"},
+    {file = "bottle-0.13.2.tar.gz", hash = "sha256:e53803b9d298c7d343d00ba7d27b0059415f04b9f6f40b8d58b5bf914ba9d348"},
+]
+
+[[package]]
 name = "click"
 version = "8.1.8"
 description = "Composable command line interface toolkit"
@@ -426,6 +437,19 @@ files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
+
+[[package]]
+name = "cprofilev"
+version = "1.0.7"
+description = "An easier way to use cProfile"
+optional = false
+python-versions = "*"
+files = [
+    {file = "CProfileV-1.0.7.tar.gz", hash = "sha256:8791748b1f3d3468c2c927c3fd5f905080b84d8f2d217ca764b7d9d7a1fb9a77"},
+]
+
+[package.dependencies]
+bottle = "*"
 
 [[package]]
 name = "crcmod"
@@ -1764,4 +1788,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11.2"
-content-hash = "2f566408fdee95d72d52361d22cf197ed755d43078fcaa819140e4857100dd3e"
+content-hash = "6f024c1d84e4014a42df44e4be3165132aa3486fc2333708bd37a71b1c035e50"

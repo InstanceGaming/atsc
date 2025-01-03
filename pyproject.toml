@@ -26,6 +26,7 @@ protobuf = "5.29.0"
 pydantic = "2.10.2"
 loguru = "0.7.2"
 jacob = { git = "https://github.com/InstanceGaming/jacob.git", rev = "8505c3f4" }
+cprofilev = "^1.0.7"
 
 [tool.poetry.group.fieldbus]
 optional = true
