@@ -5,9 +5,20 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="rpc watchdog changes, control startup delay">
+      <change afterPath="$PROJECT_DIR$/scripts/rpc/get-state-stream.bat" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/structs.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/structs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/jigs/busfuzz.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/jigs/busfuzz.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/poetry.lock" beforeDir="false" afterPath="$PROJECT_DIR$/poetry.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/controller/signals.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/controller/signals.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -62,30 +73,30 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
-    &quot;Python.Busfuzz.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.Controller (Sim).executor&quot;: &quot;Debug&quot;,
-    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.models.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc/scripts/services&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.externalTools&quot;,
-    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
+    "Python.Busfuzz.executor": "Debug",
+    "Python.Controller (Sim).executor": "Debug",
+    "Python.Controller.executor": "Debug",
+    "Python.Field Bus.executor": "Debug",
+    "Python.TUI.executor": "Debug",
+    "Python.models.executor": "Run",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "F:/Projects/Code/Python/atsc",
+    "settings.editor.selected.configurable": "preferences.externalTools",
+    "settings.editor.splitter.proportion": "0.25"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="F:\Projects\Code\Python\atsc\scripts\rpc" />
       <recent name="F:\Projects\Code\Python\atsc\scripts\services" />
       <recent name="F:\Projects\Code\Python\atsc" />
       <recent name="F:\Projects\Code\Python\atsc\scripts" />
       <recent name="F:\Projects\Code\Python\atsc\protobufs" />
-      <recent name="F:\Projects\Code\Python\atsc\atsc\fieldbus" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\tests\controller" />
@@ -95,7 +106,7 @@
       <recent name="F:\Projects\Code\Python\atsc\scripts\services\controller" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Controller">
+  <component name="RunManager" selected="Python.Field Bus">
     <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
@@ -133,7 +144,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.controller.main" />
-      <option name="PARAMETERS" value="--init-demand --presence-simulation" />
+      <option name="PARAMETERS" value="--init-demand --presence-simulation --asyncio-debug" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
       <option name="MODULE_MODE" value="true" />
@@ -238,14 +249,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00038" summary="add rpc stubs">
-      <option name="closed" value="true" />
-      <created>1728273182447</created>
-      <option name="number" value="00038" />
-      <option name="presentableId" value="LOCAL-00038" />
-      <option name="project" value="LOCAL" />
-      <updated>1728273182447</updated>
     </task>
     <task id="LOCAL-00039" summary="pin deps">
       <option name="closed" value="true" />
@@ -631,7 +634,15 @@
       <option name="project" value="LOCAL" />
       <updated>1734817895167</updated>
     </task>
-    <option name="localTasksCounter" value="87" />
+    <task id="LOCAL-00087" summary="rpc watchdog changes, control startup delay">
+      <option name="closed" value="true" />
+      <created>1734818238071</created>
+      <option name="number" value="00087" />
+      <option name="presentableId" value="LOCAL-00087" />
+      <option name="project" value="LOCAL" />
+      <updated>1734818238071</updated>
+    </task>
+    <option name="localTasksCounter" value="88" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

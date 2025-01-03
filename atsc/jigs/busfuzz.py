@@ -16,13 +16,13 @@ import random
 import asyncio
 import argparse
 from typing import Optional
+from atsc.common.utils import get_platform_loop_module
 from atsc.fieldbus import FieldBus
-from jacob.logging import setup_logger
+from jacob.logging import setup_logger, attach_standard_logger
 from jacob.filesystem import fix_path
-from atsc.common.utils import asyncio_loop_patch
 from atsc.fieldbus.frames import InputStateFrame
 from atsc.fieldbus.models import DecodedBusFrame
-from atsc.common.constants import CUSTOM_LOG_LEVELS, ExitCode
+from atsc.common.constants import ExitCode
 from atsc.fieldbus.constants import DeviceAddress
 
 
@@ -32,11 +32,13 @@ logger = loguru.logger
 class BusFuzzer(FieldBus):
     
     def __init__(self,
+                 loop: asyncio.AbstractEventLoop,
                  serial_port: str,
                  baud: int,
                  shutdown_timeout: float = 5.0,
                  pid_file: Optional[str] = None):
-        super().__init__(serial_port,
+        super().__init__(loop,
+                         serial_port,
                          baud,
                          shutdown_timeout,
                          pid_file=pid_file)
@@ -85,23 +87,28 @@ def get_cli_args():
     return vars(root.parse_args())
 
 
-async def run():
+async def run_async():
+    field_bus = BusFuzzer(asyncio.get_event_loop(), 'COM5', 115200)
+    await field_bus.run()
+
+
+def run():
     cla = get_cli_args()
     
     log_file = fix_path(cla.get('log_file'))
     levels_notation = cla['log_levels']
     try:
-        loguru.logger = setup_logger(levels_notation,
-                                     custom_levels=CUSTOM_LOG_LEVELS,
-                                     log_file=log_file)
+        loguru.logger = setup_logger(levels_notation, log_file=log_file)
     except ValueError as e:
         print(f'Malformed logging level specification "{levels_notation}":', e)
         return ExitCode.LOG_LEVEL_PARSE_FAIL
     
-    field_bus = BusFuzzer('COM5', 115200)
-    result = await field_bus.run()
-    return result
+    attach_standard_logger(loguru.logger, 'asyncio')
+    
+    loop_impl = get_platform_loop_module()
+    with asyncio.Runner(loop_factory=loop_impl.new_event_loop) as runner:
+        return runner.run(run_async())
 
 
-asyncio_loop_patch()
-exit(asyncio.get_event_loop().run_until_complete(run()))
+if __name__ == '__main__':
+    exit(run())

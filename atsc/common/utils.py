@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import os
 import sys
 import loguru
 from typing import Optional
@@ -66,9 +67,11 @@ def deadline_from_timeout(timeout: float | None):
     return Deadline.from_timeout(timeout)
 
 
-def asyncio_loop_patch():
-    # patch asyncio to use platform-optimized loop implementation
+def get_platform_loop_module():
+    # get platform-optimized loop implementation
     if sys.platform in ('win32', 'cygwin', 'cli'):
-        from winloop import run  # noqa
+        import winloop as loop_impl  # noqa
     else:
-        from uvloop import run  # noqa
+        import winloop as loop_impl  # noqa
+    
+    return loop_impl

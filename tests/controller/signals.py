@@ -1,6 +1,5 @@
 import asyncio
 from grpclib.client import Channel
-from atsc.common.utils import asyncio_loop_patch
 from atsc.rpc.controller import (
     ControllerStub,
     ControllerSignalDemandRequest,
@@ -32,5 +31,5 @@ async def run():
         channel.close()
 
 
-asyncio_loop_patch()
-exit(asyncio.get_event_loop().run_until_complete(run()))
+if __name__ == '__main__':
+    exit(asyncio.get_event_loop().run_until_complete(run()))

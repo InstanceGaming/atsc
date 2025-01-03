@@ -11,12 +11,17 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from typing import Optional
+
 import loguru
 import asyncio
+
+from jacob.logging import attach_standard_logger
+
 from atsc.common import cli
 from grpclib.client import Channel
 from atsc.common.cli import arg_poll_rate_type
-from atsc.common.utils import setup_logger, asyncio_loop_patch
+from atsc.common.utils import setup_logger, get_platform_loop_module
 from atsc.fieldbus import FieldBusError
 from atsc.fieldbus.core import ControllerFieldBus
 from atsc.rpc.controller import ControllerStub
@@ -42,7 +47,31 @@ def arg_field_output_count_type(v: str) -> int:
     return count
 
 
-async def run():
+async def run_async(cla, 
+              poll_rate: float,
+              serial_port: str,
+              baud_rate: int,
+              truncate_field_outputs: Optional[int] = None):
+    channel = Channel(host=cla.rpc_address, port=cla.rpc_port)
+    try:
+        controller = ControllerStub(channel)
+        field_bus = ControllerFieldBus(
+            asyncio.get_event_loop(),
+            controller,
+            poll_rate,
+            serial_port,
+            baud_rate,
+            pid_file=cla.pid_path,
+            truncate_field_outputs=truncate_field_outputs
+        )
+        return await field_bus.run()
+    except FieldBusError as e:
+        logger.error(str(e))
+    finally:
+        channel.close()
+
+
+def run():
     cla, root_ap = cli.parse_common_cla('ATSC field bus server.',
                                         True,
                                         partial=True)
@@ -75,25 +104,18 @@ async def run():
     if truncate_field_outputs is not None:
         logger.info('truncating field outputs to {}', truncate_field_outputs)
     
+    attach_standard_logger(loguru.logger, 'asyncio')
+    
     with logger.catch():
-        channel = Channel(host=cla.rpc_address, port=cla.rpc_port)
-        try:
-            controller = ControllerStub(channel)
-            field_bus = ControllerFieldBus(
-                controller,
-                poll_rate,
-                serial_port,
-                baud_rate,
-                pid_file=cla.pid_path,
-                truncate_field_outputs=truncate_field_outputs
-            )
-            result = await field_bus.run()
-            return result
-        except FieldBusError as e:
-            logger.error(str(e))
-        finally:
-            channel.close()
+        loop_impl = get_platform_loop_module()
+        with asyncio.Runner(loop_factory=loop_impl.new_event_loop) as runner:
+            runner.get_loop().set_debug(cla.asyncio_debug)
+            return runner.run(run_async(cla,
+                                        poll_rate,
+                                        serial_port,
+                                        baud_rate,
+                                        truncate_field_outputs=truncate_field_outputs))
 
 
-asyncio_loop_patch()
-exit(asyncio.get_event_loop().run_until_complete(run()))
+if __name__ == '__main__':
+    exit(run())

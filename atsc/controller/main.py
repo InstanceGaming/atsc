@@ -14,9 +14,12 @@
 import loguru
 import asyncio
 import threading
+
+from jacob.logging import attach_standard_logger
+
 from atsc.common import cli
 from grpclib.server import Server
-from atsc.common.utils import setup_logger, asyncio_loop_patch
+from atsc.common.utils import setup_logger, get_platform_loop_module
 from atsc.controller.core import Controller
 from atsc.common.constants import ExitCode
 from atsc.controller.constants import POLL_RATE
@@ -63,7 +66,35 @@ def _rpc_server_shim(host: str,
     loop.run_until_complete(rpc_server(host, port, controller, cancel_event))
 
 
-async def run():
+async def run_async(cla,
+                    init_demand: bool,
+                    time_freeze: bool,
+                    presence_simulation: bool,
+                    simulation_seed: int):
+    controller = Controller(asyncio.get_event_loop(),
+                            pid_file=cla.pid_path,
+                            init_demand=init_demand,
+                            time_freeze=time_freeze,
+                            presence_simulation=presence_simulation,
+                            simulation_seed=simulation_seed)
+    rpc_cancel_event = threading.Event()
+    rpc_thread = threading.Thread(target=_rpc_server_shim,
+                                  args=(cla.rpc_address,
+                                        cla.rpc_port,
+                                        controller,
+                                        rpc_cancel_event))
+    rpc_thread.start()
+    result = await controller.run()
+    rpc_cancel_event.set()
+    
+    logger.debug('waiting on RPC server thread')
+    rpc_thread.join()
+    logger.debug('RPC server thread joined')
+    
+    return result
+
+
+def run():
     cla, root_ap = cli.parse_common_cla('ATSC control server.',
                                         True,
                                         partial=True)
@@ -93,27 +124,18 @@ async def run():
     if setup_logger_result != ExitCode.OK:
         return setup_logger_result
     
-    controller = Controller(pid_file=cla.pid_path,
-                            init_demand=init_demand,
-                            time_freeze=time_freeze,
-                            presence_simulation=presence_simulation,
-                            simulation_seed=simulation_seed)
-    rpc_cancel_event = threading.Event()
-    rpc_thread = threading.Thread(target=_rpc_server_shim,
-                                  args=(cla.rpc_address,
-                                        cla.rpc_port,
-                                        controller,
-                                        rpc_cancel_event))
-    rpc_thread.start()
-    result = await controller.run()
-    rpc_cancel_event.set()
+    attach_standard_logger(loguru.logger, 'asyncio')
     
-    logger.debug('waiting on RPC server thread')
-    rpc_thread.join()
-    logger.debug('RPC server thread joined')
-    
-    return result
+    with logger.catch():
+        loop_impl = get_platform_loop_module()
+        with (asyncio.Runner(loop_factory=loop_impl.new_event_loop) as runner):
+            runner.get_loop().set_debug(cla.asyncio_debug)
+            return runner.run(run_async(cla,
+                                        presence_simulation,
+                                        simulation_seed,
+                                        init_demand,
+                                        time_freeze))
 
 
-asyncio_loop_patch()
-exit(asyncio.get_event_loop().run_until_complete(run()))
+if __name__ == '__main__':
+    exit(run())

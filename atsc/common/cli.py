@@ -55,6 +55,9 @@ def parse_common_cla(description: str,
                       dest='log_path',
                       default=None,
                       help='Define log file path.')
+    root.add_argument('--asyncio-debug',
+                      action='store_true',
+                      dest='asyncio_debug')
     if is_daemon:
         root.add_argument('--pid',
                           type=Path,
@@ -89,5 +92,6 @@ def parse_common_cla(description: str,
         rpc_address=rpc_address,
         rpc_port=cla['rpc_port'],
         log_path=fix_path(cla.get('log_path')),
-        pid_path=fix_path(cla.get('pid_path'))
+        pid_path=fix_path(cla.get('pid_path')),
+        asyncio_debug=cla.get('asyncio_debug', False)
     ), root
