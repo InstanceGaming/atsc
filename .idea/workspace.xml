@@ -4,13 +4,21 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="overhaul loop impl">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="tui fo id labels, fo id rearrangement">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/css/app.tcss" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/css/app.tcss" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/widgets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/cycle-mode.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/cycle-mode.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/fya-disabled.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/fya-disabled.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/fya-enabled.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/fya-enabled.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/get-metadata.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/get-metadata.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/get-state-stream.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/get-state-stream.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/phase-demand.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/phase-demand.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/signal-demand.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/signal-demand.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/signal-presence.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/signal-presence.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/sim-disable.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/sim-disable.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/sim-enable.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/sim-enable.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/time-freeze.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/time-freeze.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/rpc/time-unfreeze.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/time-unfreeze.bat" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -241,14 +249,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00041" summary="start.sh fix">
-      <option name="closed" value="true" />
-      <created>1728275047866</created>
-      <option name="number" value="00041" />
-      <option name="presentableId" value="LOCAL-00041" />
-      <option name="project" value="LOCAL" />
-      <updated>1728275047866</updated>
     </task>
     <task id="LOCAL-00042" summary="rpc address, tui timeout">
       <option name="closed" value="true" />
@@ -634,7 +634,15 @@
       <option name="project" value="LOCAL" />
       <updated>1735884099478</updated>
     </task>
-    <option name="localTasksCounter" value="90" />
+    <task id="LOCAL-00090" summary="tui fo id labels, fo id rearrangement">
+      <option name="closed" value="true" />
+      <created>1735974955757</created>
+      <option name="number" value="00090" />
+      <option name="presentableId" value="LOCAL-00090" />
+      <option name="project" value="LOCAL" />
+      <updated>1735974955757</updated>
+    </task>
+    <option name="localTasksCounter" value="91" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -661,7 +669,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="winloop" />
     <MESSAGE value="poetry, uvloop/winloop, time logging, refactoring" />
     <MESSAGE value="shutdown hang fix, start-debug.sh" />
     <MESSAGE value="rpc thread cancel event" />
@@ -686,6 +693,7 @@
     <MESSAGE value="rpc error handling additions" />
     <MESSAGE value="rpc watchdog changes, control startup delay" />
     <MESSAGE value="overhaul loop impl" />
-    <option name="LAST_COMMIT_MESSAGE" value="overhaul loop impl" />
+    <MESSAGE value="tui fo id labels, fo id rearrangement" />
+    <option name="LAST_COMMIT_MESSAGE" value="tui fo id labels, fo id rearrangement" />
   </component>
 </project>

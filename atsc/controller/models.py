@@ -881,8 +881,11 @@ class Signal(Identifiable):
             self._active = True
             
             await self._go_extend()
-            while not self.conflicting_demand:
-                await self._go_extend()
+            
+            go_config = self.configs.get(SignalState.GO)
+            if go_config and go_config.rest:
+                while not self.conflicting_demand:
+                    await self._go_extend()
             
             await self._caution_interval()
             await self._stop_interval()

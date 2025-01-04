@@ -1,2 +1,2 @@
 @echo off
-poetry run grpcurl -plaintext -proto protobufs/controller.proto -d "{\"time_freeze\":false}" localhost:7833 atsc.rpc.controller.Controller/set_time_freeze
+poetry run grpcurl -plaintext -proto protobufs/controller.proto -d "{\"time_freeze\":false}" "%2:7833" atsc.rpc.controller.Controller/set_time_freeze
