@@ -33,26 +33,28 @@ class FieldOutputWidget(Widget):
                  field_output_id: int,
                  style: FieldOutputStyle = FieldOutputStyle.GENERIC):
         super().__init__(id=id)
+        self.show_id = True
         self.field_output_id = field_output_id
+        self._formatted_id = format(self.field_output_id, '03d')
         self.char_style = style
-        
+    
     def render(self) -> RenderResult:
         if self.value:
             match self.char_style:
                 case FieldOutputStyle.GENERIC:
-                    return Text('X', style='bright_white')
+                    return Text(self._formatted_id if self.show_id else 'X', style='bright_white')
                 case FieldOutputStyle.STOP:
-                    return Text('R', style='bright_red')
+                    return Text(self._formatted_id if self.show_id else 'R', style='bright_red')
                 case FieldOutputStyle.CAUTION:
-                    return Text('Y', style='bright_yellow')
+                    return Text(self._formatted_id if self.show_id else 'Y', style='bright_yellow')
                 case FieldOutputStyle.GO:
-                    return Text('G', style='bright_green')
+                    return Text(self._formatted_id if self.show_id else 'G', style='bright_green')
                 case FieldOutputStyle.DONT_WALK:
-                    return Text('D', style='orange_red1')
+                    return Text(self._formatted_id if self.show_id else 'D', style='orange_red1')
                 case FieldOutputStyle.WALK:
-                    return Text('W', style='sky_blue1')
+                    return Text(self._formatted_id if self.show_id else 'W', style='sky_blue1')
         else:
-            return Text('-', style='bright_black')
+            return Text(self._formatted_id if self.show_id else '-', style='bright_black')
 
 
 class SignalTitleWidget(Widget):

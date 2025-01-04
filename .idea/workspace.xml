@@ -6,7 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="overhaul loop impl">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/common/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/css/app.tcss" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/css/app.tcss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/widgets.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -61,23 +65,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
-    "Python.Busfuzz.executor": "Debug",
-    "Python.Controller (Sim).executor": "Debug",
-    "Python.Controller.executor": "Debug",
-    "Python.Field Bus.executor": "Debug",
-    "Python.TUI.executor": "Debug",
-    "Python.models.executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "F:/Projects/Code/Python/atsc",
-    "settings.editor.selected.configurable": "preferences.externalTools",
-    "settings.editor.splitter.proportion": "0.25"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
+    &quot;Python.Busfuzz.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.Controller (Sim).executor&quot;: &quot;Debug&quot;,
+    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.models.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.externalTools&quot;,
+    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\scripts\rpc" />
@@ -94,7 +98,7 @@
       <recent name="F:\Projects\Code\Python\atsc\scripts\services\controller" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Field Bus">
+  <component name="RunManager" selected="Python.Controller (Sim)">
     <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
@@ -211,8 +215,8 @@
     </configuration>
     <list>
       <item itemvalue="Python.Busfuzz" />
-      <item itemvalue="Python.Controller" />
       <item itemvalue="Python.Controller (Sim)" />
+      <item itemvalue="Python.Controller" />
       <item itemvalue="Python.Field Bus" />
       <item itemvalue="Python.TUI" />
     </list>
@@ -237,14 +241,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00040" summary="graceful signal handler attach">
-      <option name="closed" value="true" />
-      <created>1728274629911</created>
-      <option name="number" value="00040" />
-      <option name="presentableId" value="LOCAL-00040" />
-      <option name="project" value="LOCAL" />
-      <updated>1728274629911</updated>
     </task>
     <task id="LOCAL-00041" summary="start.sh fix">
       <option name="closed" value="true" />
@@ -630,7 +626,15 @@
       <option name="project" value="LOCAL" />
       <updated>1735879553231</updated>
     </task>
-    <option name="localTasksCounter" value="89" />
+    <task id="LOCAL-00089" summary="overhaul loop impl">
+      <option name="closed" value="true" />
+      <created>1735884099478</created>
+      <option name="number" value="00089" />
+      <option name="presentableId" value="LOCAL-00089" />
+      <option name="project" value="LOCAL" />
+      <updated>1735884099478</updated>
+    </task>
+    <option name="localTasksCounter" value="90" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

@@ -11,12 +11,17 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
+
 import loguru
 from pathlib import Path
+
+from jacob.logging import attach_standard_logger
+
 from atsc.common import cli
 from atsc.tui.core import TUI
 from atsc.common.cli import arg_poll_rate_type
-from atsc.common.utils import setup_logger, get_program_dir, asyncio_loop_patch
+from atsc.common.utils import setup_logger, get_program_dir, get_platform_loop_module
 from atsc.tui.constants import DEFAULT_APP_STYLESHEET_PATH
 from atsc.common.constants import ExitCode
 
@@ -51,16 +56,25 @@ def create_app():
     if setup_logger_result != ExitCode.OK:
         return setup_logger_result
     
-    return TUI(rpc_address=cla.rpc_address,
-               rpc_port=cla.rpc_port,
-               stylesheet_path=stylesheet_path,
-               poll_rate=poll_rate,
-               dev_mode=__debug__)
+    attach_standard_logger(loguru.logger, 'asyncio')
+    
+    with logger.catch():
+        loop_impl = get_platform_loop_module()
+        with (asyncio.Runner(loop_factory=loop_impl.new_event_loop) as runner):
+            runner.get_loop().set_debug(cla.asyncio_debug)
+            return TUI(rpc_address=cla.rpc_address,
+                       rpc_port=cla.rpc_port,
+                       stylesheet_path=stylesheet_path,
+                       poll_rate=poll_rate,
+                       dev_mode=__debug__)
 
 
-asyncio_loop_patch()
 app = create_app()
 
 
+def run():
+    return app.run()
+
+
 if __name__ == '__main__':
-    exit(app.run())
+    exit(run())

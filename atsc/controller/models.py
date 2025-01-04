@@ -445,10 +445,7 @@ class Signal(Identifiable):
     
     @property
     def field_outputs(self):
-        rv = set()
-        for field_output in self.mapping.values():
-            rv.add(field_output)
-        return sorted(rv)
+        return self._field_outputs
     
     @property
     def runtime_maximum(self):
@@ -577,9 +574,12 @@ class Signal(Identifiable):
         for state, v in configs.items():
             self.configs[state] = v
         
+        self._field_outputs = []
         self.mapping = mapping
         for fo in mapping.values():
             self.global_field_output_mapping.update({fo: self})
+            if fo not in self._field_outputs:
+                self._field_outputs.append(fo)
         
         self.leading_signals: List['Signal'] = []
         

@@ -69,7 +69,7 @@ ControllerRuntime {
     grid-size: 12;
 }
 FieldOutputWidget {
-    width: 1;
+    width: 3;
     height: 1;
 }
 SignalTitleWidget,
