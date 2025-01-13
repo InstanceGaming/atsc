@@ -367,7 +367,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         await self._set_time_freeze(self._time_freeze)
         await self._set_presence_simulation(self._presence_simulation)
         
-        fo_ids = chain(range(101, 113), range(119, 131))
+        fo_ids = (101, 104, 107, 110, 119, 122, 125, 128)
         for field_output in self.field_outputs:
             if field_output.id in fo_ids:
                 await field_output.set(FieldOutputState.FLASHING)
