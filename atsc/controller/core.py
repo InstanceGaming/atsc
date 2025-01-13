@@ -12,6 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
+from itertools import chain
+
 import blinker
 from atsc import __version__ as atsc_version
 from loguru import logger
@@ -157,7 +159,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self.field_outputs = [
             FieldOutput(
                 f,
-                invert=f in (107, 110, 119, 122)
+                invert=f in (107, 110, 125, 128)
             ) for f in range(101, 137)
         ]
         self.signals = [
@@ -364,10 +366,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     async def dummy(self):
         await self._set_time_freeze(self._time_freeze)
         await self._set_presence_simulation(self._presence_simulation)
-                
-        for field_output in self.field_outputs:
-            if field_output.id in (101, 104, 107, 110, 113, 116, 119, 122):
-                await field_output.set(FieldOutputState.FLASHING)
+        
+        for fo_id in chain(range(101, 113), range(119, 131)):
+            await self.field_outputs[fo_id].set(FieldOutputState.FLASHING)
         
         try:
             while True:

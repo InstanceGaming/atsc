@@ -4,14 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="flash all field outputs, comment out all other objects, field output grid on tui">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="alternating flash">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/css/app.tcss" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/css/app.tcss" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/tui/panels.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/panels.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -267,14 +262,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00044" summary="restore tui poll rate">
-      <option name="closed" value="true" />
-      <created>1728276052026</created>
-      <option name="number" value="00044" />
-      <option name="presentableId" value="LOCAL-00044" />
-      <option name="project" value="LOCAL" />
-      <updated>1728276052026</updated>
     </task>
     <task id="LOCAL-00045" summary="service poll rates">
       <option name="closed" value="true" />
@@ -660,7 +647,15 @@
       <option name="project" value="LOCAL" />
       <updated>1736755345562</updated>
     </task>
-    <option name="localTasksCounter" value="93" />
+    <task id="LOCAL-00093" summary="alternating flash">
+      <option name="closed" value="true" />
+      <created>1736758988599</created>
+      <option name="number" value="00093" />
+      <option name="presentableId" value="LOCAL-00093" />
+      <option name="project" value="LOCAL" />
+      <updated>1736758988599</updated>
+    </task>
+    <option name="localTasksCounter" value="94" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -687,7 +682,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="rpc thread cancel event" />
     <MESSAGE value="fya force service, presence lockout animation" />
     <MESSAGE value="fya logic fixes, presence lockout deadlock fix" />
     <MESSAGE value="stop.sh ignore screen return code" />
@@ -712,6 +706,7 @@
     <MESSAGE value="tui fo id labels, fo id rearrangement" />
     <MESSAGE value="rpc scripts address arg, signal go rest check" />
     <MESSAGE value="flash all field outputs, comment out all other objects, field output grid on tui" />
-    <option name="LAST_COMMIT_MESSAGE" value="flash all field outputs, comment out all other objects, field output grid on tui" />
+    <MESSAGE value="alternating flash" />
+    <option name="LAST_COMMIT_MESSAGE" value="alternating flash" />
   </component>
 </project>
