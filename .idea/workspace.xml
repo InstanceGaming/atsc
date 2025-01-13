@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="alternating flash">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="correct field output mapping">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
     </list>
@@ -262,14 +262,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00045" summary="service poll rates">
-      <option name="closed" value="true" />
-      <created>1728744249002</created>
-      <option name="number" value="00045" />
-      <option name="presentableId" value="LOCAL-00045" />
-      <option name="project" value="LOCAL" />
-      <updated>1728744249002</updated>
     </task>
     <task id="LOCAL-00046" summary="cycle recycled, timer and flasher logic, revert time logic">
       <option name="closed" value="true" />
@@ -655,7 +647,15 @@
       <option name="project" value="LOCAL" />
       <updated>1736758988599</updated>
     </task>
-    <option name="localTasksCounter" value="94" />
+    <task id="LOCAL-00094" summary="correct field output mapping">
+      <option name="closed" value="true" />
+      <created>1736759395305</created>
+      <option name="number" value="00094" />
+      <option name="presentableId" value="LOCAL-00094" />
+      <option name="project" value="LOCAL" />
+      <updated>1736759395305</updated>
+    </task>
+    <option name="localTasksCounter" value="95" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -682,7 +682,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fya force service, presence lockout animation" />
     <MESSAGE value="fya logic fixes, presence lockout deadlock fix" />
     <MESSAGE value="stop.sh ignore screen return code" />
     <MESSAGE value="correct systemd service unit type" />
@@ -707,6 +706,7 @@
     <MESSAGE value="rpc scripts address arg, signal go rest check" />
     <MESSAGE value="flash all field outputs, comment out all other objects, field output grid on tui" />
     <MESSAGE value="alternating flash" />
-    <option name="LAST_COMMIT_MESSAGE" value="alternating flash" />
+    <MESSAGE value="correct field output mapping" />
+    <option name="LAST_COMMIT_MESSAGE" value="correct field output mapping" />
   </component>
 </project>
