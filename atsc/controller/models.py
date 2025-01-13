@@ -66,13 +66,14 @@ class FieldOutput(Identifiable):
     def flash_delay(self):
         return (60.0 / self._fpm) / 2.0
     
-    def __init__(self, id_: int, fpm: float = 60.0):
+    def __init__(self,
+                 id_: int,
+                 fpm: float = 60.0,
+                 invert: bool = False):
         Identifiable.__init__(self, id_)
-        self.state_changed = blinker.Signal()
-        self.bit_changed = blinker.Signal()
-        
         self._state = FieldOutputState.OFF
-        self._bit = False
+        self._invert = invert
+        self._bit = invert
         self._fpm = fpm
         self._flash_timer = Timer(
             self.flash_delay,
@@ -80,10 +81,14 @@ class FieldOutput(Identifiable):
         )
         self._marker = None
     
-    def _change_bit(self, v: bool):
-        if v != self._bit:
-            self._bit = v
-            self.bit_changed.send(self)
+    def _on_flash_timer_reached_goal(self):
+        self._bit = not self._bit
+        
+        if self._marker:
+            delta = millis() - self._marker
+            logger.verbose('flasher toggle took {}', format_ms(delta))
+        
+        self._marker = millis()
     
     async def set(self, state: FieldOutputState):
         if state != FieldOutputState.INHERIT:
@@ -92,19 +97,18 @@ class FieldOutput(Identifiable):
                 match state:
                     case FieldOutputState.OFF:
                         await self._flash_timer.cancel()
-                        self._change_bit(False)
+                        self._bit = False
                         self._marker = None
                     case FieldOutputState.ON:
                         if self._flash_timer.is_running:
                             await self._flash_timer.cancel()
-                        self._change_bit(True)
+                        self._bit = True
                         self._marker = None
                     case FieldOutputState.FLASHING:
-                        self._change_bit(True)
+                        self._bit = self._invert
                         await self._flash_timer.start()
                 
                 self._state = state
-                self.state_changed.send(self)
     
     def __bool__(self):
         return self._bit
@@ -114,15 +118,6 @@ class FieldOutput(Identifiable):
     
     def __repr__(self):
         return f'<FieldOutput #{self.id} {self.state.name} {self._bit}'
-    
-    def _on_flash_timer_reached_goal(self):
-        self._change_bit(not self._bit)
-        
-        if self._marker:
-            delta = millis() - self._marker
-            logger.verbose('flasher toggle took {}', format_ms(delta))
-        
-        self._marker = millis()
     
     def rpc_model(self):
         return rpc_FieldOutput(self.id,

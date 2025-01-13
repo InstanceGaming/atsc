@@ -104,8 +104,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                              loop,
                              shutdown_timeout=shutdown_timeout,
                              pid_file=pid_file)
-        self._time_freeze = False
-        self._presence_simulation = False
+        self._time_freeze = time_freeze
+        self._presence_simulation = presence_simulation
         
         self.interval_timing_vehicle1 = {
             SignalState.LS_FLASH: IntervalTiming(16.0),
@@ -153,8 +153,13 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.STOP   : IntervalConfig(rest=True),
             SignalState.CAUTION: IntervalConfig(flashing=True)
         }
-        
-        self.field_outputs = [FieldOutput(100 + i) for i in range(1, 37)]
+
+        self.field_outputs = [
+            FieldOutput(
+                f,
+                invert=f in (107, 110, 119, 122)
+            ) for f in range(101, 137)
+        ]
         self.signals = [
             # Signal(
             #     501,
@@ -355,13 +360,14 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         if init_demand:
             for phase in self.phases:
                 phase.demand = True
-        
-        self._set_time_freeze(time_freeze)
-        self._set_presence_simulation(presence_simulation)
     
     async def dummy(self):
+        await self._set_time_freeze(self._time_freeze)
+        await self._set_presence_simulation(self._presence_simulation)
+                
         for field_output in self.field_outputs:
-            await field_output.set(FieldOutputState.FLASHING)
+            if field_output.id in (101, 104, 107, 110, 113, 116, 119, 122):
+                await field_output.set(FieldOutputState.FLASHING)
         
         try:
             while True:
@@ -435,22 +441,22 @@ class Controller(AsyncDaemon, controller.ControllerBase):
     ):
         return self._get_runtime_info()
     
-    def _set_time_freeze(self, freeze: bool):
+    async def _set_time_freeze(self, freeze: bool):
         if freeze != self.time_freeze:
             self._time_freeze = freeze
             
             logger.debug('time freeze = {}', self.time_freeze)
             
             if freeze:
-                self.freeze_time.send(self)
+                await self.freeze_time.send_async(self)
             else:
-                self.unfreeze_time.send(self)
+                await self.unfreeze_time.send_async(self)
             
             return True
         return False
     
     async def set_time_freeze(self, request: controller.ControllerTimeFreezeRequest):
-        changed = self._set_time_freeze(request.time_freeze)
+        changed = await self._set_time_freeze(request.time_freeze)
         return controller.ControllerChangeVariableResult(True, changed)
     
     async def set_cycle_mode(self, request: controller.ControllerCycleModeRequest):
@@ -464,17 +470,17 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             success = False
         return controller.ControllerChangeVariableResult(success, changed)
     
-    def _set_presence_simulation(self, simulation: bool):
+    async def _set_presence_simulation(self, simulation: bool):
         if simulation != self.presence_simulation:
             self._presence_simulation = simulation
             
             logger.info('presence simulation = {}', self.presence_simulation)
             
             if self.presence_simulation:
-                self.presence_simulation_enabled.send(self)
+                await self.presence_simulation_enabled.send_async(self)
             else:
-                self.presence_simulation_disabled.send(self)
-            
+                await self.presence_simulation_disabled.send_async(self)
+                
             return True
         return False
     

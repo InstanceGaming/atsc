@@ -241,7 +241,7 @@ class TUI(App[int]):
         controller_panel = ControllerPanel(
             'controller-panel',
             started_at,
-            self.field_outputs.values(),
+            self.field_outputs,
             self.signals.values()
         )
         await self.switcher.add_content(controller_panel, set_current=True)

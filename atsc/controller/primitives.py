@@ -261,6 +261,8 @@ class AsyncTimer(AsyncStopwatch):
 
 
 class Timer:
+    freeze_time = blinker.signal('atsc.controller.time_freeze')
+    unfreeze_time = blinker.signal('atsc.controller.time_unfreeze')
     
     @property
     def interval(self) -> float:
@@ -298,6 +300,10 @@ class Timer:
         :param interval: The timer interval in seconds.
         :param callback: The function or coroutine to call when the timer completes.
         """
+        self.freeze_time.connect(self._on_freeze)
+        self.unfreeze_time.connect(self._on_unfreeze)
+        
+        self._time_freeze = False
         self._interval = interval
         self._callback = callback
         self._task: Optional[asyncio.Task[None]] = None
@@ -383,6 +389,16 @@ class Timer:
                 self._start_time = asyncio.get_running_loop().time()
         except asyncio.CancelledError:
             pass
+    
+    async def _on_freeze(self, _):
+        if not self._time_freeze:
+            await self.pause()
+            self._time_freeze = True
+    
+    async def _on_unfreeze(self, _):
+        if self._time_freeze:
+            await self.resume()
+            self._time_freeze = False
     
     async def change_interval(self, new_interval: float) -> None:
         """
