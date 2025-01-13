@@ -64,6 +64,11 @@ ControllerRuntime {
     width: auto;
     text-align: right;
 }
+#field-output-grid {
+    layout: grid;
+    grid-size: 12;
+    height: auto;
+}
 #signal-grid {
     layout: grid;
     grid-size: 12;

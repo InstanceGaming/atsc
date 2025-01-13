@@ -48,7 +48,7 @@ from atsc.controller.primitives import (
     AsyncTimer,
     EdgeTrigger,
     Identifiable,
-    AsyncStopwatch
+    AsyncStopwatch, Timer
 )
 
 
@@ -74,11 +74,9 @@ class FieldOutput(Identifiable):
         self._state = FieldOutputState.OFF
         self._bit = False
         self._fpm = fpm
-        self._flash_timer = AsyncTimer(
-            f'FieldOutputFlasher{self.id}',
-            goal=self.flash_delay,
-            goal_handler=self._on_flash_timer_reached_goal,
-            repeat=True
+        self._flash_timer = Timer(
+            self.flash_delay,
+            self._on_flash_timer_reached_goal
         )
         self._marker = None
     
@@ -87,23 +85,23 @@ class FieldOutput(Identifiable):
             self._bit = v
             self.bit_changed.send(self)
     
-    def set(self, state: FieldOutputState):
+    async def set(self, state: FieldOutputState):
         if state != FieldOutputState.INHERIT:
             before = self.state
             if state != before:
                 match state:
                     case FieldOutputState.OFF:
-                        self._flash_timer.cancel()
+                        await self._flash_timer.cancel()
                         self._change_bit(False)
                         self._marker = None
                     case FieldOutputState.ON:
-                        if self._flash_timer.running:
-                            self._flash_timer.cancel()
+                        if self._flash_timer.is_running:
+                            await self._flash_timer.cancel()
                         self._change_bit(True)
                         self._marker = None
                     case FieldOutputState.FLASHING:
                         self._change_bit(True)
-                        self._flash_timer.start()
+                        await self._flash_timer.start()
                 
                 self._state = state
                 self.state_changed.send(self)
@@ -117,7 +115,7 @@ class FieldOutput(Identifiable):
     def __repr__(self):
         return f'<FieldOutput #{self.id} {self.state.name} {self._bit}'
     
-    def _on_flash_timer_reached_goal(self, _):
+    def _on_flash_timer_reached_goal(self):
         self._change_bit(not self._bit)
         
         if self._marker:
@@ -1424,7 +1422,7 @@ class IntersectionService:
         self._cycle_count: int = 0
         self._signal_tasks: List[asyncio.Task] = []
         self._fya_enabled = fya_enabled
-        self._max_revert_time = max([s.revert_time for s in self.signals])
+        self._max_revert_time = max([s.revert_time for s in self.signals] + [0.0])
         self._stopped_with_demand_stopwatch = AsyncStopwatch()
         
         # sequential mode only

@@ -102,10 +102,10 @@ class TUI(App[int]):
     async def on_show_banner(self, message: ShowBanner):
         banner = Banner(message.title,
                         description=message.description,
-                        classes=message.classes,
-                        timeout=message.timeout or 5.0)
+                        classes=message.classes)
         try:
             await self.mount(banner, after=0)
+            self.set_timer(message.timeout, lambda: banner.remove())
         except MountError:
             pass
     
@@ -241,6 +241,7 @@ class TUI(App[int]):
         controller_panel = ControllerPanel(
             'controller-panel',
             started_at,
+            self.field_outputs.values(),
             self.signals.values()
         )
         await self.switcher.add_content(controller_panel, set_current=True)

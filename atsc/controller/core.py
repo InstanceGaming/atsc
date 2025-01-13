@@ -22,7 +22,7 @@ from atsc.rpc import controller as rpc_controller
 from atsc.rpc.signal import SignalMetadata as rpc_SignalMetadata
 from atsc.common.models import AsyncDaemon
 from atsc.common.constants import FLOAT_PRECISION_TIME, DAEMON_SHUTDOWN_TIMEOUT
-from atsc.rpc.field_output import FieldOutputMetadata as rpc_FieldOutputMetadata
+from atsc.rpc.field_output import FieldOutputMetadata as rpc_FieldOutputMetadata, FieldOutputState
 from atsc.controller.models import (
     Ring,
     Phase,
@@ -156,186 +156,186 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         
         self.field_outputs = [FieldOutput(100 + i) for i in range(1, 37)]
         self.signals = [
-            Signal(
-                501,
-                self.interval_timing_vehicle_fya,
-                self.interval_config_vehicle1,
-                vehicle_signal_field_mapping(101, fya_output=132),
-                type=SignalType.VEHICLE,
-                movement=TrafficMovement.PROTECTED_TURN,
-                extend_mode=ExtendMode.MINIMUM_SKIP,
-                presence_lockout_delay=120.0,
-                fya_enabled=True,
-                fya_force_service_delay=30.0,
-                revert_time=2.0
-            ),
-            Signal(
-                502,
-                self.interval_timing_vehicle1,
-                self.interval_config_vehicle2,
-                vehicle_signal_field_mapping(104),
-                recall=RecallMode.MINIMUM,
-                type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP,
-                presence_lockout_delay=120.0
-            ),
-            Signal(
-                503,
-                self.interval_timing_vehicle_fya,
-                self.interval_config_vehicle1,
-                vehicle_signal_field_mapping(107, fya_output=135),
-                type=SignalType.VEHICLE,
-                movement=TrafficMovement.PROTECTED_TURN,
-                extend_mode=ExtendMode.MINIMUM_SKIP,
-                presence_lockout_delay=120.0,
-                fya_enabled=True,
-                fya_force_service_delay=30.0,
-                revert_time=2.0
-            ),
-            Signal(
-                504,
-                self.interval_timing_vehicle2,
-                self.interval_config_vehicle2,
-                vehicle_signal_field_mapping(110),
-                type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP,
-                presence_lockout_delay=120.0
-            ),
-            Signal(
-                505,
-                self.interval_timing_vehicle_fya,
-                self.interval_config_vehicle1,
-                vehicle_signal_field_mapping(119, fya_output=114),
-                type=SignalType.VEHICLE,
-                movement=TrafficMovement.PROTECTED_TURN,
-                extend_mode=ExtendMode.MINIMUM_SKIP,
-                presence_lockout_delay=120.0,
-                fya_enabled=True,
-                fya_force_service_delay=30.0,
-                revert_time=2.0
-            ),
-            Signal(
-                506,
-                self.interval_timing_vehicle1,
-                self.interval_config_vehicle2,
-                vehicle_signal_field_mapping(122),
-                recall=RecallMode.MINIMUM,
-                type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP,
-                presence_lockout_delay=120.0
-            ),
-            Signal(
-                507,
-                self.interval_timing_vehicle_fya,
-                self.interval_config_vehicle1,
-                vehicle_signal_field_mapping(125, fya_output=117),
-                type=SignalType.VEHICLE,
-                movement=TrafficMovement.PROTECTED_TURN,
-                extend_mode=ExtendMode.MINIMUM_SKIP,
-                presence_lockout_delay=120.0,
-                fya_enabled=True,
-                fya_force_service_delay=30.0,
-                revert_time=2.0
-            ),
-            Signal(
-                508,
-                self.interval_timing_vehicle2,
-                self.interval_config_vehicle2,
-                vehicle_signal_field_mapping(128),
-                type=SignalType.VEHICLE,
-                movement=TrafficMovement.PERMISSIVE_TURN,
-                extend_mode=ExtendMode.MAXIMUM_SKIP,
-                presence_lockout_delay=120.0
-            ),
-            Signal(
-                509,
-                self.interval_timing_ped1,
-                self.interval_config_ped,
-                ped_signal_field_mapping(113),
-                recycle=True,
-                latch=True,
-                type=SignalType.PEDESTRIAN,
-                service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=120.0,
-                fya_ped_service_delay=30.0
-            ),
-            Signal(
-                510,
-                self.interval_timing_ped2,
-                self.interval_config_ped,
-                ped_signal_field_mapping(116),
-                recycle=True,
-                latch=True,
-                type=SignalType.PEDESTRIAN,
-                service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=120.0,
-                fya_ped_service_delay=30.0
-            ),
-            Signal(
-                511,
-                self.interval_timing_ped1,
-                self.interval_config_ped,
-                ped_signal_field_mapping(131),
-                recycle=True,
-                latch=True,
-                type=SignalType.PEDESTRIAN,
-                service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=120.0,
-                fya_ped_service_delay=30.0
-            ),
-            Signal(
-                512,
-                self.interval_timing_ped2,
-                self.interval_config_ped,
-                ped_signal_field_mapping(134),
-                recycle=True,
-                latch=True,
-                type=SignalType.PEDESTRIAN,
-                service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
-                presence_lockout_delay=120.0,
-                fya_ped_service_delay=30.0
-            )
+            # Signal(
+            #     501,
+            #     self.interval_timing_vehicle_fya,
+            #     self.interval_config_vehicle1,
+            #     vehicle_signal_field_mapping(101, fya_output=132),
+            #     type=SignalType.VEHICLE,
+            #     movement=TrafficMovement.PROTECTED_TURN,
+            #     extend_mode=ExtendMode.MINIMUM_SKIP,
+            #     presence_lockout_delay=120.0,
+            #     fya_enabled=True,
+            #     fya_force_service_delay=30.0,
+            #     revert_time=2.0
+            # ),
+            # Signal(
+            #     502,
+            #     self.interval_timing_vehicle1,
+            #     self.interval_config_vehicle2,
+            #     vehicle_signal_field_mapping(104),
+            #     recall=RecallMode.MINIMUM,
+            #     type=SignalType.VEHICLE,
+            #     movement=TrafficMovement.PERMISSIVE_TURN,
+            #     extend_mode=ExtendMode.MAXIMUM_SKIP,
+            #     presence_lockout_delay=120.0
+            # ),
+            # Signal(
+            #     503,
+            #     self.interval_timing_vehicle_fya,
+            #     self.interval_config_vehicle1,
+            #     vehicle_signal_field_mapping(107, fya_output=135),
+            #     type=SignalType.VEHICLE,
+            #     movement=TrafficMovement.PROTECTED_TURN,
+            #     extend_mode=ExtendMode.MINIMUM_SKIP,
+            #     presence_lockout_delay=120.0,
+            #     fya_enabled=True,
+            #     fya_force_service_delay=30.0,
+            #     revert_time=2.0
+            # ),
+            # Signal(
+            #     504,
+            #     self.interval_timing_vehicle2,
+            #     self.interval_config_vehicle2,
+            #     vehicle_signal_field_mapping(110),
+            #     type=SignalType.VEHICLE,
+            #     movement=TrafficMovement.PERMISSIVE_TURN,
+            #     extend_mode=ExtendMode.MAXIMUM_SKIP,
+            #     presence_lockout_delay=120.0
+            # ),
+            # Signal(
+            #     505,
+            #     self.interval_timing_vehicle_fya,
+            #     self.interval_config_vehicle1,
+            #     vehicle_signal_field_mapping(119, fya_output=114),
+            #     type=SignalType.VEHICLE,
+            #     movement=TrafficMovement.PROTECTED_TURN,
+            #     extend_mode=ExtendMode.MINIMUM_SKIP,
+            #     presence_lockout_delay=120.0,
+            #     fya_enabled=True,
+            #     fya_force_service_delay=30.0,
+            #     revert_time=2.0
+            # ),
+            # Signal(
+            #     506,
+            #     self.interval_timing_vehicle1,
+            #     self.interval_config_vehicle2,
+            #     vehicle_signal_field_mapping(122),
+            #     recall=RecallMode.MINIMUM,
+            #     type=SignalType.VEHICLE,
+            #     movement=TrafficMovement.PERMISSIVE_TURN,
+            #     extend_mode=ExtendMode.MAXIMUM_SKIP,
+            #     presence_lockout_delay=120.0
+            # ),
+            # Signal(
+            #     507,
+            #     self.interval_timing_vehicle_fya,
+            #     self.interval_config_vehicle1,
+            #     vehicle_signal_field_mapping(125, fya_output=117),
+            #     type=SignalType.VEHICLE,
+            #     movement=TrafficMovement.PROTECTED_TURN,
+            #     extend_mode=ExtendMode.MINIMUM_SKIP,
+            #     presence_lockout_delay=120.0,
+            #     fya_enabled=True,
+            #     fya_force_service_delay=30.0,
+            #     revert_time=2.0
+            # ),
+            # Signal(
+            #     508,
+            #     self.interval_timing_vehicle2,
+            #     self.interval_config_vehicle2,
+            #     vehicle_signal_field_mapping(128),
+            #     type=SignalType.VEHICLE,
+            #     movement=TrafficMovement.PERMISSIVE_TURN,
+            #     extend_mode=ExtendMode.MAXIMUM_SKIP,
+            #     presence_lockout_delay=120.0
+            # ),
+            # Signal(
+            #     509,
+            #     self.interval_timing_ped1,
+            #     self.interval_config_ped,
+            #     ped_signal_field_mapping(113),
+            #     recycle=True,
+            #     latch=True,
+            #     type=SignalType.PEDESTRIAN,
+            #     service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
+            #     presence_lockout_delay=120.0,
+            #     fya_ped_service_delay=30.0
+            # ),
+            # Signal(
+            #     510,
+            #     self.interval_timing_ped2,
+            #     self.interval_config_ped,
+            #     ped_signal_field_mapping(116),
+            #     recycle=True,
+            #     latch=True,
+            #     type=SignalType.PEDESTRIAN,
+            #     service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
+            #     presence_lockout_delay=120.0,
+            #     fya_ped_service_delay=30.0
+            # ),
+            # Signal(
+            #     511,
+            #     self.interval_timing_ped1,
+            #     self.interval_config_ped,
+            #     ped_signal_field_mapping(131),
+            #     recycle=True,
+            #     latch=True,
+            #     type=SignalType.PEDESTRIAN,
+            #     service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
+            #     presence_lockout_delay=120.0,
+            #     fya_ped_service_delay=30.0
+            # ),
+            # Signal(
+            #     512,
+            #     self.interval_timing_ped2,
+            #     self.interval_config_ped,
+            #     ped_signal_field_mapping(134),
+            #     recycle=True,
+            #     latch=True,
+            #     type=SignalType.PEDESTRIAN,
+            #     service_modifiers=ServiceModifiers.BEFORE_VEHICLE,
+            #     presence_lockout_delay=120.0,
+            #     fya_ped_service_delay=30.0
+            # )
         ]
-        ref(Signal, 502).add_extend_sync_signal(ref(Signal, 506))
-        ref(Signal, 504).add_extend_sync_signal(ref(Signal, 508))
-        ref(Signal, 506).add_extend_sync_signal(ref(Signal, 502))
-        ref(Signal, 508).add_extend_sync_signal(ref(Signal, 504))
+        # ref(Signal, 502).add_extend_sync_signal(ref(Signal, 506))
+        # ref(Signal, 504).add_extend_sync_signal(ref(Signal, 508))
+        # ref(Signal, 506).add_extend_sync_signal(ref(Signal, 502))
+        # ref(Signal, 508).add_extend_sync_signal(ref(Signal, 504))
         
         self.phases = [
-            Phase(601, refs(Signal, 501), recycle=False),
-            Phase(602, refs(Signal, 502, 509), default_signals=refs(Signal, 502)),
-            Phase(603, refs(Signal, 503), recycle=False),
-            Phase(604, refs(Signal, 504, 510), default_signals=refs(Signal, 504)),
-            Phase(605, refs(Signal, 505), recycle=False),
-            Phase(606, refs(Signal, 506, 511), default_signals=refs(Signal, 506)),
-            Phase(607, refs(Signal, 507), recycle=False),
-            Phase(608, refs(Signal, 508, 512), default_signals=refs(Signal, 508))
+            # Phase(601, refs(Signal, 501), recycle=False),
+            # Phase(602, refs(Signal, 502, 509), default_signals=refs(Signal, 502)),
+            # Phase(603, refs(Signal, 503), recycle=False),
+            # Phase(604, refs(Signal, 504, 510), default_signals=refs(Signal, 504)),
+            # Phase(605, refs(Signal, 505), recycle=False),
+            # Phase(606, refs(Signal, 506, 511), default_signals=refs(Signal, 506)),
+            # Phase(607, refs(Signal, 507), recycle=False),
+            # Phase(608, refs(Signal, 508, 512), default_signals=refs(Signal, 508))
         ]
-        ref(Phase, 608).default_phases.append(ref(Phase, 604))
-        ref(Phase, 604).default_phases.append(ref(Phase, 608))
-        
-        ref(Signal, 501).fya_concurrent_phase = ref(Phase, 602)
-        ref(Signal, 501).fya_guard_phase = ref(Phase, 606)
-        
-        ref(Signal, 505).fya_concurrent_phase = ref(Phase, 606)
-        ref(Signal, 505).fya_guard_phase = ref(Phase, 602)
-        
-        ref(Signal, 503).fya_concurrent_phase = ref(Phase, 604)
-        ref(Signal, 503).fya_guard_phase = ref(Phase, 608)
-        
-        ref(Signal, 507).fya_concurrent_phase = ref(Phase, 608)
-        ref(Signal, 507).fya_guard_phase = ref(Phase, 604)
+        # ref(Phase, 608).default_phases.append(ref(Phase, 604))
+        # ref(Phase, 604).default_phases.append(ref(Phase, 608))
+        # 
+        # ref(Signal, 501).fya_concurrent_phase = ref(Phase, 602)
+        # ref(Signal, 501).fya_guard_phase = ref(Phase, 606)
+        # 
+        # ref(Signal, 505).fya_concurrent_phase = ref(Phase, 606)
+        # ref(Signal, 505).fya_guard_phase = ref(Phase, 602)
+        # 
+        # ref(Signal, 503).fya_concurrent_phase = ref(Phase, 604)
+        # ref(Signal, 503).fya_guard_phase = ref(Phase, 608)
+        # 
+        # ref(Signal, 507).fya_concurrent_phase = ref(Phase, 608)
+        # ref(Signal, 507).fya_guard_phase = ref(Phase, 604)
         
         self.rings = [
-            Ring(701, refs(Phase, 601, 602, 603, 604)),
-            Ring(702, refs(Phase, 605, 606, 607, 608))
+            # Ring(701, refs(Phase, 601, 602, 603, 604)),
+            # Ring(702, refs(Phase, 605, 606, 607, 608))
         ]
         self.barriers = [
-            Barrier(801, refs(Phase, 601, 602, 605, 606)),
-            Barrier(802, refs(Phase, 603, 604, 607, 608))
+            # Barrier(801, refs(Phase, 601, 602, 605, 606)),
+            # Barrier(802, refs(Phase, 603, 604, 607, 608))
         ]
         
         self.cycler = IntersectionService(self.rings,
@@ -348,8 +348,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             self.add_task(approach.run(), name=f'ApproachSimulator{approach.id}.run()')
         
         self.add_task(self.test_rpc_calls(), name='test_rpc_calls()')
-        self.add_task(self.cycler.service(), name='IntersectionService.service()')
-        self.add_task(self.cycler.poll(), name='IntersectionService.poll()')
+        #self.add_task(self.cycler.service(), name='IntersectionService.service()')
+        #self.add_task(self.cycler.poll(), name='IntersectionService.poll()')
+        self.add_task(self.dummy())
         
         if init_demand:
             for phase in self.phases:
@@ -357,6 +358,16 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         
         self._set_time_freeze(time_freeze)
         self._set_presence_simulation(presence_simulation)
+    
+    async def dummy(self):
+        for field_output in self.field_outputs:
+            await field_output.set(FieldOutputState.FLASHING)
+        
+        try:
+            while True:
+                await asyncio.sleep(1.0)
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            pass
     
     async def test_rpc_calls(self):
         await self.get_metadata(rpc_controller.ControllerMetadataRequest())

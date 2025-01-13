@@ -4,21 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="tui fo id labels, fo id rearrangement">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="rpc scripts address arg, signal go rest check">
+      <change afterPath="$PROJECT_DIR$/timer_play.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/common/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/common/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/cycle-mode.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/cycle-mode.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/fya-disabled.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/fya-disabled.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/fya-enabled.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/fya-enabled.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/get-metadata.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/get-metadata.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/get-state-stream.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/get-state-stream.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/phase-demand.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/phase-demand.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/signal-demand.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/signal-demand.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/components.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/components.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/css/app.tcss" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/css/app.tcss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/panels.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/panels.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/rpc/signal-presence.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/signal-presence.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/sim-disable.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/sim-disable.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/sim-enable.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/sim-enable.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/time-freeze.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/time-freeze.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/rpc/time-unfreeze.bat" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/rpc/time-unfreeze.bat" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -35,7 +32,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="async" />
+        <entry key="$PROJECT_DIR$" value="async-suite" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -73,23 +70,24 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
-    &quot;Python.Busfuzz.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.Controller (Sim).executor&quot;: &quot;Debug&quot;,
-    &quot;Python.Controller.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.Field Bus.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.TUI.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.models.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;F:/Projects/Code/Python/atsc&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.externalTools&quot;,
-    &quot;settings.editor.splitter.proportion&quot;: &quot;0.25&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
+    "Python.Busfuzz.executor": "Debug",
+    "Python.Controller (Sim).executor": "Debug",
+    "Python.Controller.executor": "Debug",
+    "Python.Field Bus.executor": "Debug",
+    "Python.TUI.executor": "Debug",
+    "Python.models.executor": "Run",
+    "Python.timer_play.executor": "Debug",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "F:/Projects/Code/Python/atsc",
+    "settings.editor.selected.configurable": "preferences.externalTools",
+    "settings.editor.splitter.proportion": "0.25"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="F:\Projects\Code\Python\atsc\scripts\rpc" />
@@ -106,7 +104,7 @@
       <recent name="F:\Projects\Code\Python\atsc\scripts\services\controller" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Controller (Sim)">
+  <component name="RunManager" selected="Python.Controller">
     <configuration name="Busfuzz" type="PythonConfigurationType" factoryName="Python" folderName="Jigs" temporary="true">
       <module name="atsc" />
       <option name="ENV_FILES" value="" />
@@ -213,10 +211,32 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="atsc.tui.main" />
-      <option name="PARAMETERS" value="" />
+      <option name="PARAMETERS" value="-r 0.25" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
       <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="timer_play" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="atsc" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/timer_play.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
       <option name="REDIRECT_INPUT" value="false" />
       <option name="INPUT_FILE" value="" />
       <method v="2" />
@@ -227,9 +247,11 @@
       <item itemvalue="Python.Controller" />
       <item itemvalue="Python.Field Bus" />
       <item itemvalue="Python.TUI" />
+      <item itemvalue="Python.timer_play" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.timer_play" />
         <item itemvalue="Python.Busfuzz" />
       </list>
     </recent_temporary>
@@ -249,14 +271,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00042" summary="rpc address, tui timeout">
-      <option name="closed" value="true" />
-      <created>1728275463760</created>
-      <option name="number" value="00042" />
-      <option name="presentableId" value="LOCAL-00042" />
-      <option name="project" value="LOCAL" />
-      <updated>1728275463760</updated>
     </task>
     <task id="LOCAL-00043" summary="rpc all interfaces binding">
       <option name="closed" value="true" />
@@ -642,7 +656,15 @@
       <option name="project" value="LOCAL" />
       <updated>1735974955757</updated>
     </task>
-    <option name="localTasksCounter" value="91" />
+    <task id="LOCAL-00091" summary="rpc scripts address arg, signal go rest check">
+      <option name="closed" value="true" />
+      <created>1735976789243</created>
+      <option name="number" value="00091" />
+      <option name="presentableId" value="LOCAL-00091" />
+      <option name="project" value="LOCAL" />
+      <updated>1735976789243</updated>
+    </task>
+    <option name="localTasksCounter" value="92" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -669,7 +691,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="poetry, uvloop/winloop, time logging, refactoring" />
     <MESSAGE value="shutdown hang fix, start-debug.sh" />
     <MESSAGE value="rpc thread cancel event" />
     <MESSAGE value="fya force service, presence lockout animation" />
@@ -694,6 +715,7 @@
     <MESSAGE value="rpc watchdog changes, control startup delay" />
     <MESSAGE value="overhaul loop impl" />
     <MESSAGE value="tui fo id labels, fo id rearrangement" />
-    <option name="LAST_COMMIT_MESSAGE" value="tui fo id labels, fo id rearrangement" />
+    <MESSAGE value="rpc scripts address arg, signal go rest check" />
+    <option name="LAST_COMMIT_MESSAGE" value="rpc scripts address arg, signal go rest check" />
   </component>
 </project>

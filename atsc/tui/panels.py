@@ -15,7 +15,7 @@ from typing import Iterable
 from datetime import datetime
 from textual.app import ComposeResult
 from textual.widgets import Label, Static, LoadingIndicator
-from atsc.tui.widgets import SignalWidget
+from atsc.tui.widgets import SignalWidget, FieldOutputWidget
 from textual.containers import Grid
 from atsc.tui.components import ControllerTopbar
 
@@ -37,11 +37,14 @@ class ControllerPanel(Static):
     def __init__(self,
                  id: str,
                  started_at: datetime,
+                 field_outputs: Iterable[FieldOutputWidget],
                  signals: Iterable[SignalWidget]):
         super().__init__(id=id)
         self.started_at = started_at
+        self.field_outputs = field_outputs
         self.signals = signals
     
     def compose(self) -> ComposeResult:
         yield ControllerTopbar(self.started_at)
+        yield Grid(*self.field_outputs, id='field-output-grid')
         yield Grid(*self.signals, id='signal-grid')
