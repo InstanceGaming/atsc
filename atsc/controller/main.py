@@ -26,7 +26,7 @@ from atsc.controller.core import Controller
 from atsc.common.constants import ExitCode
 from atsc.controller.constants import POLL_RATE
 from atsc.fieldbus.constants import BUS_BAUD_RATE
-from atsc.fieldbus.main import arg_baud_type
+from atsc.fieldbus.main import arg_baud_type, arg_field_output_count_type
 
 
 logger = loguru.logger
@@ -76,7 +76,8 @@ async def run_async(cla,
                     presence_simulation: bool,
                     simulation_seed: int,
                     serial_port: Optional[str] = None,
-                    baud_rate: Optional[int] = None):
+                    baud_rate: Optional[int] = None,
+                    truncate_field_outputs: Optional[int] = None):
     controller = Controller(asyncio.get_event_loop(),
                             pid_file=cla.pid_path,
                             init_demand=init_demand,
@@ -84,7 +85,8 @@ async def run_async(cla,
                             presence_simulation=presence_simulation,
                             simulation_seed=simulation_seed,
                             serial_port=serial_port,
-                            baud_rate=baud_rate)
+                            baud_rate=baud_rate,
+                            truncate_field_outputs=truncate_field_outputs)
     rpc_cancel_event = threading.Event()
     rpc_thread = threading.Thread(target=_rpc_server_shim,
                                   args=(cla.rpc_address,
@@ -126,6 +128,9 @@ def run():
     root_ap.add_argument('-s', '--serial-port',
                          type=str,
                          dest='serial_port')
+    root_ap.add_argument('--truncate-field-outputs',
+                         type=arg_field_output_count_type,
+                         dest='truncate_field_outputs')
     
     extra_cla = vars(root_ap.parse_args())
     presence_simulation = extra_cla['presence_simulation']
@@ -134,6 +139,7 @@ def run():
     time_freeze = extra_cla['time_freeze']
     serial_port = extra_cla['serial_port']
     baud_rate = extra_cla['baud_rate']
+    truncate_field_outputs = extra_cla['truncate_field_outputs']
     
     setup_logger_result = setup_logger(cla.log_levels_notation,
                                        log_file=cla.log_path)
@@ -153,7 +159,8 @@ def run():
                                         init_demand,
                                         time_freeze,
                                         serial_port=serial_port,
-                                        baud_rate=baud_rate))
+                                        baud_rate=baud_rate,
+                                        truncate_field_outputs=truncate_field_outputs))
 
 
 if __name__ == '__main__':

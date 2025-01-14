@@ -105,7 +105,8 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                  simulation_seed: Optional[int] = None,
                  init_demand: bool = False,
                  serial_port: Optional[str] = None,
-                 baud_rate: Optional[int] = None):
+                 baud_rate: Optional[int] = None,
+                 truncate_field_outputs: Optional[int] = None):
         AsyncDaemon.__init__(self,
                              loop,
                              shutdown_timeout=shutdown_timeout,
@@ -366,9 +367,10 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self.field_bus = None
         if serial_port and baud_rate is not None:
             self.field_bus = FieldBus(
-                self.loop, serial_port,
+                self.loop, 
+                serial_port,
                 baud_rate,
-                truncate_field_outputs=36
+                truncate_field_outputs=truncate_field_outputs
             )
         
         if init_demand:

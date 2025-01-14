@@ -281,7 +281,7 @@ class Timer:
     def remaining(self) -> Optional[int]:
         if self._start_time is None or self._paused_time is not None:
             return None
-        return max(0.0, self._interval - self.elapsed)
+        return max(0, self._interval - self.elapsed)
     
     @property
     def is_running(self) -> bool:
