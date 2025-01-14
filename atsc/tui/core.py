@@ -105,7 +105,6 @@ class TUI(App[int]):
                         classes=message.classes)
         try:
             await self.mount(banner, after=0)
-            self.set_timer(message.timeout, lambda: banner.remove())
         except MountError:
             pass
     

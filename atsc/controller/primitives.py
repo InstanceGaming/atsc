@@ -15,6 +15,9 @@ import time
 import asyncio
 import blinker
 from typing import Dict, List, Type, TypeVar, Callable, Optional, Coroutine, Union, Awaitable
+
+from jacob.datetime.timing import millis
+
 from atsc.common.constants import EdgeType
 from atsc.controller.constants import POLL_RATE
 
@@ -265,17 +268,17 @@ class Timer:
     unfreeze_time = blinker.signal('atsc.controller.time_unfreeze')
     
     @property
-    def interval(self) -> float:
+    def interval(self) -> int:
         return self._interval
     
     @property
-    def elapsed(self) -> Optional[float]:
+    def elapsed(self) -> Optional[int]:
         if self._start_time is None:
             return None
-        return asyncio.get_running_loop().time() - self._start_time
+        return millis() - self._start_time
     
     @property
-    def remaining(self) -> Optional[float]:
+    def remaining(self) -> Optional[int]:
         if self._start_time is None or self._paused_time is not None:
             return None
         return max(0.0, self._interval - self.elapsed)
@@ -291,7 +294,7 @@ class Timer:
     
     def __init__(
         self,
-        interval: float,
+        interval: int,
         callback: Union[Callable[[], None], Callable[[], Awaitable[None]]],
     ):
         """
@@ -307,8 +310,8 @@ class Timer:
         self._interval = interval
         self._callback = callback
         self._task: Optional[asyncio.Task[None]] = None
-        self._start_time: Optional[float] = None
-        self._paused_time: Optional[float] = None
+        self._start_time: Optional[int] = None
+        self._paused_time: Optional[int] = None
         self._lock = asyncio.Lock()
     
     async def start(self) -> None:
@@ -317,7 +320,7 @@ class Timer:
         """
         await self.cancel()  # Ensure no overlapping tasks
         async with self._lock:
-            self._start_time = asyncio.get_running_loop().time()
+            self._start_time = millis()
             self._paused_time = None
             self._task = asyncio.create_task(self._run())
     
@@ -327,7 +330,7 @@ class Timer:
         """
         async with self._lock:
             if self._task and not self._task.done() and self._paused_time is None:
-                self._paused_time = asyncio.get_running_loop().time()
+                self._paused_time = millis()
                 self._task.cancel()
                 try:
                     await self._task
@@ -342,7 +345,7 @@ class Timer:
         """
         async with self._lock:
             if self._paused_time is not None:
-                elapsed_paused = asyncio.get_running_loop().time() - self._paused_time
+                elapsed_paused = millis() - self._paused_time
                 self._start_time = (self._start_time or 0) + elapsed_paused
                 self._paused_time = None
                 self._task = asyncio.create_task(self._run())
@@ -374,10 +377,9 @@ class Timer:
                 raise RuntimeError('timer start time is not set.')
             
             while True:
-                time_to_wait = max(0.0, self._interval - self.elapsed)
-                
-                # Wait until the correct time based on the current interval
-                await asyncio.sleep(time_to_wait)
+                delay = self._interval - self.elapsed
+                if delay > 0:
+                    await asyncio.sleep(delay / 1000)
                 
                 # Invoke the callback
                 if asyncio.iscoroutinefunction(self._callback):
@@ -386,10 +388,10 @@ class Timer:
                     self._callback()
                 
                 # After firing the callback, reset the start time to the current time
-                self._start_time = asyncio.get_running_loop().time()
+                self._start_time = millis()
         except asyncio.CancelledError:
             pass
-    
+        
     async def _on_freeze(self, _):
         if not self._time_freeze:
             await self.pause()
@@ -400,7 +402,7 @@ class Timer:
             await self.resume()
             self._time_freeze = False
     
-    async def change_interval(self, new_interval: float) -> None:
+    async def change_interval(self, new_interval: int) -> None:
         """
         Change the interval while the timer is running. The callback will fire at the correct time
         accounting for the new interval.
@@ -411,9 +413,8 @@ class Timer:
             self._interval = new_interval
             if self._start_time is not None:
                 # Adjust the start time to reflect the new interval
-                elapsed_time = asyncio.get_running_loop().time() - self._start_time
-                time_to_wait = max(0.0, self._interval - elapsed_time)
-                if time_to_wait > 0.0:
+                elapsed_time = millis() - self._start_time
+                if max(0, self._interval - elapsed_time) > 0:
                     # Reschedule the callback with the new interval
                     self._task.cancel()
                     self._task = asyncio.create_task(self._run())

@@ -80,19 +80,13 @@ class FieldOutput(Identifiable):
         self._value = invert
         self._fpm = fpm
         self._flash_timer = Timer(
-            self.flash_delay,
+            500,
             self._on_flash_timer_reached_goal
         )
         self._marker = None
     
     def _on_flash_timer_reached_goal(self):
         self._value = not self._value
-        
-        if self._marker:
-            delta = millis() - self._marker
-            logger.verbose('flasher toggle took {}', format_ms(delta))
-        
-        self._marker = millis()
     
     async def set(self, state: FieldOutputState):
         if state != FieldOutputState.INHERIT:

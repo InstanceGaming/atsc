@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 from datetime import datetime
 from textual.app import ComposeResult
 from textual.widgets import Label, Static
@@ -28,15 +29,24 @@ class Banner(Static):
     def __init__(self,
                  title: str,
                  description: str | None = None,
-                 classes: str | None = None):
+                 classes: str | None = None,
+                 duration: float | None = 5.0):
         super().__init__(classes=f'banner {classes or ""}', expand=True)
         self.title = title
         self.description = description
+        self.duration = duration
+        
+        if self.duration is not None and self.duration > 0.0:
+            self.call_later(self.remove_later)
     
     def compose(self) -> ComposeResult:
         yield Label(self.title, classes='title')
         if self.description:
             yield Label(self.description)
+    
+    async def remove_later(self):
+        await asyncio.sleep(self.duration)
+        await self.remove()
 
 
 class ControllerTopbar(Static):

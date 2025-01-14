@@ -4,13 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="correct field output ids for set state again">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="field bus as controller task">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/frames.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/frames.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/components.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/components.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/tui/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/tui/core.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -266,14 +265,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00048" summary="signal service tasks pulled up to cycler">
-      <option name="closed" value="true" />
-      <created>1728843356880</created>
-      <option name="number" value="00048" />
-      <option name="presentableId" value="LOCAL-00048" />
-      <option name="project" value="LOCAL" />
-      <updated>1728843356880</updated>
     </task>
     <task id="LOCAL-00049" summary="signal recycling, field output bug fix">
       <option name="closed" value="true" />
@@ -659,7 +650,15 @@
       <option name="project" value="LOCAL" />
       <updated>1736759700803</updated>
     </task>
-    <option name="localTasksCounter" value="97" />
+    <task id="LOCAL-00097" summary="field bus as controller task">
+      <option name="closed" value="true" />
+      <created>1736833455466</created>
+      <option name="number" value="00097" />
+      <option name="presentableId" value="LOCAL-00097" />
+      <option name="project" value="LOCAL" />
+      <updated>1736833455467</updated>
+    </task>
+    <option name="localTasksCounter" value="98" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -686,7 +685,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="correct systemd service unit type" />
     <MESSAGE value="correct systemd service unit restart config" />
     <MESSAGE value="more fya logic, signal demand logic refactor" />
     <MESSAGE value="organizing, rpc poll rate, field bus task cancel handling" />
@@ -711,6 +709,7 @@
     <MESSAGE value="correct field output mapping" />
     <MESSAGE value="correct field output iteration for setting state" />
     <MESSAGE value="correct field output ids for set state again" />
-    <option name="LAST_COMMIT_MESSAGE" value="correct field output ids for set state again" />
+    <MESSAGE value="field bus as controller task" />
+    <option name="LAST_COMMIT_MESSAGE" value="field bus as controller task" />
   </component>
 </project>
