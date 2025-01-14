@@ -15,6 +15,8 @@ import abc
 import math
 from typing import List, Union, Optional
 from bitarray import bitarray
+
+from atsc.controller.models import FieldOutput
 from atsc.fieldbus.hdlc import HDLCContext
 from atsc.rpc.field_output import FieldOutput as rpc_FieldOutput
 from atsc.fieldbus.constants import FrameType
@@ -95,7 +97,7 @@ class OutputStateFrame(GenericFrame):
     
     def __init__(self,
                  address: int,
-                 fields: List[rpc_FieldOutput],
+                 fields: List[Union[rpc_FieldOutput, FieldOutput]],
                  transfer: bool):
         super(OutputStateFrame, self).__init__(address, self.VERSION, FrameType.OUTPUTS, FrameType.INPUTS)
         self.field_outputs = fields

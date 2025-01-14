@@ -12,13 +12,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-from itertools import chain
-
 import blinker
 from atsc import __version__ as atsc_version
 from loguru import logger
 from typing import Optional
-from asyncio import AbstractEventLoop, get_event_loop
+from asyncio import AbstractEventLoop
+
+from atsc.fieldbus.constants import DeviceAddress
+from atsc.fieldbus.core import FieldBus
+from atsc.fieldbus.frames import OutputStateFrame
 from atsc.rpc import controller
 from atsc.rpc import controller as rpc_controller
 from atsc.rpc.signal import SignalMetadata as rpc_SignalMetadata
@@ -101,7 +103,9 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                  time_freeze: bool = False,
                  presence_simulation: bool = False,
                  simulation_seed: Optional[int] = None,
-                 init_demand: bool = False):
+                 init_demand: bool = False,
+                 serial_port: Optional[str] = None,
+                 baud_rate: Optional[int] = None):
         AsyncDaemon.__init__(self,
                              loop,
                              shutdown_timeout=shutdown_timeout,
@@ -155,7 +159,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.STOP   : IntervalConfig(rest=True),
             SignalState.CAUTION: IntervalConfig(flashing=True)
         }
-
+        
         self.field_outputs = [
             FieldOutput(
                 f,
@@ -354,10 +358,18 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         for approach in self.simulator.approaches:
             self.add_task(approach.run(), name=f'ApproachSimulator{approach.id}.run()')
         
-        self.add_task(self.test_rpc_calls(), name='test_rpc_calls()')
-        #self.add_task(self.cycler.service(), name='IntersectionService.service()')
-        #self.add_task(self.cycler.poll(), name='IntersectionService.poll()')
+        # self.add_task(self.test_rpc_calls(), name='test_rpc_calls()')
+        # self.add_task(self.cycler.service(), name='IntersectionService.service()')
+        # self.add_task(self.cycler.poll(), name='IntersectionService.poll()')
         self.add_task(self.dummy())
+        
+        self.field_bus = None
+        if serial_port and baud_rate is not None:
+            self.field_bus = FieldBus(
+                self.loop, serial_port,
+                baud_rate,
+                truncate_field_outputs=36
+            )
         
         if init_demand:
             for phase in self.phases:
@@ -374,9 +386,17 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         
         try:
             while True:
-                await asyncio.sleep(1.0)
+                if self.field_bus is not None:
+                    frame = OutputStateFrame(DeviceAddress.TFIB1,
+                                             self.field_outputs,
+                                             True)
+                    await self.field_bus.transmit_now(frame)
+                await asyncio.sleep(POLL_RATE)
         except (asyncio.CancelledError, KeyboardInterrupt):
             pass
+        finally:
+            if self.field_bus is not None:
+                self.field_bus.close()
     
     async def test_rpc_calls(self):
         await self.get_metadata(rpc_controller.ControllerMetadataRequest())
@@ -483,7 +503,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
                 await self.presence_simulation_enabled.send_async(self)
             else:
                 await self.presence_simulation_disabled.send_async(self)
-                
+            
             return True
         return False
     
@@ -491,7 +511,7 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         self,
         request: controller.ControllerPresenceSimulationRequest
     ):
-        changed = self._set_presence_simulation(request.enabled)
+        changed = await self._set_presence_simulation(request.enabled)
         return controller.ControllerChangeVariableResult(True, changed)
     
     async def set_fya_enabled(

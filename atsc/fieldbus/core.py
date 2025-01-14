@@ -39,7 +39,7 @@ from atsc.controller.constants import POLL_RATE
 from atsc.controller.primitives import AsyncStopwatch
 
 
-class FieldBus(AsyncDaemon):
+class FieldBus:
     
     @property
     def hdlc(self):
@@ -49,13 +49,8 @@ class FieldBus(AsyncDaemon):
                  loop: asyncio.AbstractEventLoop,
                  serial_port: str,
                  baud: int,
-                 shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
-                 pid_file: Optional[str] = None,
                  truncate_field_outputs: Optional[int] = None):
-        AsyncDaemon.__init__(self,
-                             loop,
-                             shutdown_timeout=shutdown_timeout,
-                             pid_file=pid_file)
+        self.loop = loop
         self._port = serial_port
         self._baud = baud
         self._truncate_field_outputs = truncate_field_outputs
@@ -66,10 +61,10 @@ class FieldBus(AsyncDaemon):
             self._serial = AioSerial(port=self._port,
                                      baudrate=self._baud,
                                      loop=self.loop)
-            logger.info('serial bus connected ({})', self._format_param_text())
+            logger.info('serial bus connected (port={}, baud={})', self._port, self._baud)
         except ValueError as e:
             raise FieldBusError('invalid settings configured for serial bus '
-                                f'({self._format_param_text()}): {str(e)}')
+                                f'(port={self._port}, baud={self._baud}): {str(e)}')
         except serial.SerialException as e:
             raise FieldBusError(f'serial bus error: {str(e)}')
         except PermissionError:
@@ -81,8 +76,8 @@ class FieldBus(AsyncDaemon):
                                  HDLC_CRC_XOR_OUT,
                                  byte_order=BUS_BYTE_ORDER)
         
-        self.add_task(self.transmit())
-        self.add_task(self.receive())
+        # self.add_task(self.transmit())
+        # self.add_task(self.receive())
         
         self._transmit_queue: List[GenericFrame] = []
         self._counters = Counter({
@@ -92,22 +87,15 @@ class FieldBus(AsyncDaemon):
             'rx_frames': 0
         })
     
-    async def after_run(self):
+    def close(self):
         if self._serial is not None and self._serial.is_open:
             self._serial.close()
-        await super().after_run()
-    
-    def _format_param_text(self):
-        return f'port={self._port}, baud={self._baud}'
-    
-    def enqueue_frame(self, f: GenericFrame):
-        self._transmit_queue.append(f)
     
     async def transmit_now(self, f: GenericFrame):
         try:
             payload = f.build(self._hdlc)
             
-            transmit_task = asyncio.create_task(self._serial.write_async(payload))
+            transmit_task = self.loop.create_task(self._serial.write_async(payload))
             await asyncio.wait_for(transmit_task, timeout=POLL_RATE)
             
             self._counters['tx_bytes'] += len(payload)
@@ -221,20 +209,16 @@ class ControllerFieldBus(FieldBus):
                  poll_rate: float,
                  serial_port: str,
                  baud: int,
-                 shutdown_timeout: float = DAEMON_SHUTDOWN_TIMEOUT,
-                 pid_file: Optional[str] = None,
                  truncate_field_outputs: Optional[int] = None):
         super().__init__(loop,
                          serial_port=serial_port,
                          baud=baud,
-                         shutdown_timeout=shutdown_timeout,
-                         pid_file=pid_file,
                          truncate_field_outputs=truncate_field_outputs)
         self.controller = controller_rpc
         self.poll_rate = round(max(POLL_RATE, poll_rate), FLOAT_PRECISION_TIME)
         self.response_stopwatch = AsyncStopwatch()
         
-        self.add_task(self.poll_controller())
+        # self.add_task(self.poll_controller())
         self.received_frame.connect(self.frame_handler, sender=self)
     
     async def poll_controller(self):
