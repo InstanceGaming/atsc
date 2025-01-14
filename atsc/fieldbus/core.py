@@ -36,7 +36,6 @@ from atsc.common.constants import (
     DAEMON_SHUTDOWN_TIMEOUT
 )
 from atsc.controller.constants import POLL_RATE
-from atsc.controller.primitives import AsyncStopwatch
 
 
 class FieldBus:

@@ -13,6 +13,9 @@
 #  limitations under the License.
 import asyncio
 import blinker
+from jacob.datetime.formatting import format_ms
+from jacob.datetime.timing import millis
+
 from atsc import __version__ as atsc_version
 from loguru import logger
 from typing import Optional
@@ -35,7 +38,7 @@ from atsc.controller.models import (
     FieldOutput,
     IntervalConfig,
     IntervalTiming,
-    IntersectionService
+    IntersectionService, Flasher
 )
 from atsc.controller.constants import (
     POLL_RATE,
@@ -47,7 +50,7 @@ from atsc.controller.constants import (
     TrafficMovement,
     ServiceModifiers
 )
-from atsc.controller.primitives import ref, refs
+from atsc.controller.primitives import ref, refs, Identifiable
 from atsc.controller.simulation import IntersectionSimulator
 
 
@@ -161,10 +164,13 @@ class Controller(AsyncDaemon, controller.ControllerBase):
             SignalState.CAUTION: IntervalConfig(flashing=True)
         }
         
+        self.flasher_a = Flasher(98, True)
+        self.flasher_b = Flasher(99, False)
+        
         self.field_outputs = [
             FieldOutput(
                 f,
-                invert=f in (107, 110, 125, 128)
+                self.flasher_b if f in (107, 110, 125, 128) else self.flasher_a
             ) for f in range(101, 137)
         ]
         self.signals = [
@@ -388,12 +394,27 @@ class Controller(AsyncDaemon, controller.ControllerBase):
         
         try:
             while True:
+                total_marker = millis()
+                ticking_marker = millis()
+                for id, obj in Identifiable.objects.items():
+                    obj_marker = millis()
+                    obj.tick()
+                    obj_delta = millis() - obj_marker
+                    if obj_delta > 10:
+                        raise RuntimeError(f'ticking object {id} took {format_ms(obj_delta)}')
+                ticking_delta = millis() - ticking_marker
+                if ticking_delta > 50:
+                    raise RuntimeError(f'exceeded tick duration budget ({format_ms(ticking_delta)})')
+                
                 if self.field_bus is not None:
                     frame = OutputStateFrame(DeviceAddress.TFIB1,
                                              self.field_outputs,
                                              True)
                     await self.field_bus.transmit_now(frame)
-                await asyncio.sleep(POLL_RATE)
+                
+                total_delta = millis() - total_marker
+                remaining_delay = max(0, 100 - total_delta)
+                await asyncio.sleep(remaining_delay / 1000)
         except (asyncio.CancelledError, KeyboardInterrupt):
             pass
         finally:

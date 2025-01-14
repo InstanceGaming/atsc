@@ -45,11 +45,29 @@ from atsc.controller.constants import (
 )
 from jacob.datetime.formatting import format_ms
 from atsc.controller.primitives import (
-    AsyncTimer,
     EdgeTrigger,
-    Identifiable,
-    AsyncStopwatch, Timer
+    Identifiable
 )
+
+
+class Flasher(Identifiable):
+    
+    @property
+    def value(self):
+        return self._value
+    
+    def __init__(self, id: int, polarity: bool):
+        super().__init__(id)
+        self._polarity = polarity
+        self._value = polarity
+        self._counter = 5
+        
+    def tick(self):
+        self._counter -= 1
+        
+        if self._counter == 0:
+            self._value = not self._value
+            self._counter = 5
 
 
 class FieldOutput(Identifiable):
@@ -57,56 +75,43 @@ class FieldOutput(Identifiable):
     @property
     def state(self):
         return self._state
-    
+
     @property
-    def fpm(self):
-        return self._fpm
-    
-    @property
-    def flash_delay(self):
-        return (60.0 / self._fpm) / 2.0
-    
+    def state_elapsed(self):
+        return millis() - self._state_marker
+
     @property
     def value(self):
         return self._value
     
-    def __init__(self,
-                 id_: int,
-                 fpm: float = 60.0,
-                 invert: bool = False):
+    @property
+    def value_elapsed(self):
+        return millis() - self._value_marker
+    
+    def __init__(self, id_: int, flasher: Optional[Flasher] = None):
         Identifiable.__init__(self, id_)
         self._state = FieldOutputState.OFF
-        self._invert = invert
-        self._value = invert
-        self._fpm = fpm
-        self._flash_timer = Timer(
-            500,
-            self._on_flash_timer_reached_goal
-        )
-        self._marker = None
-    
-    def _on_flash_timer_reached_goal(self):
-        self._value = not self._value
+        self._value = False
+        self._flasher = flasher
+        self._state_marker = millis()
+        self._value_marker = millis()
     
     async def set(self, state: FieldOutputState):
-        if state != FieldOutputState.INHERIT:
-            before = self.state
-            if state != before:
-                match state:
-                    case FieldOutputState.OFF:
-                        await self._flash_timer.cancel()
-                        self._value = False
-                        self._marker = None
-                    case FieldOutputState.ON:
-                        if self._flash_timer.is_running:
-                            await self._flash_timer.cancel()
-                        self._value = True
-                        self._marker = None
-                    case FieldOutputState.FLASHING:
-                        self._value = self._invert
-                        await self._flash_timer.start()
-                
-                self._state = state
+        self._state = state
+        self._state_marker = millis()
+        
+        match state:
+            case FieldOutputState.OFF:
+                self._value = False
+            case FieldOutputState.ON:
+                self._value = True
+
+        self._value_marker = millis()
+    
+    def tick(self):
+        if self.state == FieldOutputState.FLASHING:
+            self._value = self._flasher.value
+            self._value_marker = millis()
     
     def __repr__(self):
         return f'<FieldOutput #{self.id} {self.state.name} {self._value}'
@@ -115,7 +120,19 @@ class FieldOutput(Identifiable):
         return rpc_FieldOutput(self.id,
                                state=self.state,
                                value=self._value,
-                               fpm=self.fpm)
+                               fpm=0)
+
+
+class AsyncStopwatch:
+    
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+class AsyncTimer:
+    
+    def __init__(self, *args, **kwargs):
+        pass
 
 
 class Signal(Identifiable):

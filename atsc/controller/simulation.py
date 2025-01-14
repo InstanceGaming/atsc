@@ -20,7 +20,7 @@ from loguru import logger
 from typing import List
 from atsc.controller.models import Signal
 from atsc.controller.constants import POLL_RATE, SignalType, SignalState
-from atsc.controller.primitives import AsyncTimer, Identifiable
+from atsc.controller.primitives import Identifiable
 
 
 def random_range_biased(start: int,

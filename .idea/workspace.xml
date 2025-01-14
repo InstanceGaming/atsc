@@ -4,11 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="millis() timer impl, tui banner timer fix">
+    <list default="true" id="05b2a9a0-bb6a-442d-8577-b166ee720a2d" name="Changes" comment="truncate field outputs arg for controller">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/atsc/controller/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/atsc/controller/primitives.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/primitives.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/controller/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/controller/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/atsc/fieldbus/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/atsc/fieldbus/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timer_play.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -25,7 +28,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="async-suite" />
+        <entry key="$PROJECT_DIR$" value="async-tuning" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -264,14 +267,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1713741084440</updated>
-    </task>
-    <task id="LOCAL-00050" summary="phase and signal recycle logic, rpc presence, presence timer">
-      <option name="closed" value="true" />
-      <created>1728864928719</created>
-      <option name="number" value="00050" />
-      <option name="presentableId" value="LOCAL-00050" />
-      <option name="project" value="LOCAL" />
-      <updated>1728864928720</updated>
     </task>
     <task id="LOCAL-00051" summary="fya draft">
       <option name="closed" value="true" />
@@ -657,7 +652,15 @@
       <option name="project" value="LOCAL" />
       <updated>1736836091460</updated>
     </task>
-    <option name="localTasksCounter" value="99" />
+    <task id="LOCAL-00099" summary="truncate field outputs arg for controller">
+      <option name="closed" value="true" />
+      <created>1736837284076</created>
+      <option name="number" value="00099" />
+      <option name="presentableId" value="LOCAL-00099" />
+      <option name="project" value="LOCAL" />
+      <updated>1736837284076</updated>
+    </task>
+    <option name="localTasksCounter" value="100" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -684,7 +687,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="more fya logic, signal demand logic refactor" />
     <MESSAGE value="organizing, rpc poll rate, field bus task cancel handling" />
     <MESSAGE value="field bus refactoring, timing adjustments" />
     <MESSAGE value="abs atsc-controller.service paths" />
@@ -709,6 +711,7 @@
     <MESSAGE value="correct field output ids for set state again" />
     <MESSAGE value="field bus as controller task" />
     <MESSAGE value="millis() timer impl, tui banner timer fix" />
-    <option name="LAST_COMMIT_MESSAGE" value="millis() timer impl, tui banner timer fix" />
+    <MESSAGE value="truncate field outputs arg for controller" />
+    <option name="LAST_COMMIT_MESSAGE" value="truncate field outputs arg for controller" />
   </component>
 </project>
