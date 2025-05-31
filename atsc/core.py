@@ -121,8 +121,6 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.PCLR,
                    PhaseState.WALK)
 
-PHASE_FLASHER_STATES = (PhaseState.FYA, PhaseState.PCLR)
-
 
 class Phase(IdentifiableBase):
     
@@ -205,7 +203,8 @@ class Phase(IdentifiableBase):
             'ped_service': 0
         })
         self.timing = timing
-        self.flasher = logic.Flasher(60.0)
+        self.ped_flasher = logic.Flasher(60.0)
+        self.fya_flasher = logic.Flasher(60.0)
         self._flash_mode = flash_mode
         self._state: PhaseState = PhaseState.STOP
         self._timer: logic.Timer = logic.Timer(0, step=constants.TIME_INCREMENT)
@@ -281,12 +280,12 @@ class Phase(IdentifiableBase):
             self._vls.a = False
             self._vls.b = False
             self._vls.c = False
-            fya = self.flasher.bit
+            fya = self.fya_flasher.bit
         elif self._state == PhaseState.PCLR:
             self._vls.a = False
             self._vls.b = False
             self._vls.c = True
-            pa = self.flasher.bit
+            pa = self.ped_flasher.bit
             pc = False
         elif self._state == PhaseState.WALK:
             self._vls.a = False
@@ -344,7 +343,8 @@ class Phase(IdentifiableBase):
             return False
     
     def tick(self, rest_inhibit: bool) -> bool:
-        self.flasher.poll(self._state in PHASE_FLASHER_STATES)
+        self.fya_flasher.poll(True)
+        self.ped_flasher.poll(self._state == PhaseState.PCLR)
         
         self.update_field()
         changed = False

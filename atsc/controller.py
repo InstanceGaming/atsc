@@ -416,6 +416,8 @@ class Controller:
         for other in self.phases:
             if other == phase:
                 continue
+            if other.state == PhaseState.CAUTION:
+                return False
             if other.active and self.checkPhaseConflict(phase, other):
                 return False
         

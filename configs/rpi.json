@@ -34,25 +34,21 @@
   "default-timing": {
     "min-stop": 1.0,
     "rclr": 1.0,
-    "go": 22.0,
+    "go": 5.0,
     "fya-delay": 4.0,
-    "max-go": 39.0,
+    "max-go": 29.0,
     "caution": 4.0,
-    "extend": 4.0,
+    "extend": 3.0,
     "pclr": 7.0,
     "walk": 5.0
   },
   "idling": {
-    "serve-delay": 1.2,
+    "serve-delay": 1.0,
     "phases": [6, 2, 1, 5]
   },
   "phases": [
     {
       "number": 1,
-      "timing": {
-        "go": 9.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 1
@@ -62,8 +58,8 @@
     {
       "number": 2,
       "timing": {
-        "go": 36.0,
-        "max-go": 54.0,
+        "go": 10.0,
+        "max-go": 59.0,
         "extend": 10.0,
         "pclr": 16.0
       },
@@ -75,10 +71,6 @@
     },
     {
       "number": 3,
-      "timing": {
-        "go": 9.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 3
@@ -87,6 +79,10 @@
     },
     {
       "number": 4,
+      "timing": {
+        "go": 8.0,
+        "max-go": 39.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 4,
@@ -95,10 +91,6 @@
     },
     {
       "number": 5,
-      "timing": {
-        "go": 9.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 7
@@ -108,8 +100,8 @@
     {
       "number": 6,
       "timing": {
-        "go": 36.0,
-        "max-go": 54.0,
+        "go": 10.0,
+        "max-go": 59.0,
         "extend": 10.0,
         "pclr": 16.0
       },
@@ -121,10 +113,6 @@
     },
     {
       "number": 7,
-      "timing": {
-        "go": 9.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 9
@@ -133,6 +121,10 @@
     },
     {
       "number": 8,
+      "timing": {
+        "go": 8.0,
+        "max-go": 39.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 10,
