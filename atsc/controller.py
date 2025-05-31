@@ -618,7 +618,7 @@ class Controller:
             
             if self.idle_phases and self.idle_timer.poll(self.idling):
                 available = []
-                if active_phases == 1:
+                if len(active_phases) == 1:
                     solo = active_phases[0]
                     partner = self.getPhasePartner(self.idle_phases, solo)
                     if partner:
