@@ -1,7 +1,7 @@
-pyserial
-crcmod
-protobuf
-netifaces
-bitarray
-loguru
-jacob[loguru] @ git+https://github.com/InstanceGaming/jacob
+pyserial==3.5
+crcmod==1.7
+protobuf==6.31.1
+netifaces==0.11.0
+bitarray==3.4.2
+loguru==0.7.3
+jacob[loguru] @ git+https://github.com/InstanceGaming/jacob@f2c7ef7
