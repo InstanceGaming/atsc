@@ -626,7 +626,7 @@ class Controller:
             for call in self.calls:
                 for phase in call.phases:
                     if self.canPhaseRun(phase):
-                        self.servePhase(phase)
+                        self.servePhase(phase, ped_service=call.ped_service)
                         now_serving.append(phase)
                         active_phases = self.getActivePhases(self.phases)
                         if len(active_phases) >= concurrent_phases:
@@ -671,7 +671,12 @@ class Controller:
                 if available:
                     logger.debug('Recall idle phases')
                     cutoff = available[:len(self.rings)]
-                    self.placeCall(cutoff, note='idle')
+                    
+                    ped_service = False
+                    if self.random_enabled:
+                        ped_service = bool(round(self.randomizer.random()))
+                    
+                    self.placeCall(cutoff, ped_service=ped_service, note='idle')
                 
                 self.idle_timer.reset()
         elif self.mode == OperationMode.CET:

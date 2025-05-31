@@ -121,6 +121,8 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.PCLR,
                    PhaseState.WALK)
 
+PHASE_FLASHER_STATES = (PhaseState.FYA, PhaseState.PCLR)
+
 
 class Phase(IdentifiableBase):
     
@@ -312,23 +314,26 @@ class Phase(IdentifiableBase):
             next_state = self.getNextState(ped_service, activation=activation)
         
         if next_state != self._state:
-            self._ped_service = next_state == PhaseState.WALK
             self._timer.reset()
+
+            match next_state:
+                case PhaseState.WALK:
+                    self._ped_service = True
+                case PhaseState.STOP:
+                    self._ped_service = False
+                    self.extend_inhibit = False
+                case PhaseState.GO:
+                    setpoint = self.timing[PhaseState.GO]
+                    setpoint -= self.timing[PhaseState.CAUTION]
+                    
+                    if self.ped_service:
+                        walk_time = self.timing[PhaseState.WALK]
+                        pclr_time = self.timing[PhaseState.PCLR]
+                        setpoint -= (walk_time + pclr_time)
+                    
+                    self.stats['vehicle_service'] += 1
             
-            if next_state == PhaseState.STOP:
-                self.extend_inhibit = False
-            
-            if next_state == PhaseState.GO:
-                setpoint = self.timing[PhaseState.GO]
-                setpoint -= self.timing[PhaseState.CAUTION]
-                
-                if self.ped_service:
-                    walk_time = self.timing[PhaseState.WALK]
-                    pclr_time = self.timing[PhaseState.PCLR]
-                    setpoint -= (walk_time + pclr_time)
-                
-                self.stats['vehicle_service'] += 1
-            elif next_state in PHASE_TIMED_STATES:
+            if next_state in PHASE_TIMED_STATES:
                 setpoint = self.timing.get(next_state, 0.0)
                 
                 if self.ped_service:
@@ -342,7 +347,7 @@ class Phase(IdentifiableBase):
             return False
     
     def tick(self, rest_inhibit: bool) -> bool:
-        self.flasher.poll(True)
+        self.flasher.poll(self._state in PHASE_FLASHER_STATES)
         
         self.update_field()
         changed = False
@@ -367,10 +372,10 @@ class Phase(IdentifiableBase):
                 if rest_inhibit:
                     changed = self.change()
 
-        if self._state == PhaseState.FYA and self.fya_phase.state == PhaseState.CAUTION:
-            changed = self.change()
-
-        if (
+        if self._state == PhaseState.FYA:
+            if self.fya_phase.state <= PhaseState.CAUTION:
+                changed = self.change()
+        elif (
             self.fya_phase is not None and
             self._state == PhaseState.STOP and
             self._timer.elapsed > self.timing[PhaseState.FYA_DELAY]
