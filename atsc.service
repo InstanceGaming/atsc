@@ -1,19 +1,17 @@
 [Unit]
 Description=Actuated Traffic Signal Controller (ATSC)
-StartLimitBurst=5
-StartLimitIntervalSec=80s
 
 [Service]
 Type=forking
-
 WorkingDirectory=%h/atsc/
 ExecStart=%h/atsc/start.sh
 ExecStop=%h/atsc/stop.sh
-
+PIDFile=%h/atsc/atsc.pid
+WatchdogSec=1s
+NotifyAccess=all
 Restart=on-abnormal
 TimeoutSec=16
 RestartSec=16
-
 MemoryMax=256M
 CPUQuota=50%
 

@@ -316,28 +316,25 @@ class Phase(IdentifiableBase):
         if next_state != self._state:
             self._timer.reset()
 
-            match next_state:
-                case PhaseState.WALK:
-                    self._ped_service = True
-                case PhaseState.STOP:
-                    self._ped_service = False
-                    self.extend_inhibit = False
-                case PhaseState.GO:
+            if next_state == PhaseState.STOP:
+                self._ped_service = False
+                self.extend_inhibit = False
+            elif next_state in PHASE_TIMED_STATES:
+                if next_state == PhaseState.GO:
                     setpoint = self.timing[PhaseState.GO]
-                    setpoint -= self.timing[PhaseState.CAUTION]
                     
                     if self.ped_service:
                         walk_time = self.timing[PhaseState.WALK]
                         pclr_time = self.timing[PhaseState.PCLR]
-                        setpoint -= (walk_time + pclr_time)
+                        setpoint = max(0.0, setpoint - (walk_time + pclr_time))
                     
                     self.stats['vehicle_service'] += 1
-            
-            if next_state in PHASE_TIMED_STATES:
-                setpoint = self.timing.get(next_state, 0.0)
-                
-                if self.ped_service:
-                    self.stats['ped_service'] += 1
+                else:
+                    setpoint = self.timing.get(next_state, 0.0)
+                    
+                    if next_state == PhaseState.WALK:
+                        self._ped_service = True
+                        self.stats['ped_service'] += 1
                 
                 self.setpoint = round(setpoint, 1)
 

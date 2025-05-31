@@ -26,6 +26,8 @@ from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.timing import seconds
 from jacob.datetime.formatting import format_dhms
 
+from atsc.watchdog import SystemdWatchdog
+
 
 VERSION = '2.0.1'
 PID_FILE = 'atsc.pid'
@@ -49,6 +51,9 @@ def get_cli_args():
     parser.add_argument('--pid',
                         dest='pid_path',
                         help='PID file path.')
+    parser.add_argument('--systemd-watchdog-socket',
+                        dest='systemd_watchdog_socket',
+                        help='Systemd watchdog socket path.')
     parser.add_argument('-l', '--levels',
                         dest='log_levels',
                         default=RECOMMENDED_LEVELS,
@@ -76,6 +81,7 @@ def generate_pid(path: Optional[Path]) -> Optional[TextIO]:
         logger.info(f'PID {pid} (file disabled)')
     else:
         try:
+            os.makedirs(path.parent, exist_ok=True)
             file = open(path, 'x')
         except FileExistsError:
             logger.error(f'Already running ({path})')
@@ -125,7 +131,7 @@ def run():
     logger.info(f'Logging levels {levels_notation}')
     
     time_base = cla.get('time_base')
-    if time_base:
+    if time_base is not None:
         if abs(constants.TIME_BASE - time_base) > 0.001:
             logger.warning('Running with an altered time base {}', time_base)
         constants.TIME_BASE = time_base
@@ -171,10 +177,16 @@ def run():
         else:
             logger.debug('Dynamic validation analysis passed')
     
+    systemd_watchdog_socket = cla['systemd_watchdog_socket']
+    if systemd_watchdog_socket is not None:
+        systemd_watchdog = SystemdWatchdog(systemd_watchdog_socket)
+    else:
+        systemd_watchdog = None
+    
     start_marker = seconds()
     logger.info(dt.now().strftime('Started at %b %d %Y %I:%M %p'))
     
-    controller = Controller(config)
+    controller = Controller(config, watchdog=systemd_watchdog)
     try:
         controller.run()
     except KeyboardInterrupt:
@@ -185,6 +197,7 @@ def run():
     logger.info(f'Runtime of {ed} days, {eh} hours, {em} minutes and {es} seconds')
     
     cleanup_pid(pid_path, pid_file)
+    return 0
 
 
 if __name__ == '__main__':

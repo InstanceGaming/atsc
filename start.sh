@@ -12,4 +12,5 @@ then
   fi
 fi
 
-screen -dmS $ATSC_SCREEN "$INTERPRETER_PATH" -OO -m atsc.main -l "FIELDS,WARNING;stderr=ERROR;file=INFO,ERROR" "$ATSC_DIR/configs/rpi.json"
+rm "$ATSC_PID_FILE"
+screen -dmS $ATSC_SCREEN "$INTERPRETER_PATH" -OO -m atsc.main -l "FIELDS,WARNING;stderr=ERROR;file=INFO,ERROR" --pid "$ATSC_PID_FILE" "$ATSC_DIR/configs/rpi.json"

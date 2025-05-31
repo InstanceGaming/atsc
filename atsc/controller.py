@@ -22,6 +22,7 @@ from atsc.utils import buildFieldMessage
 from jacob.text import post_pend
 from atsc.frames import FrameType, DeviceAddress, OutputStateFrame
 from jacob.enumerations import text_to_enum
+from atsc.watchdog import SystemdWatchdog
 
 
 class Controller:
@@ -30,9 +31,14 @@ class Controller:
     def idling(self):
         return not len(self.calls)
     
-    def __init__(self, config: dict):
+    def __init__(self,
+                 config: dict,
+                 watchdog: Optional[SystemdWatchdog] = None):
         # controller name (arbitrary)
         self.name = config['device']['name']
+
+        # send datagrams over socket to systemd
+        self.watchdog = watchdog
         
         # should place calls on all phases when started?
         self.recall_all = config['init']['recall-all']
@@ -739,15 +745,24 @@ class Controller:
                 logger.info(f'Bus ready')
             
             self.setOperationState(self.mode)
+            
+            if self.watchdog is not None:
+                self.watchdog.ready()
+            
             self.transfer()
             while True:
                 self.tick()
+                if self.watchdog is not None:
+                    self.watchdog.feed()
                 time.sleep(constants.TIME_BASE)
     
     def shutdown(self):
         """Run termination tasks to stop control loop"""
         self.untransfer()
         self.running = False
+        
+        if self.watchdog is not None:
+            self.watchdog.unready()
         
         if self.bus is not None:
             logger.info('Stopping bus')
