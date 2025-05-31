@@ -125,6 +125,10 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
 class Phase(IdentifiableBase):
     
     @property
+    def ped_service(self):
+        return self._ped_service
+    
+    @property
     def extend_enabled(self):
         return self.timing[PhaseState.EXTEND] > 0.0 and not self.extend_inhibit
     
@@ -191,7 +195,7 @@ class Phase(IdentifiableBase):
                  flash_mode: FlashMode = FlashMode.RED,
                  fya_phase: Optional['Phase'] = None):
         super().__init__(id_)
-        self.ped_service: bool = True
+        self._ped_service: bool = False
         self.extend_inhibit = False
         self.stats = Counter({
             'detections': 0,
@@ -241,11 +245,11 @@ class Phase(IdentifiableBase):
         if self.extend_active:
             self._timer.reset()
     
-    def activate(self):
+    def activate(self, ped_service: bool = False):
         if self.active:
             raise RuntimeError('Cannot activate active phase')
         
-        changed = self.change(activation=True)
+        changed = self.change(activation=True, ped_service=ped_service)
         assert changed
     
     def update_field(self):
@@ -298,15 +302,17 @@ class Phase(IdentifiableBase):
     
     def change(self,
                force_state: Optional[PhaseState] = None,
-               activation: bool = False) -> bool:
+               activation: bool = False,
+               ped_service: bool = False) -> bool:
         if force_state is not None:
             if force_state == PhaseState.FYA:
                 assert self.fya_phase is not None
             next_state = force_state
         else:
-            next_state = self.getNextState(self.ped_service, activation=activation)
+            next_state = self.getNextState(ped_service, activation=activation)
         
         if next_state != self._state:
+            self._ped_service = next_state == PhaseState.WALK
             self._timer.reset()
             
             if next_state == PhaseState.STOP:
@@ -316,7 +322,7 @@ class Phase(IdentifiableBase):
                 setpoint = self.timing[PhaseState.GO]
                 setpoint -= self.timing[PhaseState.CAUTION]
                 
-                if self.ped_ls is not None and self.ped_service:
+                if self.ped_service:
                     walk_time = self.timing[PhaseState.WALK]
                     pclr_time = self.timing[PhaseState.PCLR]
                     setpoint -= (walk_time + pclr_time)
@@ -325,7 +331,7 @@ class Phase(IdentifiableBase):
             elif next_state in PHASE_TIMED_STATES:
                 setpoint = self.timing.get(next_state, 0.0)
                 
-                if next_state == PhaseState.WALK:
+                if self.ped_service:
                     self.stats['ped_service'] += 1
                 
                 self.setpoint = round(setpoint, 1)
@@ -364,7 +370,11 @@ class Phase(IdentifiableBase):
         if self._state == PhaseState.FYA and self.fya_phase.state == PhaseState.CAUTION:
             changed = self.change()
 
-        if self.fya_phase is not None and self._state == PhaseState.STOP:
+        if (
+            self.fya_phase is not None and
+            self._state == PhaseState.STOP and
+            self._timer.elapsed > self.timing[PhaseState.FYA_DELAY]
+        ):
             if (
                 self.fya_phase.state == PhaseState.GO and
                 self.fya_phase.elapsed > self.timing[PhaseState.FYA_DELAY]
@@ -398,8 +408,9 @@ class Call:
     def phase_tags_list(self):
         return csl([phase.getTag() for phase in self.phases])
     
-    def __init__(self, phases: List[Phase]):
+    def __init__(self, phases: List[Phase], ped_service: bool = False):
         self.phases = phases.copy()
+        self.ped_service = ped_service
         self.age = 0.0
     
     def __contains__(self, item):

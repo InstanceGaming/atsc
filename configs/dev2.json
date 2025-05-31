@@ -21,7 +21,7 @@
   },
   "bus": {
     "enabled": true,
-    "port": "/dev/ttyAMA0",
+    "port": "COM4",
     "baud": 115200,
     "response-attempts": 5
   },
