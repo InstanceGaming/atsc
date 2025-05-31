@@ -15,7 +15,7 @@ import time
 import socket
 import atsc.proto.controller_pb2 as pb
 from loguru import logger
-from typing import List, Tuple, Optional
+from typing import List, Optional
 from atsc.core import Phase, LoadSwitch
 from threading import Thread
 from jacob.text import format_byte_size
@@ -58,7 +58,7 @@ class Monitor(Thread):
         for ph in self.phases:
             phase_pb = control_pb.phases.add()
             phase_pb.flash_mode = ph.flash_mode.value
-            phase_pb.fya_setting = 0
+            phase_pb.fya_setting = 1 if ph.fya_phase is not None else 0
             phase_pb.vehicle_ls = ph.veh_ls.id
             if ph.ped_ls is not None:
                 phase_pb.ped_ls = ph.ped_ls.id

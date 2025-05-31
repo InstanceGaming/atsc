@@ -21,8 +21,8 @@ from bitarray import bitarray
 from atsc.utils import buildFieldMessage
 from jacob.text import post_pend
 from atsc.frames import FrameType, DeviceAddress, OutputStateFrame
-from jacob.enumerations import text_to_enum
 from atsc.watchdog import SystemdWatchdog
+from jacob.enumerations import text_to_enum
 
 
 class Controller:

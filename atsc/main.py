@@ -20,15 +20,13 @@ from typing import TextIO, Optional
 from pathlib import Path
 from datetime import datetime as dt
 from threading import main_thread
-from jacob.logging import CustomLevel, setup_logger, RECOMMENDED_LEVELS
-
+from atsc.watchdog import SystemdWatchdog
+from jacob.logging import RECOMMENDED_LEVELS, CustomLevel, setup_logger
 from atsc.constants import SYSTEMD_NOTIFY_SOCKET_ENV_KEY
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.timing import seconds
 from jacob.datetime.formatting import format_dhms
-
-from atsc.watchdog import SystemdWatchdog
 
 
 VERSION = '2.1.0'

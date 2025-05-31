@@ -15,9 +15,9 @@ enum PhaseState {
   CAUTION = 6;
   EXTEND = 8;
   GO = 10;
+  FYA = 11;
   PCLR = 12;
   WALK = 14;
-  FYA = 16;
 }
 
 enum PhaseStatus {
