@@ -20,7 +20,7 @@ from typing import TextIO, Optional
 from pathlib import Path
 from datetime import datetime as dt
 from threading import main_thread
-from jacob.logging import CustomLevel, setup_logger
+from jacob.logging import CustomLevel, setup_logger, RECOMMENDED_LEVELS
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.timing import seconds
@@ -33,21 +33,15 @@ WELCOME_MSG = f'Actuated Traffic Signal Controller v{VERSION} by Jacob Jewett'
 CONFIG_SCHEMA_CHECK = True
 CONFIG_LOGIC_CHECK = True
 CUSTOM_LOG_LEVELS = {
-    CustomLevel(10, 'bus_tx'),
-    CustomLevel(11, 'bus_rx'),
-    CustomLevel(12, 'bus'),
-    CustomLevel(20, 'net'),
-    CustomLevel(25, 'fields'),
-    CustomLevel(35, 'verbose'),
-    CustomLevel(40, 'debug'),
-    CustomLevel(50, 'info'),
-    CustomLevel(90, 'warning'),
-    CustomLevel(100, 'error'),
-    CustomLevel(200, 'critical')
+    CustomLevel(1, 'BUS_TX'),
+    CustomLevel(2, 'BUS_RX'),
+    CustomLevel(3, 'BUS'),
+    CustomLevel(4, 'NET'),
+    CustomLevel(5, 'FIELDS'),
+    CustomLevel(8, 'VERBOSE')
 }
 
 logger = loguru.logger
-DEFAULT_LEVELS = 'debug,warning;stderr=error,critical;file=info,critical'
 
 
 def get_cli_args():
@@ -57,7 +51,7 @@ def get_cli_args():
                         help='PID file path.')
     parser.add_argument('-l', '--levels',
                         dest='log_levels',
-                        default=DEFAULT_LEVELS,
+                        default=RECOMMENDED_LEVELS,
                         help='Specify logging levels.')
     parser.add_argument('-L', '--log',
                         dest='log_file',
