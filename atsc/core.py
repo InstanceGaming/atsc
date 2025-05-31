@@ -97,9 +97,11 @@ class PhaseState(IntEnum):
     CAUTION = 6
     EXTEND = 8
     GO = 10
+    FYA = 11
     PCLR = 12
     WALK = 14
     MAX_GO = 32
+    FYA_DELAY = 33
 
 
 PHASE_RIGID_STATES = (PhaseState.CAUTION, PhaseState.PCLR)
@@ -111,7 +113,8 @@ PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
                       PhaseState.GO,
                       PhaseState.PCLR,
                       PhaseState.WALK,
-                      PhaseState.MAX_GO)
+                      PhaseState.MAX_GO,
+                      PhaseState.FYA_DELAY)
 
 PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.GO,
@@ -185,7 +188,8 @@ class Phase(IdentifiableBase):
                  timing: Dict[PhaseState, float],
                  veh_ls: LoadSwitch,
                  ped_ls: Optional[LoadSwitch],
-                 flash_mode: FlashMode = FlashMode.RED):
+                 flash_mode: FlashMode = FlashMode.RED,
+                 fya_phase: Optional['Phase'] = None):
         super().__init__(id_)
         self.ped_service: bool = True
         self.extend_inhibit = False
@@ -201,9 +205,10 @@ class Phase(IdentifiableBase):
         self._timer: logic.Timer = logic.Timer(0, step=constants.TIME_INCREMENT)
         self._vls = veh_ls
         self._pls = ped_ls
+        self.fya_phase = fya_phase
         self._validate_timing()
     
-    def getNextState(self, ped_service: bool) -> PhaseState:
+    def getNextState(self, ped_service: bool, activation: bool = False) -> PhaseState:
         if self._state == PhaseState.STOP:
             if self.ped_ls is not None and ped_service:
                 return PhaseState.WALK
@@ -218,6 +223,11 @@ class Phase(IdentifiableBase):
         elif self._state == PhaseState.GO:
             if self.extend_enabled:
                 return PhaseState.EXTEND
+            else:
+                return PhaseState.CAUTION
+        elif self._state == PhaseState.FYA:
+            if activation and not ped_service:
+                return PhaseState.GO
             else:
                 return PhaseState.CAUTION
         elif self._state == PhaseState.PCLR:
@@ -235,13 +245,13 @@ class Phase(IdentifiableBase):
         if self.active:
             raise RuntimeError('Cannot activate active phase')
         
-        changed = self.change()
+        changed = self.change(activation=True)
         assert changed
-        
+    
     def update_field(self):
         pa = False
-        pb = False
         pc = False
+        fya = False
         
         if self._state == PhaseState.STOP or self._state == PhaseState.RCLR:
             self._vls.a = True
@@ -261,6 +271,11 @@ class Phase(IdentifiableBase):
             self._vls.c = True
             pa = True
             pc = False
+        elif self._state == PhaseState.FYA:
+            self._vls.a = False
+            self._vls.b = False
+            self._vls.c = False
+            fya = self.flasher.bit
         elif self._state == PhaseState.PCLR:
             self._vls.a = False
             self._vls.b = False
@@ -274,13 +289,22 @@ class Phase(IdentifiableBase):
             pa = False
             pc = True
         
+        if self.fya_phase is not None:
+            self.fya_phase.ped_ls.b = fya
+        
         if self._pls is not None:
             self._pls.a = pa
-            self._pls.b = pb
             self._pls.c = pc
     
-    def change(self, force_state: Optional[PhaseState] = None) -> bool:
-        next_state = force_state if force_state is not None else self.getNextState(self.ped_service)
+    def change(self,
+               force_state: Optional[PhaseState] = None,
+               activation: bool = False) -> bool:
+        if force_state is not None:
+            if force_state == PhaseState.FYA:
+                assert self.fya_phase is not None
+            next_state = force_state
+        else:
+            next_state = self.getNextState(self.ped_service, activation=activation)
         
         if next_state != self._state:
             self._timer.reset()
@@ -298,30 +322,27 @@ class Phase(IdentifiableBase):
                     setpoint -= (walk_time + pclr_time)
                 
                 self.stats['vehicle_service'] += 1
-            else:
+            elif next_state in PHASE_TIMED_STATES:
                 setpoint = self.timing.get(next_state, 0.0)
                 
                 if next_state == PhaseState.WALK:
                     self.stats['ped_service'] += 1
-            
-            if next_state in PHASE_TIMED_STATES:
-                assert setpoint >= 0.0
-            
+                
+                self.setpoint = round(setpoint, 1)
+
             self._state = next_state
-            self.setpoint = round(setpoint, 1)
             return True
         else:
             return False
     
     def tick(self, rest_inhibit: bool) -> bool:
-        flashing = self._state == PhaseState.PCLR
-        self.flasher.poll(flashing)
+        self.flasher.poll(True)
         
         self.update_field()
         changed = False
         
         if self._timer.poll(True):
-            if self.active:
+            if self.active and self._state in PHASE_TIMED_STATES:
                 if (self._state in PHASE_RIGID_STATES) or rest_inhibit:
                     walking = self._state == PhaseState.WALK
                     if walking:
@@ -339,6 +360,16 @@ class Phase(IdentifiableBase):
             if self.elapsed > self.timing[PhaseState.MAX_GO]:
                 if rest_inhibit:
                     changed = self.change()
+
+        if self._state == PhaseState.FYA and self.fya_phase.state == PhaseState.CAUTION:
+            changed = self.change()
+
+        if self.fya_phase is not None and self._state == PhaseState.STOP:
+            if (
+                self.fya_phase.state == PhaseState.GO and
+                self.fya_phase.elapsed > self.timing[PhaseState.FYA_DELAY]
+            ):
+                changed = self.change(force_state=PhaseState.FYA)
         
         return changed
     

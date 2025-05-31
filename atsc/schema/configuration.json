@@ -158,10 +158,11 @@
         "go",
         "pclr",
         "walk",
-        "max-go"
+        "max-go",
+        "fya-delay"
       ],
       "properties": {
-        "^min-stop|rclr|caution|extend|go|pclr|walk|max-go$": {
+        "^min-stop|rclr|caution|extend|go|pclr|walk|max-go|fya-delay$": {
           "type": "number",
           "minimum": 0,
           "maximum": 999
@@ -228,6 +229,9 @@
                 "minimum": 1
               }
             }
+          },
+          "fya-phase": {
+            "type": "integer"
           }
         }
       }

@@ -103,6 +103,7 @@ class Controller:
                   configuration_node: List[Dict],
                   default_timing: Dict[PhaseState, float]) -> List[Phase]:
         phases = []
+        fya_phases = {}
         
         for i, node in enumerate(configuration_node, start=1):
             flash_mode_text = node['flash-mode']
@@ -122,8 +123,29 @@ class Controller:
             ped = None
             if ped_index is not None:
                 ped = self.getLoadSwitchById(ped_index)
+            
+            fya_phase_id = node.get('fya-phase')
+            if fya_phase_id is not None:
+                fya_phases.update({i: fya_phase_id})
+            
             phase = Phase(i, phase_timing, veh, ped, flash_mode)
             phases.append(phase)
+        
+        for phase_id, fya_phase_id in fya_phases.items():
+            assert fya_phase_id != phase_id
+            for phase in phases:
+                if phase.id == phase_id:
+                    for other_phase in phases:
+                        if other_phase.id == fya_phase_id:
+                            if phase.fya_phase is not None:
+                                raise RuntimeError('FYA phase already set to '
+                                                   f'{phase.fya_phase.id} for '
+                                                   f'phase {phase_id}')
+                            phase.fya_phase = other_phase
+                            break
+                    else:
+                        raise ValueError(f'could not find FYA phase {fya_phase_id}')
+                    break
         
         return sorted(phases)
     
@@ -272,14 +294,20 @@ class Controller:
         assert phases
         note_text = post_pend(note, note)
         
+        fya_phases = []
+        for phase in phases:
+            if phase.state == PhaseState.FYA:
+                logger.debug(f'Omitting phase {phase.id} from new '
+                             'call because of current FYA state')
+                fya_phases.append(phase)
+        
+        phases = [p for p in phases if p not in fya_phases]
+        
         exists = any([phase in call for call in self.calls for phase in phases])
         if not exists:
             call = Call(phases)
             logger.debug(f'Call placed for {call.phase_tags_list}{note_text}')
             self.calls.append(call)
-            
-            for phase in call.phases:
-                phase.stats['detections'] += 1
     
     def placeAllCall(self):
         """Place calls on all phases"""
@@ -287,6 +315,9 @@ class Controller:
     
     def detection(self, phases: List[Phase], note: Optional[str] = None):
         note_text = post_pend(note, note)
+        
+        for phase in phases:
+            phase.stats['detections'] += 1
         
         if all([phase.state not in PHASE_GO_STATES for phase in phases]):
             self.placeCall(phases, note)
@@ -297,8 +328,6 @@ class Controller:
                     
                     if phase.extend_active:
                         phase.gap_reset()
-                    
-                    phase.stats['detections'] += 1
                 else:
                     self.placeCall(phases, note)
     
