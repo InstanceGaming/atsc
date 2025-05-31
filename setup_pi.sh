@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source ./env_pi.sh
+source ./env_linux.sh
 
 if ! [ -x "$INTERPRETER_PATH" ];
 then

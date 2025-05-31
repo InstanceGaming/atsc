@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source ./env_pi.sh
+source ./env_linux.sh
 
 if ! [ -x "$INTERPRETER_PATH" ];
 then
@@ -12,4 +12,4 @@ then
   fi
 fi
 
-$INTERPRETER_PATH -m atsc.main -l "0,WARNING;stderr=ERROR;file=0,ERROR" "$ATSC_DIR/configs/rpi.json"
+screen -dmS $ATSC_SCREEN "$INTERPRETER_PATH" -OO -m atsc.main -l "FIELDS,WARNING;stderr=ERROR;file=INFO,ERROR" "$ATSC_DIR/configs/rpi.json"

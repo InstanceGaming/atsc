@@ -4,15 +4,18 @@ StartLimitBurst=5
 StartLimitIntervalSec=80s
 
 [Service]
-Type=simple
-TimeoutSec=10
+Type=forking
 
 WorkingDirectory=%h/atsc/
-ExecStart=%h/atsc/run_pi.sh
+ExecStart=%h/atsc/start.sh
+ExecStop=%h/atsc/stop.sh
 
-TimeoutStopSec=5
 Restart=on-abnormal
+TimeoutSec=16
 RestartSec=16
+
+MemoryMax=256M
+CPUQuota=50%
 
 [Install]
 WantedBy=default.target
