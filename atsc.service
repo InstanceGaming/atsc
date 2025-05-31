@@ -4,15 +4,14 @@ StartLimitBurst=5
 StartLimitIntervalSec=80s
 
 [Service]
-Type=forking
+Type=simple
 TimeoutSec=10
 
-WorkingDirectory=/home/atsc/atsc/
-ExecStart=/home/atsc/atsc/run_pi.sh
-PIDFile=/home/atsc/atsc/atsc.pid
+WorkingDirectory=%h/atsc/
+ExecStart=%h/atsc/run_pi.sh
 
 TimeoutStopSec=5
-Restart=always
+Restart=on-abnormal
 RestartSec=16
 
 [Install]
