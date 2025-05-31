@@ -26,6 +26,7 @@ class SystemdWatchdog:
     def unready(self):
         self.send('READY=0')
     
-    def shutdown(self):
+    def close(self):
+        self.unready()
         self._running = False
         self._socket.close()

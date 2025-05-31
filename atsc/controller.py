@@ -761,7 +761,8 @@ class Controller:
         self.running = False
         
         if self.watchdog is not None:
-            self.watchdog.unready()
+            logger.info('Closing systemd watchdog socket')
+            self.watchdog.close()
         
         if self.bus is not None:
             logger.info('Stopping bus')

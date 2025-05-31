@@ -31,7 +31,7 @@ from jacob.datetime.formatting import format_dhms
 from atsc.watchdog import SystemdWatchdog
 
 
-VERSION = '2.0.1'
+VERSION = '2.1.0'
 PID_FILE = 'atsc.pid'
 WELCOME_MSG = f'Actuated Traffic Signal Controller v{VERSION} by Jacob Jewett'
 CONFIG_SCHEMA_CHECK = True
