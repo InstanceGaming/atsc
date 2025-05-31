@@ -13,10 +13,10 @@
 #  limitations under the License.
 import time
 import random
-from typing import Iterable
 from atsc.core import *
-from atsc import logic, network, serialbus, constants
+from atsc import logic, network, constants, serialbus
 from loguru import logger
+from typing import Iterable
 from bitarray import bitarray
 from atsc.utils import buildFieldMessage
 from jacob.text import post_pend

@@ -11,11 +11,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from atsc import logic
+from atsc import logic, constants
 from enum import IntEnum
 from loguru import logger
 from typing import Dict, List, Optional
-from atsc import constants
 from atsc.logic import EdgeTrigger
 from jacob.text import csl
 from collections import Counter

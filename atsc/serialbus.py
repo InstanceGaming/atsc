@@ -13,18 +13,16 @@
 #  limitations under the License.
 
 import time
-from dataclasses import dataclass
-
 import serial
-from jacob.text import format_binary_literal
-
 from atsc import hdlc
 from loguru import logger
 from serial import SerialException
 from typing import Dict, List, Optional
 from threading import Lock, Thread
+from jacob.text import format_binary_literal
 from atsc.frames import FrameType, GenericFrame, DeviceAddress
 from collections import defaultdict
+from dataclasses import dataclass
 from jacob.datetime.timing import millis
 
 
