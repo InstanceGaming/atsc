@@ -21,6 +21,8 @@ from pathlib import Path
 from datetime import datetime as dt
 from threading import main_thread
 from jacob.logging import CustomLevel, setup_logger, RECOMMENDED_LEVELS
+
+from atsc.constants import SYSTEMD_NOTIFY_SOCKET_ENV_KEY
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.timing import seconds
@@ -51,9 +53,6 @@ def get_cli_args():
     parser.add_argument('--pid',
                         dest='pid_path',
                         help='PID file path.')
-    parser.add_argument('--systemd-watchdog-socket',
-                        dest='systemd_watchdog_socket',
-                        help='Systemd watchdog socket path.')
     parser.add_argument('-l', '--levels',
                         dest='log_levels',
                         default=RECOMMENDED_LEVELS,
@@ -177,10 +176,12 @@ def run():
         else:
             logger.debug('Dynamic validation analysis passed')
     
-    systemd_watchdog_socket = cla['systemd_watchdog_socket']
+    systemd_watchdog_socket = os.getenv(SYSTEMD_NOTIFY_SOCKET_ENV_KEY)
     if systemd_watchdog_socket is not None:
+        logger.info('SystemD watchdog subsystem ENABLED')
         systemd_watchdog = SystemdWatchdog(systemd_watchdog_socket)
     else:
+        logger.info('SystemD watchdog subsystem DISABLED')
         systemd_watchdog = None
     
     start_marker = seconds()

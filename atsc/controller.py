@@ -738,11 +738,10 @@ class Controller:
             if self.bus is not None:
                 self.bus.start()
                 
+                logger.trace('Waiting on bus...')
                 while not self.bus.ready:
-                    logger.info(f'Waiting on bus...')
                     time.sleep(constants.TIME_BASE)
-                
-                logger.info(f'Bus ready')
+                logger.info('Bus ready')
             
             self.setOperationState(self.mode)
             
