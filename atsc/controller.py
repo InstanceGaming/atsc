@@ -675,7 +675,6 @@ class Controller:
                         
                         self.servePhase(partner)
                         now_serving.append(partner)
-                        active_phases = self.getActivePhases(self.phases)
             
             for phase in now_serving:
                 for call in self.calls:
@@ -696,7 +695,7 @@ class Controller:
                     if self.barrier:
                         self.setBarrier(None, note='no available phases')
                     
-                    if self.barrier is None and not active_phases:
+                    if self.barrier is None:
                         pool_ids = set(self.phase_pool)
                         called_ids = set(self.getCalledPhaseIds())
                         if not pool_ids.intersection(called_ids):
