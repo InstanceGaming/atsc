@@ -656,7 +656,7 @@ class Controller:
                 for phase in call.phases:
                     if self.canPhaseRun(phase,
                                         call.ped_service,
-                                        False):
+                                        self.barrier is None):
                         self.servePhase(phase, ped_service=call.ped_service)
                         now_serving.append(phase)
                         active_phases = self.getActivePhases(self.phases)

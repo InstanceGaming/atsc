@@ -249,8 +249,12 @@ class Phase(IdentifiableBase):
         self.setpoint = round(self.timing.get(PhaseState.MIN_STOP, 0.0), 1)
     
     def getGoTime(self, ped_service: bool):
-        pclr = self.timing.get(PhaseState.PCLR, 0.0)
-        walk = self.timing.get(PhaseState.WALK, 0.0)
+        if self.secondary:
+            pclr = 0.0
+            walk = 0.0
+        else:
+            pclr = self.timing.get(PhaseState.PCLR, 0.0)
+            walk = self.timing.get(PhaseState.WALK, 0.0)
         
         go = self.timing.get(PhaseState.GO, 0.0)
         if ped_service:
