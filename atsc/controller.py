@@ -80,6 +80,7 @@ class Controller:
         self.last_input_bitfield: Optional[bitarray] = bitarray()
         
         # communications
+        self._last_fields_message = ''
         self.bus: Optional[serialbus.Bus] = self.getBus(config['bus'])
         self.monitor: Optional[network.Monitor] = self.getNetworkMonitor(config['network'])
         
@@ -399,7 +400,8 @@ class Controller:
     
     def canPhaseRun(self, phase: Phase) -> bool:
         if phase.active:
-            return False
+            if phase.state != PhaseState.FYA:
+                return False
         
         min_stop = phase.timing[PhaseState.MIN_STOP]
         if min_stop > 0.0 and phase.elapsed < min_stop:
@@ -587,8 +589,6 @@ class Controller:
             self.handleBusFrame()
         
         if self.mode == OperationMode.NORMAL:
-            concurrent_phases = len(self.rings)
-            
             for phase in self.phases:
                 conflicting_demand = self.checkPhaseConflictingDemand(phase)
                 if phase.tick(conflicting_demand):
@@ -615,6 +615,7 @@ class Controller:
                     else:
                         self.resetPhasePool()
             
+            concurrent_phases = len(self.rings)
             active_phases = self.getActivePhases(self.phases)
             now_serving = []
             for call in self.calls:
@@ -660,7 +661,10 @@ class Controller:
         if self.monitor is not None:
             self.monitor.broadcastControlUpdate(self.phases, self.load_switches)
         
-        logger.fields(buildFieldMessage(self.load_switches))
+        fields_msg = buildFieldMessage(self.load_switches)
+        if fields_msg != self._last_fields_message:
+            self._last_fields_message = fields_msg
+            logger.fields(fields_msg)
         
         if self.second_timer.poll(True):
             if self.bus is not None:

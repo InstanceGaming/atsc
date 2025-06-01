@@ -156,13 +156,14 @@
         "caution",
         "extend",
         "go",
+        "fya",
         "pclr",
         "walk",
         "max-go",
         "fya-delay"
       ],
       "properties": {
-        "^min-stop|rclr|caution|extend|go|pclr|walk|max-go|fya-delay$": {
+        "^min-stop|rclr|caution|extend|go|fya|pclr|walk|max-go|fya-delay$": {
           "type": "number",
           "minimum": 0,
           "maximum": 999

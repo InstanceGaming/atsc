@@ -111,6 +111,7 @@ PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
                       PhaseState.CAUTION,
                       PhaseState.EXTEND,
                       PhaseState.GO,
+                      PhaseState.FYA,
                       PhaseState.PCLR,
                       PhaseState.WALK,
                       PhaseState.MAX_GO,
@@ -120,6 +121,9 @@ PHASE_GO_STATES = (PhaseState.EXTEND,
                    PhaseState.GO,
                    PhaseState.PCLR,
                    PhaseState.WALK)
+
+PHASE_FYA_START_STATES = (PhaseState.EXTEND,
+                          PhaseState.GO)
 
 
 class Phase(IdentifiableBase):
@@ -344,7 +348,7 @@ class Phase(IdentifiableBase):
         else:
             return False
     
-    def tick(self, rest_inhibit: bool) -> bool:
+    def tick(self, conflicting_demand: bool) -> bool:
         self.fya_flasher.poll(True)
         self.ped_flasher.poll(self._state == PhaseState.PCLR)
         
@@ -353,9 +357,10 @@ class Phase(IdentifiableBase):
         
         if self._timer.poll(True):
             if self.active and self._state in PHASE_TIMED_STATES:
-                if (self._state in PHASE_RIGID_STATES) or rest_inhibit:
-                    walking = self._state == PhaseState.WALK
-                    if walking:
+                if self._state in PHASE_RIGID_STATES:
+                    changed = self.change()
+                elif self._state != PhaseState.FYA and conflicting_demand:
+                    if self._state == PhaseState.WALK:
                         walk_time = self.timing[PhaseState.WALK]
                         self.extend_inhibit = self.elapsed - walk_time > self.default_extend
                         
@@ -368,11 +373,14 @@ class Phase(IdentifiableBase):
                 
         if self._state in PHASE_GO_STATES:
             if self.elapsed > self.timing[PhaseState.MAX_GO]:
-                if rest_inhibit:
+                if conflicting_demand:
                     changed = self.change()
 
         if self._state == PhaseState.FYA:
-            if self.fya_phase.state <= PhaseState.CAUTION:
+            if (
+                self._timer.elapsed > self.timing[PhaseState.FYA] and
+                self.fya_phase.state <= PhaseState.CAUTION
+            ):
                 changed = self.change()
         elif (
             self.fya_phase is not None and
@@ -380,7 +388,7 @@ class Phase(IdentifiableBase):
             self._timer.elapsed > self.timing[PhaseState.FYA_DELAY]
         ):
             if (
-                self.fya_phase.state == PhaseState.GO and
+                self.fya_phase.state in PHASE_FYA_START_STATES and
                 self.fya_phase.elapsed > self.timing[PhaseState.FYA_DELAY]
             ):
                 changed = self.change(force_state=PhaseState.FYA)

@@ -21,11 +21,12 @@ from pathlib import Path
 from datetime import datetime as dt
 from threading import main_thread
 from atsc.watchdog import SystemdWatchdog
-from jacob.logging import RECOMMENDED_LEVELS, CustomLevel, setup_logger
+from jacob.logging import RECOMMENDED_LEVELS, CustomLevel, setup_logger, FormatContents
 from atsc.constants import SYSTEMD_NOTIFY_SOCKET_ENV_KEY
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.timing import seconds
+
 from jacob.datetime.formatting import format_dhms
 
 
@@ -42,6 +43,11 @@ CUSTOM_LOG_LEVELS = {
     CustomLevel(5, 'FIELDS'),
     CustomLevel(8, 'VERBOSE')
 }
+LOGGING_FORMAT_CONTENTS = (FormatContents.TIMESTAMP |
+                           FormatContents.THREAD |
+                           FormatContents.SOURCE |
+                           FormatContents.LEVEL |
+                           FormatContents.MESSAGE)
 
 logger = loguru.logger
 
@@ -115,6 +121,8 @@ def run():
     levels_notation = cla['log_levels']
     try:
         loguru.logger = setup_logger(levels_notation,
+                                     format_contents=LOGGING_FORMAT_CONTENTS,
+                                     file_format_contents=LOGGING_FORMAT_CONTENTS,
                                      custom_levels=CUSTOM_LOG_LEVELS,
                                      log_file=log_file)
     except ValueError as e:
