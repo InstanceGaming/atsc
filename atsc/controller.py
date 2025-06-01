@@ -436,12 +436,12 @@ class Controller:
                 if self.checkPhaseConflict(phase, other):
                     return False
                 if limit_runtime and other.state != PhaseState.FYA:
-                    logger.trace('Runtime comparison {} {:04.1f}s vs active {} {:04.1f}s',
-                                     phase.getTag(),
-                                 phase_duration,
-                                 other.getTag(),
-                                 other.service_remaining_minimum)
                     if phase_duration > other.service_remaining_minimum:
+                        # logger.trace('{} {:04.1f}s > active {} {:04.1f}s',
+                        #              phase.getTag(),
+                        #              phase_duration,
+                        #              other.getTag(),
+                        #              other.service_remaining_minimum)
                         return False
         return True
     
@@ -589,15 +589,17 @@ class Controller:
     
     def endCycle(self, note: Optional[str] = None) -> None:
         """End phasing for this control cycle iteration"""
-        self.resetPhasePool()
-        
-        active_count = len(self.getActivePhases(self.phases))
-        if not active_count:
-            self.cycle_count += 1
-            self.setBarrier(None, note='end cycle')
-        
-        note_text = post_pend(note, note)
-        logger.debug('Ended cycle {}{}', self.cycle_count, note_text)
+        if len(self.calls):
+            self.resetPhasePool()
+            
+            note_text = post_pend(note, note)
+            active_count = len(self.getActivePhases(self.phases))
+            if not active_count:
+                self.cycle_count += 1
+                self.setBarrier(None, note='end cycle')
+                logger.debug('Ended cycle {}{}', self.cycle_count, note_text)
+            else:
+                logger.debug('Recycle{}', note_text)
     
     def checkPhaseConflictingDemand(self, phase: Phase) -> bool:
         for call in self.calls:

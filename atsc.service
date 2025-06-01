@@ -10,9 +10,8 @@ PIDFile=%h/atsc/atsc.pid
 WatchdogSec=1s
 NotifyAccess=all
 Restart=on-abnormal
-TimeoutStartSec=30s
-TimeoutStopSec=10s
-RestartSec=16
+TimeoutStartSec=25s
+TimeoutStopSec=5s
 MemoryMax=256M
 CPUQuota=50%
 
