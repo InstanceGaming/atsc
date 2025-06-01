@@ -115,6 +115,10 @@ class Flasher:
     def delay(self):
         return self.fps / 2
     
+    @property
+    def elapsed(self):
+        return self.timer.elapsed
+    
     def __init__(self, fpm: float = 60.0):
         self.fpm = fpm
         self.timer = Timer(self.delay, step=TIME_INCREMENT)

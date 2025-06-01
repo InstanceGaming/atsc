@@ -311,8 +311,15 @@ class Controller:
                 return ls
         raise RuntimeError(f'Failed to find load switch {i}')
     
-    def getActivePhases(self, pool) -> List[Phase]:
-        return [phase for phase in pool if phase.active]
+    def getActivePhases(self,
+                        phase_pool: Optional[Iterable[Phase]] = None,
+                        ignore_fya: bool = False) -> Sequence[Phase]:
+        return [phase for phase in phase_pool or self.phases if (
+            phase.active and (
+                (ignore_fya and phase.state == PhaseState.FYA) or
+                not ignore_fya
+            )
+        )]
     
     def placeCall(self,
                   phases: List[Phase],
@@ -545,7 +552,7 @@ class Controller:
                          phase.getTag(),
                          barrier.getTag())
             self.setBarrier(barrier, note='serve phase')
-
+        
         logger.debug(f'Serving phase {phase.getTag()}')
         assert phase.id in self.phase_pool
         self.phase_pool.remove(phase.id)
@@ -606,13 +613,12 @@ class Controller:
             self.resetPhasePool()
             
             note_text = post_pend(note, note)
-            active_count = len(self.getActivePhases(self.phases))
-            if not active_count:
+            if self.getActivePhases():
+                logger.debug('Recycle{}', note_text)
+            else:
                 self.cycle_count += 1
                 self.setBarrier(None, note='end cycle')
                 logger.debug('Ended cycle {}{}', self.cycle_count, note_text)
-            else:
-                logger.debug('Recycle{}', note_text)
     
     def checkPhaseConflictingDemand(self, phase: Phase) -> bool:
         for call in self.calls:
@@ -667,19 +673,19 @@ class Controller:
                             self.placeCall([phase], ped_service=ped_service)
             
             concurrent_phases = len(self.rings)
-            active_phases = self.getActivePhases(self.phases)
+            active_phases = self.getActivePhases()
             now_serving = []
             for call in self.calls:
                 for phase in call.phases:
                     if self.canPhaseRun(phase, call.ped_service, False):
                         self.servePhase(phase, ped_service=call.ped_service)
                         now_serving.append(phase)
-                        active_phases = self.getActivePhases(self.phases)
+                        active_phases = self.getActivePhases()
                         if len(active_phases) >= concurrent_phases:
                             break
                 call.age += TIME_INCREMENT
             
-            if len(active_phases) == 1:
+            if len(self.getActivePhases(ignore_fya=True)) == 1:
                 solo = active_phases[0]
                 if not self.checkPhaseConflictingDemand(solo):
                     partner = self.getPartnerPhase(self.phase_pool, solo.id)
@@ -741,7 +747,7 @@ class Controller:
                 logger.calls('{} [{}]',
                              calls_list,
                              csl([str(p) for p in self.phase_pool], separator=','))
-
+        
         # estimates_msg = ''
         # for phase in self.phases:
         #     estimates_msg += (f'{phase.id}='

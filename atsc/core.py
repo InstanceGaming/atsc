@@ -275,7 +275,7 @@ class Phase(IdentifiableBase):
             if state == PhaseState.EXTEND:
                 time /= 2
             
-            if state == PhaseState.PCLR:
+            if state == PhaseState.WALK:
                 time += self._flasher.delay
             
             estimation += time
@@ -301,8 +301,8 @@ class Phase(IdentifiableBase):
             if state == PhaseState.EXTEND:
                 time /= 2
             
-            if state == PhaseState.PCLR:
-                time += self._flasher.delay
+            if state == PhaseState.WALK:
+                time += max(0.0, self._flasher.delay - self._flasher.elapsed)
             
             if state == self.state:
                 if self._timer.elapsed < self.setpoint:
@@ -454,11 +454,15 @@ class Phase(IdentifiableBase):
         
         if self._timer.poll(True):
             if self.active and self.state in PHASE_TIMED_STATES:
-                if (self.state in PHASE_RIGID_STATES or
-                    (self.state == PhaseState.WALK and not self.walk_rest)):
-                    if ((self.state == PhaseState.PCLR and self._flasher.bit) or
-                        (self.state != PhaseState.PCLR)):
-                        changed = self.change()
+                if (
+                    self.state in PHASE_RIGID_STATES or
+                    (
+                        self.state == PhaseState.WALK and (
+                            not self.walk_rest and self._flasher.bit
+                        )
+                    )
+                ):
+                    changed = self.change()
                 elif self.state != PhaseState.FYA and conflicting_demand:
                     if self.state == PhaseState.WALK:
                         walk_time = self.timing[PhaseState.WALK]
