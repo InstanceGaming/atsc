@@ -1,7 +1,7 @@
 {
-  "version": 3,
+  "version": 4,
   "init": {
-    "mode": "normal",
+    "mode": "cet",
     "cet-delay": 5.0,
     "recall-all": false
   },
@@ -26,9 +26,9 @@
     "response-attempts": 5
   },
   "random-actuation": {
-    "delay": 10,
+    "delay": 5,
     "min": 1,
-    "max": 60,
+    "max": 30,
     "enabled": true
   },
   "default-timing": {
@@ -43,6 +43,7 @@
     "pclr": 14.0,
     "walk": 5.0
   },
+  "fya": true,
   "phases": [
     {
       "number": 1,

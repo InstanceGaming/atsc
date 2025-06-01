@@ -12,6 +12,7 @@
     "bus",
     "network",
     "init",
+    "fya",
     "phases",
     "idling",
     "rings",
@@ -23,7 +24,7 @@
   "properties": {
     "version": {
       "type": "integer",
-      "const": 3
+      "const": 4
     },
     "bus": {
       "type": "object",
@@ -191,6 +192,9 @@
         "maxItems": 4,
         "uniqueItems": true
       }
+    },
+    "fya": {
+      "type": "boolean"
     },
     "phases": {
       "type": "array",

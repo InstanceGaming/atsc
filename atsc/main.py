@@ -22,7 +22,6 @@ from datetime import datetime as dt
 from threading import main_thread
 from atsc.watchdog import SystemdWatchdog
 from jacob.logging import RECOMMENDED_LEVELS, CustomLevel, setup_logger, FormatContents
-from atsc.constants import SYSTEMD_NOTIFY_SOCKET_ENV_KEY
 from atsc.controller import Controller
 from jacob.filesystem import fix_path, fix_paths
 from jacob.datetime.timing import seconds
@@ -30,9 +29,10 @@ from jacob.datetime.timing import seconds
 from jacob.datetime.formatting import format_dhms
 
 
-VERSION = '2.1.0'
+VERSION = '2.1.1'
 PID_FILE = 'atsc.pid'
 WELCOME_MSG = f'Actuated Traffic Signal Controller v{VERSION} by Jacob Jewett'
+SYSTEMD_NOTIFY_SOCKET_ENV_KEY = 'NOTIFY_SOCKET'
 CONFIG_SCHEMA_CHECK = True
 CONFIG_LOGIC_CHECK = True
 CUSTOM_LOG_LEVELS = {
@@ -49,6 +49,7 @@ LOGGING_FORMAT_CONTENTS = (FormatContents.TIMESTAMP |
                            FormatContents.SOURCE |
                            FormatContents.LEVEL |
                            FormatContents.MESSAGE)
+
 
 logger = loguru.logger
 
@@ -69,6 +70,10 @@ def get_cli_args():
                         type=float,
                         dest='time_base',
                         help='Specify a alternate loop speed.')
+    parser.add_argument('--seed',
+                        type=int,
+                        dest='random_seed',
+                        help='Specify a seed for the pseudo-random number generator.')
     parser.add_argument(dest='config_paths',
                         nargs='+',
                         metavar='FILENAMES',
@@ -185,16 +190,20 @@ def run():
     
     systemd_watchdog_socket = os.getenv(SYSTEMD_NOTIFY_SOCKET_ENV_KEY)
     if systemd_watchdog_socket is not None:
-        logger.info('SystemD watchdog subsystem ENABLED')
+        logger.info('systemd watchdog subsystem ENABLED')
         systemd_watchdog = SystemdWatchdog(systemd_watchdog_socket)
     else:
-        logger.info('SystemD watchdog subsystem DISABLED')
+        logger.info('systemd watchdog subsystem DISABLED')
         systemd_watchdog = None
+        
+    random_seed = cla.get('random_seed')
     
     start_marker = seconds()
     logger.info(dt.now().strftime('Started at %b %d %Y %I:%M %p'))
     
-    controller = Controller(config, watchdog=systemd_watchdog)
+    controller = Controller(config,
+                            watchdog=systemd_watchdog,
+                            random_seed=random_seed)
     try:
         controller.run()
     except KeyboardInterrupt:

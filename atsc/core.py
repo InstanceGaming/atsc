@@ -217,6 +217,7 @@ class Phase(IdentifiableBase):
     
     def __init__(self,
                  id_: int,
+                 flasher: logic.Flasher,
                  timing: Dict[PhaseState, float],
                  veh_ls: LoadSwitch,
                  ped_ls: Optional[LoadSwitch],
@@ -235,11 +236,10 @@ class Phase(IdentifiableBase):
             'vehicle_service': 0,
             'ped_service'    : 0
         })
+        self._flasher = flasher
         self.timing = timing
         self._state: PhaseState = PhaseState.STOP
         self._validate_timing()
-        self.ped_flasher = logic.Flasher(60.0)
-        self.fya_flasher = logic.Flasher(60.0)
         self._flash_mode = flash_mode
         self._timer: logic.Timer = logic.Timer(0, step=constants.TIME_INCREMENT)
         self._service_remaining_minimum = 0.0
@@ -275,6 +275,9 @@ class Phase(IdentifiableBase):
             if state == PhaseState.EXTEND:
                 time /= 2
             
+            if state == PhaseState.PCLR:
+                time += self._flasher.delay
+            
             estimation += time
         return estimation
     
@@ -297,6 +300,9 @@ class Phase(IdentifiableBase):
             
             if state == PhaseState.EXTEND:
                 time /= 2
+            
+            if state == PhaseState.PCLR:
+                time += self._flasher.delay
             
             if state == self.state:
                 if self._timer.elapsed < self.setpoint:
@@ -382,12 +388,12 @@ class Phase(IdentifiableBase):
             self._vls.a = False
             self._vls.b = False
             self._vls.c = False
-            fya = self.fya_flasher.bit
+            fya = self._flasher.bit
         elif self.state == PhaseState.PCLR:
             self._vls.a = False
             self._vls.b = False
             self._vls.c = True
-            pa = self.ped_flasher.bit
+            pa = self._flasher.bit
             pc = False
         elif self.state == PhaseState.WALK:
             self._vls.a = False
@@ -442,10 +448,7 @@ class Phase(IdentifiableBase):
         else:
             return False
     
-    def tick(self, conflicting_demand: bool) -> bool:
-        self.fya_flasher.poll(True)
-        self.ped_flasher.poll(self.state == PhaseState.PCLR)
-        
+    def tick(self, conflicting_demand: bool, fya: bool = False) -> bool:
         self.update_field()
         changed = False
         
@@ -453,7 +456,9 @@ class Phase(IdentifiableBase):
             if self.active and self.state in PHASE_TIMED_STATES:
                 if (self.state in PHASE_RIGID_STATES or
                     (self.state == PhaseState.WALK and not self.walk_rest)):
-                    changed = self.change()
+                    if ((self.state == PhaseState.PCLR and self._flasher.bit) or
+                        (self.state != PhaseState.PCLR)):
+                        changed = self.change()
                 elif self.state != PhaseState.FYA and conflicting_demand:
                     if self.state == PhaseState.WALK:
                         walk_time = self.timing[PhaseState.WALK]
@@ -474,10 +479,11 @@ class Phase(IdentifiableBase):
         if self.state == PhaseState.FYA:
             if (
                 self._timer.elapsed > self.timing[PhaseState.FYA] and
-                self.fya_phase.state <= PhaseState.CAUTION
+                (self.fya_phase.state <= PhaseState.CAUTION or not fya)
             ):
                 changed = self.change()
         elif (
+            fya and
             self.fya_phase is not None and
             self.state == PhaseState.STOP and
             self._timer.elapsed > self.timing[PhaseState.FYA_DELAY]

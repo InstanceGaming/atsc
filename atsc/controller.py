@@ -33,7 +33,8 @@ class Controller:
     
     def __init__(self,
                  config: dict,
-                 watchdog: Optional[SystemdWatchdog] = None):
+                 watchdog: Optional[SystemdWatchdog] = None,
+                 random_seed: Optional[int] = None):
         # controller name (arbitrary)
         self.name = config['device']['name']
         
@@ -51,6 +52,9 @@ class Controller:
         
         # operation functionality of the controller
         self.mode: OperationMode = text_to_enum(OperationMode, config['init']['mode'])
+        self.fya: bool = config.get('fya', False)
+        
+        self.flasher = logic.Flasher(60.0)
         
         self.load_switches: List[LoadSwitch] = [LoadSwitch(1), LoadSwitch(2), LoadSwitch(3), LoadSwitch(4),
                                                 LoadSwitch(5), LoadSwitch(6), LoadSwitch(7), LoadSwitch(8),
@@ -90,8 +94,10 @@ class Controller:
         self.random_enabled = random_config['enabled']
         self.random_min = random_config['min']
         self.random_max = random_config['max']
-        self.randomizer = random.Random()
         self.random_timer = logic.Timer(random_delay, step=constants.TIME_INCREMENT)
+        self.randomizer = random.Random(random_seed)
+        if random_seed is not None:
+            logger.info('Random seed is set to {}', random_seed)
     
     def getDefaultTiming(self, configuration_node: Dict[str, float]) -> Dict[PhaseState, float]:
         timing = {}
@@ -131,7 +137,14 @@ class Controller:
             
             recall = node.get('recall', False)
             walk_rest = node.get('walk-rest', False)
-            phase = Phase(i, phase_timing, veh, ped, recall, walk_rest, flash_mode)
+            phase = Phase(i,
+                          self.flasher,
+                          phase_timing,
+                          veh,
+                          ped,
+                          recall,
+                          walk_rest,
+                          flash_mode)
             phases.append(phase)
         
         for phase_id, fya_phase_id in fya_phases.items():
@@ -636,10 +649,12 @@ class Controller:
         if self.bus is not None:
             self.handleBusFrame()
         
+        self.flasher.poll(True)
+        
         if self.mode == OperationMode.NORMAL:
             for phase in self.phases:
                 conflicting_demand = self.checkPhaseConflictingDemand(phase)
-                if phase.tick(conflicting_demand):
+                if phase.tick(conflicting_demand, fya=self.fya):
                     if not phase.active:
                         logger.debug('{} terminated', phase.getTag())
                         if phase.recall:
@@ -656,9 +671,7 @@ class Controller:
             now_serving = []
             for call in self.calls:
                 for phase in call.phases:
-                    if self.canPhaseRun(phase,
-                                        call.ped_service,
-                                        self.barrier is None):
+                    if self.canPhaseRun(phase, call.ped_service, False):
                         self.servePhase(phase, ped_service=call.ped_service)
                         now_serving.append(phase)
                         active_phases = self.getActivePhases(self.phases)

@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "init": {
     "mode": "normal",
     "cet-delay": 5.0,
@@ -43,6 +43,7 @@
     "pclr": 14.0,
     "walk": 3.0
   },
+  "fya": true,
   "phases": [
     {
       "number": 1,
