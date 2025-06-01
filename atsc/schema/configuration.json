@@ -215,6 +215,9 @@
           "recall": {
             "type": "boolean"
           },
+          "walk-rest": {
+            "type": "boolean"
+          },
           "flash-mode": {
             "type": "string",
             "enum": [

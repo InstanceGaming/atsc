@@ -32,15 +32,15 @@
     "enabled": true
   },
   "default-timing": {
-    "min-stop": 4.0,
+    "min-stop": 2.0,
     "rclr": 1.0,
-    "go": 20.0,
+    "go": 5.0,
     "fya": 4.0,
     "fya-delay": 4.0,
     "max-go": 25.0,
     "caution": 4.0,
-    "extend": 3.0,
-    "pclr": 5.0,
+    "extend": 6.0,
+    "pclr": 14.0,
     "walk": 3.0
   },
   "phases": [

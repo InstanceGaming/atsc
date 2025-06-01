@@ -41,6 +41,7 @@ CUSTOM_LOG_LEVELS = {
     CustomLevel(3, 'BUS'),
     CustomLevel(4, 'NET'),
     CustomLevel(5, 'FIELDS'),
+    CustomLevel(6, 'CALLS'),
     CustomLevel(8, 'VERBOSE')
 }
 LOGGING_FORMAT_CONTENTS = (FormatContents.TIMESTAMP |
