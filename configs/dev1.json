@@ -42,10 +42,6 @@
     "pclr": 5.0,
     "walk": 3.0
   },
-  "idling": {
-    "serve-delay": 1.2,
-    "phases": [6, 2, 1, 5]
-  },
   "phases": [
     {
       "number": 1,
@@ -67,6 +63,7 @@
         "extend": 20.0,
         "walk": 3.0
       },
+      "recall": true,
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 2,
@@ -113,6 +110,7 @@
         "extend": 20.0,
         "walk": 3.0
       },
+      "recall": true,
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 8,

@@ -66,12 +66,6 @@ class Controller:
         self.barrier: Optional[Barrier] = None
         
         self.cycle_count = 0
-        
-        self.idle_phases: List[Phase] = self.getIdlePhases(config['idling']['phases'])
-        self.idle_serve_delay: float = config['idling']['serve-delay']
-        self.idle_timer = logic.Timer(self.idle_serve_delay, step=constants.TIME_INCREMENT)
-        self.idle_rising = EdgeTrigger(True)
-        
         self.second_timer = logic.Timer(1.0, step=constants.TIME_INCREMENT)
         
         # control entrance transition timer
@@ -134,7 +128,8 @@ class Controller:
             if fya_phase_id is not None:
                 fya_phases.update({i: fya_phase_id})
             
-            phase = Phase(i, phase_timing, veh, ped, flash_mode)
+            recall = node.get('recall', False)
+            phase = Phase(i, phase_timing, veh, ped, recall, flash_mode)
             phases.append(phase)
         
         for phase_id, fya_phase_id in fya_phases.items():
@@ -494,8 +489,10 @@ class Controller:
             
             if self.recall_all:
                 self.placeAllCall()
-            
-            self.idle_timer.reset()
+            else:
+                self.placeCall([p for p in self.phases if p.recall],
+                               ped_service=True,
+                               note='initial recall')
         
         previous_state = self.mode
         self.mode = new_state
@@ -516,9 +513,6 @@ class Controller:
             self.setBarrier(barrier)
         
         self.phase_pool.remove(phase)
-        
-        # todo: differentiate between vehicle and ped service
-        
         phase.activate(ped_service=ped_service)
     
     def getPhasePartner(self, phases: List[Phase], phase: Phase) -> Optional[Phase]:
@@ -560,20 +554,6 @@ class Controller:
         note_text = post_pend(note, note)
         logger.debug(f'Ended cycle {self.cycle_count}{note_text}')
     
-    def getServableIdlePhases(self):
-        if len(self.idle_phases):
-            phases = []
-            
-            for phase in self.idle_phases:
-                if self.canPhaseRun(phase):
-                    phases.append(phase)
-            
-            if len(phases):
-                ring_slice = phases[:len(self.rings)]
-                return ring_slice
-        
-        return []
-    
     def checkPhaseConflictingDemand(self, phase: Phase) -> bool:
         for call in self.calls:
             if self.checkCallConflict(phase, call):
@@ -611,11 +591,17 @@ class Controller:
             
             for phase in self.phases:
                 conflicting_demand = self.checkPhaseConflictingDemand(phase)
-                idle_override = self.idle_phases and (phase not in self.idle_phases) or phase.secondary
-                if phase.tick(conflicting_demand or idle_override):
+                if phase.tick(conflicting_demand):
                     if not phase.active:
-                        self.idle_timer.reset()
                         logger.debug('{} terminated', phase.getTag())
+                        if phase.recall:
+                            if self.random_enabled:
+                                ped_service = bool(round(self.randomizer.random()))
+                            else:
+                                ped_service = False
+                            
+                            logger.debug('Recall {}', phase.getTag())
+                            self.placeCall([phase], ped_service=ped_service)
             
             if not len(self.phase_pool):
                 self.endCycle('complete')
@@ -645,15 +631,12 @@ class Controller:
                 if not self.checkPhaseConflictingDemand(solo):
                     partner = self.getPhasePartner(self.phase_pool, solo)
                     if partner is not None:
-                        logger.debug(f'Supplementing {solo.getTag()} '
-                                     f'with partner {partner.getTag()}')
-                        
-                        # todo: do not serve ped if supplementing when more than
-                        #  two phases were active at time of call placement
+                        logger.debug('Supplementing {} with partner {}',
+                                     solo.getTag(),
+                                     partner.getTag())
                         
                         self.servePhase(partner)
                         now_serving.append(partner)
-                        active_phases = self.getActivePhases(self.phases)
             
             for phase in now_serving:
                 for call in self.calls:
@@ -664,29 +647,6 @@ class Controller:
             
             for call in [c for c in self.calls if not len(c.phases)]:
                 self.calls.remove(call)
-            
-            if self.idle_phases and self.idle_timer.poll(self.idling):
-                available = []
-                if len(active_phases) == 1:
-                    solo = active_phases[0]
-                    partner = self.getPhasePartner(self.idle_phases, solo)
-                    if partner:
-                        available.append(partner)
-                elif not active_phases:
-                    self.endCycle('idle')
-                    available.extend([phase for phase in self.idle_phases if self.canPhaseRun(phase)])
-                
-                if available:
-                    logger.debug('Recall idle phases')
-                    cutoff = available[:len(self.rings)]
-                    
-                    ped_service = False
-                    if self.random_enabled:
-                        ped_service = bool(round(self.randomizer.random()))
-                    
-                    self.placeCall(cutoff, ped_service=ped_service, note='idle')
-                
-                self.idle_timer.reset()
         elif self.mode == OperationMode.CET:
             for ph in self.phases:
                 ph.tick(True)

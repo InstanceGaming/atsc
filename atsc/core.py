@@ -192,11 +192,13 @@ class Phase(IdentifiableBase):
                  timing: Dict[PhaseState, float],
                  veh_ls: LoadSwitch,
                  ped_ls: Optional[LoadSwitch],
+                 recall: bool,
                  flash_mode: FlashMode = FlashMode.RED,
                  fya_phase: Optional['Phase'] = None):
         super().__init__(id_)
         self._ped_service: bool = False
         self.extend_inhibit = False
+        self.recall = recall
         self.stats = Counter({
             'detections': 0,
             'vehicle_service': 0,

@@ -211,6 +211,9 @@
               }
             }
           },
+          "recall": {
+            "type": "boolean"
+          },
           "flash-mode": {
             "type": "string",
             "enum": [
@@ -233,23 +236,6 @@
           "fya-phase": {
             "type": "integer"
           }
-        }
-      }
-    },
-    "idling": {
-      "type": "object",
-      "required": [
-        "serve-delay",
-        "phases"
-      ],
-      "properties": {
-        "serve-delay": {
-          "type": "number",
-          "minimum": 0.0
-        },
-        "phases": {
-          "type": "array",
-          "uniqueItems": true
         }
       }
     },
