@@ -421,6 +421,9 @@ class Phase(IdentifiableBase):
             next_state = self.getNextState(ped_service, activation=activation)
         
         if next_state != self.state:
+            if self.state == PhaseState.WALK and not self._flasher.bit:
+                return False
+            
             self._timer.reset()
             
             if next_state == PhaseState.STOP:
@@ -454,21 +457,17 @@ class Phase(IdentifiableBase):
         
         if self._timer.poll(True):
             if self.active and self.state in PHASE_TIMED_STATES:
-                if self.state in PHASE_RIGID_STATES:
+                if (self.state in PHASE_RIGID_STATES or
+                    (self.state == PhaseState.WALK and not self.walk_rest)):
                     changed = self.change()
                 elif self.state != PhaseState.FYA and conflicting_demand:
-                    change_inhibit = False
                     if self.state == PhaseState.WALK:
-                        if self.walk_rest or not self._flasher.bit:
-                            change_inhibit = True
-                        else:
-                            walk_time = self.timing[PhaseState.WALK]
-                            self.extend_inhibit = self.elapsed - walk_time > self.default_extend
-                            if self.extend_inhibit:
-                                logger.debug('{} extend inhibited', self.getTag())
+                        walk_time = self.timing[PhaseState.WALK]
+                        self.extend_inhibit = self.elapsed - walk_time > self.default_extend
+                        if self.extend_inhibit:
+                            logger.debug('{} extend inhibited', self.getTag())
                     
-                    if not change_inhibit:
-                        changed = self.change()
+                    changed = self.change()
         else:
             if self.extend_active:
                 self.setpoint -= constants.TIME_INCREMENT
