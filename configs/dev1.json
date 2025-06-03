@@ -1,19 +1,19 @@
 {
   "version": 4,
   "init": {
-    "mode": "normal",
+    "mode": "cet",
     "cet-delay": 5.0,
     "recall-all": false
   },
   "device": {
-    "name": "ATSC Development Intersection",
+    "name": "ATSC Development Intersection (Raspberry Pi)",
     "location": {
       "timezone": "America/Boise"
     }
   },
   "network": {
     "enabled": true,
-    "interface": "localhost",
+    "interface": "any",
     "monitor": {
       "enabled": true,
       "port": 7801
@@ -27,9 +27,9 @@
   },
   "random-actuation": {
     "delay": 5,
-    "min": 5,
-    "max": 60,
-    "enabled": true
+    "min": 1,
+    "max": 30,
+    "enabled": false
   },
   "default-timing": {
     "min-stop": 2.0,
@@ -37,20 +37,16 @@
     "go": 5.0,
     "fya": 4.0,
     "fya-delay": 4.0,
-    "max-go": 25.0,
+    "max-go": 29.0,
     "caution": 4.0,
     "extend": 6.0,
     "pclr": 14.0,
-    "walk": 3.0
+    "walk": 5.0
   },
   "fya": true,
   "phases": [
     {
       "number": 1,
-      "timing": {
-        "go": 8.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 1
@@ -60,10 +56,9 @@
     {
       "number": 2,
       "timing": {
-        "go": 36.0,
-        "max-go": 46.0,
+        "max-go": 59.0,
         "extend": 20.0,
-        "walk": 3.0
+        "pclr": 16.0
       },
       "recall": true,
       "flash-mode": "red",
@@ -74,10 +69,6 @@
     },
     {
       "number": 3,
-      "timing": {
-        "go": 8.0,
-        "max-go": 24.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 3
@@ -86,6 +77,9 @@
     },
     {
       "number": 4,
+      "timing": {
+        "max-go": 39.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 4,
@@ -94,10 +88,6 @@
     },
     {
       "number": 5,
-      "timing": {
-        "go": 8.0,
-        "max-go": 30.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 7
@@ -107,10 +97,9 @@
     {
       "number": 6,
       "timing": {
-        "go": 36.0,
-        "max-go": 46.0,
+        "max-go": 59.0,
         "extend": 20.0,
-        "walk": 3.0
+        "pclr": 16.0
       },
       "recall": true,
       "flash-mode": "red",
@@ -121,10 +110,6 @@
     },
     {
       "number": 7,
-      "timing": {
-        "go": 8.0,
-        "max-go": 24.0
-      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 9
@@ -133,6 +118,9 @@
     },
     {
       "number": 8,
+      "timing": {
+        "max-go": 39.0
+      },
       "flash-mode": "red",
       "load-switches": {
         "vehicle": 10,
