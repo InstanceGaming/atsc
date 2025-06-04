@@ -106,6 +106,8 @@ class PhaseState(IntEnum):
     FYA_DELAY = 33
 
 
+PHASE_STOP_STATES = (PhaseState.STOP, PhaseState.MIN_STOP, PhaseState.RCLR)
+
 PHASE_RIGID_STATES = (PhaseState.CAUTION, PhaseState.PCLR)
 
 PHASE_TIMED_STATES = (PhaseState.MIN_STOP,
@@ -173,8 +175,12 @@ class Phase(IdentifiableBase):
         return self.timing[PhaseState.EXTEND] > 0.0 and not self.extend_inhibit
     
     @property
-    def default_extend(self):
-        return self.timing[PhaseState.EXTEND] / 2.0
+    def extension_time(self):
+        return self.timing[PhaseState.EXTEND]
+    
+    @property
+    def half_extension_time(self):
+        return self.extension_time / 2.0
     
     @property
     def extend_active(self):
@@ -205,8 +211,6 @@ class Phase(IdentifiableBase):
         return float(self._timer.elapsed)
     
     def _validate_timing(self):
-        if self.active:
-            raise RuntimeError('Cannot changing timing map while active')
         if self.timing is None:
             raise TypeError('Timing map cannot be None')
         keys = self.timing.keys()
@@ -230,6 +234,8 @@ class Phase(IdentifiableBase):
         self._fya_service: bool = False
         self.extend_inhibit = False
         self.recall = recall
+        self.conflicting_demand = False
+        self.fya_enabled = False
         self.walk_rest = walk_rest
         self.stats = Counter({
             'detections'     : 0,
@@ -242,6 +248,7 @@ class Phase(IdentifiableBase):
         self._validate_timing()
         self._flash_mode = flash_mode
         self._timer: logic.Timer = logic.Timer(0, step=constants.TIME_INCREMENT)
+        self._detection_timer: logic.Timer = logic.Timer(0, step=constants.TIME_INCREMENT)
         self._service_remaining_minimum = 0.0
         self._vls = veh_ls
         self._pls = ped_ls
@@ -326,7 +333,10 @@ class Phase(IdentifiableBase):
         elif self.state == PhaseState.EXTEND:
             next_state = PhaseState.CAUTION
         elif self.state == PhaseState.GO:
-            next_state = PhaseState.EXTEND
+            if self.extend_inhibit:
+                next_state = PhaseState.CAUTION
+            else:
+                next_state = PhaseState.EXTEND
         elif self.state == PhaseState.FYA:
             if activation and not ped_service:
                 next_state = PhaseState.GO
@@ -350,7 +360,9 @@ class Phase(IdentifiableBase):
         
         return next_state
     
-    def gap_reset(self):
+    def detect(self):
+        self._detection_timer.reset()
+        
         if self.extend_active:
             self._timer.reset()
     
@@ -366,7 +378,7 @@ class Phase(IdentifiableBase):
         pc = False
         fya = False
         
-        if self.state == PhaseState.STOP or self.state == PhaseState.RCLR:
+        if self.state in PHASE_STOP_STATES:
             self._vls.a = True
             self._vls.b = False
             self._vls.c = False
@@ -378,7 +390,7 @@ class Phase(IdentifiableBase):
             self._vls.c = False
             pa = True
             pc = False
-        elif self.state == PhaseState.GO or self.state == PhaseState.EXTEND:
+        elif self.state in PHASE_FYA_GO_STATES:
             self._vls.a = False
             self._vls.b = False
             self._vls.c = True
@@ -434,6 +446,7 @@ class Phase(IdentifiableBase):
             elif next_state in PHASE_TIMED_STATES:
                 if next_state == PhaseState.GO:
                     setpoint = self.getGoTime(self.ped_service)
+                    self._detection_timer.reset()
                     self.stats['vehicle_service'] += 1
                 else:
                     setpoint = self.timing.get(next_state, 0.0)
@@ -451,19 +464,21 @@ class Phase(IdentifiableBase):
         else:
             return False
     
-    def tick(self, conflicting_demand: bool, fya: bool = False) -> bool:
+    def tick(self) -> bool:
         self.update_field()
         changed = False
+        
+        self._detection_timer.poll(True)
         
         if self._timer.poll(True):
             if self.active and self.state in PHASE_TIMED_STATES:
                 if (self.state in PHASE_RIGID_STATES or
                     (self.state == PhaseState.WALK and not self.walk_rest)):
                     changed = self.change()
-                elif self.state != PhaseState.FYA and conflicting_demand:
+                elif self.state != PhaseState.FYA and self.conflicting_demand:
                     if self.state == PhaseState.WALK:
                         walk_time = self.timing[PhaseState.WALK]
-                        self.extend_inhibit = self.elapsed - walk_time > self.default_extend
+                        self.extend_inhibit = self.elapsed - walk_time > self.half_extension_time
                         if self.extend_inhibit:
                             logger.debug('{} extend inhibited', self.getTag())
                     
@@ -473,18 +488,21 @@ class Phase(IdentifiableBase):
                 self.setpoint -= constants.TIME_INCREMENT
         
         if self.state in PHASE_GO_STATES:
+            if self._detection_timer.elapsed > self.extension_time:
+                self.extend_inhibit = True
+            
             if self.elapsed > self.timing[PhaseState.MAX_GO]:
-                if conflicting_demand:
+                if self.conflicting_demand:
                     changed = self.change()
         
         if self.state == PhaseState.FYA:
             if (
                 self._timer.elapsed > self.timing[PhaseState.FYA] and
-                (self.fya_phase.state <= PhaseState.CAUTION or not fya)
+                (self.fya_phase.state <= PhaseState.CAUTION or not self.fya_enabled)
             ):
                 changed = self.change()
         elif (
-            fya and
+            self.fya_enabled and
             self.fya_phase is not None and
             self.state == PhaseState.STOP and
             self._timer.elapsed > self.timing[PhaseState.FYA_DELAY]

@@ -52,7 +52,7 @@ class Controller:
         
         # operation functionality of the controller
         self.mode: OperationMode = text_to_enum(OperationMode, config['init']['mode'])
-        self.fya: bool = config.get('fya', False)
+        self.fya_enabled: bool = config.get('fya', False)
         
         self.flasher = logic.Flasher(60.0)
         
@@ -74,7 +74,7 @@ class Controller:
         
         # control entrance transition timer
         yellow_time = default_timing[PhaseState.CAUTION]
-        self.cet_delay: float = max(yellow_time, config['init']['cet-delay'] - yellow_time)
+        self.cet_delay: float = max(yellow_time, config['init']['cet-delay'])
         self.cet_timer = logic.Timer(self.cet_delay, step=constants.TIME_INCREMENT)
         
         # inputs data structure instances
@@ -369,9 +369,7 @@ class Controller:
             for phase in phases:
                 if phase.state in PHASE_GO_STATES:
                     logger.debug(f'Detection on {phase.getTag()}{note_text}')
-                    
-                    if phase.extend_active:
-                        phase.gap_reset()
+                    phase.detect()
                 else:
                     self.placeCall(phases, ped_service=ped_service, note=note)
     
@@ -445,13 +443,16 @@ class Controller:
         if min_stop > 0.0 and phase.elapsed < min_stop:
             return False
         
-        if phase.id not in self.getPoolPhaseWithinBarrierIds(self.phase_pool):
+        barrier_phase_ids = self.filterBarrierPhaseIds(self.phase_pool)
+        if phase.id not in barrier_phase_ids:
             return False
         
         phase_duration = phase.getServiceDurationMinimum(ped_service)
         for other in self.phases:
             if other == phase:
                 continue
+            if phase.conflicting_demand and other.state == PhaseState.CAUTION:
+                return False
             if other.active:
                 if self.checkPhaseConflict(phase, other):
                     return False
@@ -546,8 +547,9 @@ class Controller:
         self.bus.sendFrame(osf)
     
     def servePhase(self, phase: Phase, ped_service: bool = False):
+        barrier = self.getBarrierByPhase(phase)
+        
         if self.barrier is None:
-            barrier = self.getBarrierByPhase(phase)
             logger.debug('{} captured {}',
                          phase.getTag(),
                          barrier.getTag())
@@ -558,9 +560,11 @@ class Controller:
         self.phase_pool.remove(phase.id)
         phase.activate(ped_service=ped_service)
     
-    def getPoolPhaseWithinBarrierIds(self,
-                                     phase_ids: Iterable[int],
-                                     called_only: bool = False):
+    def filterBarrierPhaseIds(
+        self,
+        phase_ids: Iterable[int],
+        called_only: bool = False
+    ):
         if self.barrier is None:
             results = self.filterPhaseIds(phase_ids, called_only=called_only)
         else:
@@ -574,7 +578,7 @@ class Controller:
     def getPartnerPhase(self,
                         phase_ids: Iterable[int],
                         phase_id: int) -> Optional[Phase]:
-        for other_phase_id in self.getPoolPhaseWithinBarrierIds(phase_ids):
+        for other_phase_id in self.filterBarrierPhaseIds(phase_ids):
             if other_phase_id == phase_id:
                 continue
             
@@ -602,15 +606,12 @@ class Controller:
         
         self.barrier = b
     
-    def resetPhasePool(self):
-        if len(self.phase_pool) != len(self.phases):
-            self.phase_pool = [p.id for p in self.phases]
-            logger.debug('Reset phase pool')
-    
     def endCycle(self, note: Optional[str] = None) -> None:
         """End phasing for this control cycle iteration"""
         if len(self.calls):
-            self.resetPhasePool()
+            if len(self.phase_pool) != len(self.phases):
+                self.phase_pool = [p.id for p in self.phases]
+                logger.debug('Reset phase pool')
             
             note_text = post_pend(note, note)
             if self.getActivePhases():
@@ -655,34 +656,21 @@ class Controller:
         if self.bus is not None:
             self.handleBusFrame()
         
-        self.flasher.poll(True)
-        
         if self.mode == OperationMode.NORMAL:
-            for phase in self.phases:
-                conflicting_demand = self.checkPhaseConflictingDemand(phase)
-                if phase.tick(conflicting_demand, fya=self.fya):
-                    if not phase.active:
-                        logger.debug('{} terminated', phase.getTag())
-                        if phase.recall:
-                            if self.random_enabled:
-                                ped_service = bool(round(self.randomizer.random()))
-                            else:
-                                ped_service = False
-                            
-                            logger.debug('Recall {}', phase.getTag())
-                            self.placeCall([phase], ped_service=ped_service)
-            
             concurrent_phases = len(self.rings)
             active_phases = self.getActivePhases()
+            skipped_phases = []
             now_serving = []
             for call in self.calls:
                 for phase in call.phases:
                     if self.canPhaseRun(phase, call.ped_service, False):
-                        self.servePhase(phase, ped_service=call.ped_service)
-                        now_serving.append(phase)
-                        active_phases = self.getActivePhases()
-                        if len(active_phases) >= concurrent_phases:
-                            break
+                        if len(active_phases) < concurrent_phases:
+                            self.servePhase(phase, ped_service=call.ped_service)
+                            now_serving.append(phase)
+                            active_phases = self.getActivePhases()
+                    else:
+                        if phase not in skipped_phases:
+                            skipped_phases.append(phase)
                 call.age += TIME_INCREMENT
             
             if len(self.getActivePhases(ignore_fya=True)) == 1:
@@ -704,14 +692,29 @@ class Controller:
                     except ValueError:
                         pass
             
+            for phase in self.phases:
+                phase.conflicting_demand = self.checkPhaseConflictingDemand(phase)
+                phase.fya_enabled = self.fya_enabled
+                if phase.tick():
+                    if not phase.active:
+                        logger.debug('{} terminated', phase.getTag())
+                        if phase.recall:
+                            if self.random_enabled:
+                                ped_service = bool(round(self.randomizer.random()))
+                            else:
+                                ped_service = False
+                            
+                            logger.debug('Recall {}', phase.getTag())
+                            self.placeCall([phase], ped_service=ped_service)
+            
             for call in [c for c in self.calls if not len(c.phases)]:
                 self.calls.remove(call)
             
             if not len(self.phase_pool):
                 self.endCycle('complete')
             else:
-                available = self.getPoolPhaseWithinBarrierIds(self.phase_pool,
-                                                              called_only=True)
+                available = self.filterBarrierPhaseIds(self.phase_pool,
+                                                       called_only=True)
                 if not len(available):
                     if self.barrier:
                         self.setBarrier(None, note='no available phases')
@@ -723,7 +726,7 @@ class Controller:
                             self.endCycle('early')
         elif self.mode == OperationMode.CET:
             for ph in self.phases:
-                ph.tick(True)
+                ph.tick()
             
             if self.cet_timer.poll(True):
                 self.setOperationState(OperationMode.NORMAL)
@@ -765,6 +768,8 @@ class Controller:
             
             if self.monitor is not None:
                 self.monitor.clean()
+        
+        self.flasher.poll(True)
     
     def transfer(self):
         """Set the controllers flash transfer relays flag"""
