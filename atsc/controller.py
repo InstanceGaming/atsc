@@ -311,14 +311,9 @@ class Controller:
                 return ls
         raise RuntimeError(f'Failed to find load switch {i}')
     
-    def getActivePhases(self,
-                        phase_pool: Optional[Iterable[Phase]] = None,
-                        ignore_fya: bool = False) -> Sequence[Phase]:
+    def getActivePhases(self, phase_pool: Optional[Iterable[Phase]] = None) -> Sequence[Phase]:
         return [phase for phase in phase_pool or self.phases if (
-            phase.active and (
-                (ignore_fya and phase.state == PhaseState.FYA) or
-                not ignore_fya
-            )
+            phase.active and phase.state == PhaseState.FYA
         )]
     
     def placeCall(self,
@@ -431,7 +426,7 @@ class Controller:
     def canPhaseRun(self,
                     phase: Phase,
                     ped_service: bool,
-                    limit_runtime: bool) -> bool:
+                    limit_runtime: bool = False) -> bool:
         if phase.active:
             if phase.state != PhaseState.FYA:
                 return False
@@ -442,6 +437,9 @@ class Controller:
         
         barrier_phase_ids = self.filterBarrierPhaseIds(self.phase_pool)
         if phase.id not in barrier_phase_ids:
+            return False
+        
+        if len(self.getActivePhases()) > len(self.rings):
             return False
         
         phase_duration = phase.getServiceDurationMinimum(ped_service)
@@ -455,11 +453,6 @@ class Controller:
                     return False
                 if limit_runtime and other.state != PhaseState.FYA:
                     if phase_duration > other.service_remaining_minimum:
-                        # logger.trace('{} {:04.1f}s > active {} {:04.1f}s',
-                        #              phase.getTag(),
-                        #              phase_duration,
-                        #              other.getTag(),
-                        #              other.service_remaining_minimum)
                         return False
         return True
     
@@ -581,7 +574,7 @@ class Controller:
             other_phase = self.getPhaseById(other_phase_id)
             if other_phase.state in PHASE_GO_STATES:
                 break
-            if self.canPhaseRun(other_phase, False, True):
+            if self.canPhaseRun(other_phase, False):
                 return other_phase
         return None
     
@@ -610,7 +603,7 @@ class Controller:
                 logger.debug('Reset phase pool')
             
             note_text = post_pend(note, note)
-            if self.getActivePhases(ignore_fya=True):
+            if self.getActivePhases():
                 logger.debug('Ended cycle unaligned {}', note_text)
             else:
                 self.setBarrier(None, note='end cycle')
@@ -630,32 +623,30 @@ class Controller:
             self.handleBusFrame()
         
         if self.mode == OperationMode.NORMAL:
-            active_phases = self.getActivePhases()
             skipped_phases = []
             now_serving = []
             for call in self.calls:
                 for phase in call.phases:
-                    if self.canPhaseRun(phase, call.ped_service, False):
-                        if len(active_phases) < len(self.rings):
-                            self.servePhase(phase, ped_service=call.ped_service)
-                            now_serving.append(phase)
-                            active_phases = self.getActivePhases()
+                    if self.canPhaseRun(phase, call.ped_service):
+                        self.servePhase(phase, ped_service=call.ped_service)
+                        now_serving.append(phase)
                     else:
                         if phase not in skipped_phases:
                             skipped_phases.append(phase)
                 call.age += TIME_INCREMENT
             
-            if len(self.getActivePhases(ignore_fya=True)) == 1:
-                solo = active_phases[0]
-                if not self.checkPhaseConflictingDemand(solo):
-                    partner = self.getPartnerPhase(self.phase_pool, solo.id)
-                    if partner is not None:
-                        logger.debug('Supplementing {} with partner {}',
-                                     solo.getTag(),
-                                     partner.getTag())
-                        
-                        self.servePhase(partner)
-                        now_serving.append(partner)
+            # active_phases = self.getActivePhases()
+            # if len(active_phases) == 1:
+            #     solo = active_phases[0]
+            #     if not self.checkPhaseConflictingDemand(solo):
+            #         partner = self.getPartnerPhase(self.phase_pool, solo.id)
+            #         if partner is not None:
+            #             logger.debug('Supplementing {} with partner {}',
+            #                          solo.getTag(),
+            #                          partner.getTag())
+            #
+            #             self.servePhase(partner)
+            #             now_serving.append(partner)
             
             for phase in now_serving:
                 for call in self.calls:

@@ -249,6 +249,10 @@ class Phase(IdentifiableBase):
         self._flash_mode = flash_mode
         self._timer: logic.Timer = logic.Timer(0, step=constants.TIME_INCREMENT)
         self._detection_timer: logic.Timer = logic.Timer(0, step=constants.TIME_INCREMENT)
+        self._service_timer: logic.Timer = logic.Timer(
+            self.timing.get(PhaseState.MAX_GO, 0.0),
+            step=constants.TIME_INCREMENT
+        )
         self._service_remaining_minimum = 0.0
         self._vls = veh_ls
         self._pls = ped_ls
@@ -279,9 +283,6 @@ class Phase(IdentifiableBase):
             else:
                 time = self.timing.get(state, 0.0)
             
-            if state == PhaseState.EXTEND:
-                time /= 2
-            
             if state == PhaseState.WALK:
                 time += self._flasher.delay
             
@@ -304,9 +305,6 @@ class Phase(IdentifiableBase):
                 time = self.getGoTime(self.ped_service)
             else:
                 time = self.timing.get(state, 0.0)
-            
-            if state == PhaseState.EXTEND:
-                time /= 2
             
             if state == PhaseState.WALK:
                 time += max(0.0, self._flasher.delay - self._flasher.elapsed)
@@ -440,6 +438,7 @@ class Phase(IdentifiableBase):
             
             if next_state == PhaseState.STOP:
                 self.setpoint = round(self.timing.get(PhaseState.MIN_STOP, 0.0), 1)
+                self._service_timer.reset()
                 self._ped_service = False
                 self._fya_service = False
                 self.extend_inhibit = False
@@ -483,15 +482,12 @@ class Phase(IdentifiableBase):
                             logger.debug('{} extend inhibited', self.getTag())
                     
                     changed = self.change()
-        else:
-            if self.extend_active:
-                self.setpoint -= constants.TIME_INCREMENT
         
         if self.state in PHASE_GO_STATES:
             if self._detection_timer.elapsed > self.extension_time:
                 self.extend_inhibit = True
             
-            if self.elapsed > self.timing[PhaseState.MAX_GO]:
+            if self._service_timer.poll(self.state in PHASE_GO_STATES):
                 if self.conflicting_demand:
                     changed = self.change()
         
