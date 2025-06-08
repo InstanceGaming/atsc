@@ -26,9 +26,9 @@
     "response-attempts": 5
   },
   "random-actuation": {
-    "delay": 90,
-    "min": 1,
-    "max": 90,
+    "delay": 0,
+    "min": 0,
+    "max": 60,
     "enabled": true
   },
   "default-timing": {
@@ -37,10 +37,10 @@
     "go": 5.0,
     "fya": 4.0,
     "fya-delay": 4.0,
-    "max-go": 29.0,
+    "max-go": 25.0,
     "caution": 4.0,
     "extend": 6.0,
-    "pclr": 14.0,
+    "pclr": 12.0,
     "walk": 5.0
   },
   "fya": true,
@@ -56,8 +56,8 @@
     {
       "number": 2,
       "timing": {
-        "max-go": 59.0,
-        "extend": 20.0,
+        "max-go": 55.0,
+        "extend": 12.0,
         "pclr": 16.0
       },
       "recall": true,
@@ -78,7 +78,7 @@
     {
       "number": 4,
       "timing": {
-        "max-go": 39.0
+        "max-go": 30.0
       },
       "flash-mode": "red",
       "load-switches": {
@@ -97,8 +97,8 @@
     {
       "number": 6,
       "timing": {
-        "max-go": 59.0,
-        "extend": 20.0,
+        "max-go": 55.0,
+        "extend": 12.0,
         "pclr": 16.0
       },
       "recall": true,
@@ -119,7 +119,7 @@
     {
       "number": 8,
       "timing": {
-        "max-go": 39.0
+        "max-go": 30.0
       },
       "flash-mode": "red",
       "load-switches": {

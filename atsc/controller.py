@@ -333,26 +333,23 @@ class Controller:
         :param note: arbitrary note to be appended to log message
         """
         assert phases
-        note_text = post_pend(note, note)
-        
-        fya_phases = []
-        for phase in phases:
-            if phase.state == PhaseState.FYA:
-                logger.debug(f'Omitting phase {phase.id} from new '
-                             'call because of current FYA state')
-                fya_phases.append(phase)
-        
-        phases = [p for p in phases if p not in fya_phases]
-        if phases:
-            exists = any([phase in call for call in self.calls for phase in phases])
-            if not exists:
-                call = Call(phases, ped_service=ped_service)
-                logger.debug(f'Call placed for {call.phase_tags_list}{note_text}')
-                self.calls.append(call)
-    
-    def placeAllCall(self):
-        """Place calls on all phases"""
-        self.placeCall(self.phases, ped_service=True, note='all call')
+        if self.mode == OperationMode.NORMAL:
+            note_text = post_pend(note, note)
+            
+            fya_phases = []
+            for phase in phases:
+                if phase.state == PhaseState.FYA:
+                    logger.debug(f'Omitting phase {phase.id} from new '
+                                 'call because of current FYA state')
+                    fya_phases.append(phase)
+            
+            phases = [p for p in phases if p not in fya_phases]
+            if phases:
+                exists = any([phase in call for call in self.calls for phase in phases])
+                if not exists:
+                    call = Call(phases, ped_service=ped_service)
+                    logger.debug(f'Call placed for {call.phase_tags_list}{note_text}')
+                    self.calls.append(call)
     
     def detection(self,
                   phases: List[Phase],
@@ -517,30 +514,29 @@ class Controller:
     
     def setOperationState(self, new_state: OperationMode):
         """Set controller state for a given `OperationMode`"""
+        previous_state = self.mode
+        self.mode = new_state
+        logger.info(f'Operation state is now {new_state.name} (was {previous_state.name})')
+        
         if new_state == OperationMode.CET:
             self.cet_timer.reset()
             for ph in self.phases:
                 if ph.flash_mode == FlashMode.YELLOW:
                     ph.change(force_state=PhaseState.CAUTION)
-        
         elif new_state == OperationMode.NORMAL:
             self.second_timer.reset()
             
             for ph in self.phases:
                 ph.change(force_state=PhaseState.STOP)
             
-            self.setBarrier(None, note='set operation')
-            
             if self.recall_all:
-                self.placeAllCall()
+                self.placeCall(self.phases, ped_service=True, note='set operation')
             else:
                 self.placeCall([p for p in self.phases if p.recall],
                                ped_service=True,
-                               note='initial recall')
-        
-        previous_state = self.mode
-        self.mode = new_state
-        logger.info(f'Operation state is now {new_state.name} (was {previous_state.name})')
+                               note='set operation')
+            
+            self.setBarrier(None, note='set operation')
     
     def updateBusOutputs(self, lss: List[LoadSwitch]):
         osf = OutputStateFrame(DeviceAddress.TFIB1, lss, self.transferred)
@@ -614,12 +610,13 @@ class Controller:
                 logger.debug('Reset phase pool')
             
             note_text = post_pend(note, note)
-            if self.getActivePhases():
-                logger.debug('Recycle{}', note_text)
+            if self.getActivePhases(ignore_fya=True):
+                logger.debug('Ended cycle unaligned {}', note_text)
             else:
-                self.cycle_count += 1
                 self.setBarrier(None, note='end cycle')
-                logger.debug('Ended cycle {}{}', self.cycle_count, note_text)
+                logger.debug('Ended cycle aligned {}{}', self.cycle_count, note_text)
+            
+            self.cycle_count += 1
     
     def checkPhaseConflictingDemand(self, phase: Phase) -> bool:
         for call in self.calls:
@@ -629,42 +626,17 @@ class Controller:
     
     def tick(self):
         """Polled once every 100ms"""
-        if self.random_timer.poll(self.random_enabled):
-            phases = []
-            first_phase = self.randomizer.choice(self.phases)
-            phases.append(first_phase)
-            choose_two = round(self.randomizer.random())
-            if choose_two:
-                second_phase = self.getPartnerPhase(
-                    [p.id for p in self.phases],
-                    first_phase.id
-                )
-                if second_phase is not None:
-                    phases.append(second_phase)
-            
-            next_delay = self.randomizer.randint(self.random_min, self.random_max)
-            logger.debug('Random actuation for {}, next in {}s',
-                         csl([phase.getTag() for phase in phases]),
-                         next_delay)
-            
-            ped_service = bool(round(self.randomizer.random()))
-            
-            self.detection(phases, ped_service=ped_service, note='random actuation')
-            self.random_timer.trigger = next_delay
-            self.random_timer.reset()
-        
         if self.bus is not None:
             self.handleBusFrame()
         
         if self.mode == OperationMode.NORMAL:
-            concurrent_phases = len(self.rings)
             active_phases = self.getActivePhases()
             skipped_phases = []
             now_serving = []
             for call in self.calls:
                 for phase in call.phases:
                     if self.canPhaseRun(phase, call.ped_service, False):
-                        if len(active_phases) < concurrent_phases:
+                        if len(active_phases) < len(self.rings):
                             self.servePhase(phase, ped_service=call.ped_service)
                             now_serving.append(phase)
                             active_phases = self.getActivePhases()
@@ -730,6 +702,30 @@ class Controller:
             
             if self.cet_timer.poll(True):
                 self.setOperationState(OperationMode.NORMAL)
+        
+        if self.random_timer.poll(self.random_enabled):
+            phases = []
+            first_phase = self.randomizer.choice(self.phases)
+            phases.append(first_phase)
+            choose_two = round(self.randomizer.random())
+            if choose_two:
+                second_phase = self.getPartnerPhase(
+                    [p.id for p in self.phases],
+                    first_phase.id
+                )
+                if second_phase is not None:
+                    phases.append(second_phase)
+            
+            next_delay = self.randomizer.randint(self.random_min, self.random_max)
+            logger.debug('Random actuation for {}, next in {}s',
+                         csl([phase.getTag() for phase in phases]),
+                         next_delay)
+            
+            ped_service = bool(round(self.randomizer.random()))
+            
+            self.detection(phases, ped_service=ped_service, note='random actuation')
+            self.random_timer.trigger = next_delay
+            self.random_timer.reset()
         
         if self.bus is not None:
             self.updateBusOutputs(self.load_switches)
